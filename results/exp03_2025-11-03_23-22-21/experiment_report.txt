@@ -1,0 +1,62 @@
+========================================
+EXPERIMENT 03: LOS vs NLOS Comparison
+========================================
+
+Execution Time: 2025-11-03_23-22-22
+
+--- SIMULATION PARAMETERS ---
+Center Frequency: 3.50 GHz
+Sample Density: 2
+BS Position: [0.0, 0.0, 25.0] m
+UE Position: [75.0, 0.0, 1.5] m
+Distance: 78.60 m
+
+--- LINE OF SIGHT (LOS) ---
+Scenario: 3GPP_38.901_UMa_LOS
+Number of Taps: 34
+Path Loss: 71.45 dB
+RMS Delay Spread: 21.73 ns
+Dominant Tap Power: 92.8% of total
+Significant Taps (>10% max): 1
+
+--- NON-LINE OF SIGHT (NLOS) ---
+Scenario: 3GPP_38.901_UMa_NLOS
+Number of Taps: 61
+Path Loss: 106.55 dB
+RMS Delay Spread: 1787.56 ns
+Dominant Tap Power: 9.3% of total
+Significant Taps (>10% max): 34
+
+--- COMPARISON ---
+Path Loss Difference: 35.09 dB (NLOS vs LOS)
+Delay Spread Ratio: 82.27x (NLOS/LOS)
+Tap Count Ratio: 1.79x (NLOS/LOS)
+
+Power Distribution:
+  LOS - Dominant tap:  92.8% of total
+  NLOS - Dominant tap: 9.3% of total
+
+--- KEY INSIGHTS ---
+• LOS: Power concentrated in first tap (direct path)
+• NLOS: Power spread across many taps (rich scattering)
+• NLOS: Higher delay spread → frequency-selective fading
+• NLOS: More multipath components
+• NLOS: Higher path loss (obstacles block signal)
+
+--- ML RELEVANCE ---
+LOS/NLOS classification is important for positioning.
+Features for ML:
+  - Dominant tap power ratio
+  - RMS delay spread
+  - Number of significant taps
+  - Power distribution (concentrated vs spread)
+  - Path loss
+
+--- FILES GENERATED ---
+los_vs_nlos.png
+los_vs_nlos.fig
+experiment_report.txt
+
+========================================
+END OF REPORT
+========================================

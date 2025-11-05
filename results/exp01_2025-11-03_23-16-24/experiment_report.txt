@@ -1,0 +1,78 @@
+========================================
+EXPERIMENT 01: Minimal QuaDRiGa Setup
+========================================
+
+Execution Time: 2025-11-03_23-16-26
+
+--- SIMULATION PARAMETERS ---
+Center Frequency: 3.50 GHz
+Sample Density: 2
+Scenario: 3GPP_38.901_UMa_LOS
+BS Position: [0.0, 0.0, 25.0] m
+UE Position: [50.0, 0.0, 1.5] m
+Distance: 55.25 m
+
+--- GEOMETRY ---
+Distance: 55.25 m
+
+--- CHANNEL CHARACTERISTICS ---
+CSI Matrix Size: [1 1 34]
+Rx Antennas: 1
+Tx Antennas: 1
+Multipath Taps: 34
+Time Snapshots: 1
+
+--- MULTIPATH TAPS ---
+Tap 1: 0.000117 +0.000003i (magnitude: 0.000117)
+Tap 2: -0.000004 -0.000016i (magnitude: 0.000016)
+Tap 3: 0.000010 -0.000008i (magnitude: 0.000013)
+Tap 4: 0.000004 +0.000010i (magnitude: 0.000010)
+Tap 5: -0.000001 +0.000004i (magnitude: 0.000004)
+Tap 6: 0.000000 -0.000003i (magnitude: 0.000003)
+Tap 7: 0.000002 -0.000001i (magnitude: 0.000003)
+Tap 8: 0.000027 +0.000011i (magnitude: 0.000029)
+Tap 9: 0.000018 -0.000014i (magnitude: 0.000022)
+Tap 10: 0.000003 +0.000018i (magnitude: 0.000018)
+Tap 11: -0.000006 -0.000000i (magnitude: 0.000006)
+Tap 12: -0.000003 +0.000003i (magnitude: 0.000004)
+Tap 13: -0.000004 +0.000000i (magnitude: 0.000004)
+Tap 14: -0.000014 +0.000002i (magnitude: 0.000014)
+Tap 15: 0.000010 -0.000000i (magnitude: 0.000010)
+Tap 16: -0.000005 -0.000007i (magnitude: 0.000009)
+Tap 17: -0.000017 +0.000008i (magnitude: 0.000019)
+Tap 18: -0.000010 +0.000010i (magnitude: 0.000014)
+Tap 19: -0.000012 -0.000001i (magnitude: 0.000012)
+Tap 20: -0.000020 -0.000012i (magnitude: 0.000023)
+Tap 21: 0.000017 -0.000004i (magnitude: 0.000018)
+Tap 22: 0.000004 -0.000014i (magnitude: 0.000015)
+Tap 23: 0.000001 +0.000017i (magnitude: 0.000017)
+Tap 24: -0.000013 +0.000003i (magnitude: 0.000013)
+Tap 25: 0.000005 -0.000010i (magnitude: 0.000011)
+Tap 26: -0.000004 +0.000007i (magnitude: 0.000008)
+Tap 27: -0.000004 +0.000005i (magnitude: 0.000006)
+Tap 28: -0.000004 +0.000003i (magnitude: 0.000005)
+Tap 29: -0.000000 -0.000009i (magnitude: 0.000009)
+Tap 30: -0.000007 -0.000001i (magnitude: 0.000007)
+Tap 31: 0.000003 +0.000005i (magnitude: 0.000005)
+Tap 32: -0.000000 +0.000000i (magnitude: 0.000000)
+Tap 33: 0.000000 +0.000000i (magnitude: 0.000000)
+Tap 34: -0.000000 +0.000000i (magnitude: 0.000000)
+
+Strongest Tap: 1 (magnitude: 0.000117)
+Total Power: 1.896520e-08
+Path Loss: 77.22 dB
+
+--- KEY INSIGHTS ---
+• CSI matrix is 4D: [Rx × Tx × Taps × Snapshots]
+• Each tap represents a multipath component
+• First tap usually strongest (direct/LOS path)
+• Tap magnitudes decay with delay
+
+--- FILES GENERATED ---
+channel_impulse_response.png
+channel_impulse_response.fig
+experiment_report.txt
+
+========================================
+END OF REPORT
+========================================

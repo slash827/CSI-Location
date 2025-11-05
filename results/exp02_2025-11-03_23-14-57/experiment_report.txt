@@ -1,0 +1,72 @@
+========================================
+EXPERIMENT 02: Distance Comparison
+========================================
+
+Execution Time: 2025-11-03_23-14-59
+
+--- SIMULATION PARAMETERS ---
+Center Frequency: 3.50 GHz
+Sample Density: 2
+Scenario: 3GPP_38.901_UMa_LOS
+BS Position: [0.0, 0.0, 25.0] m
+
+Test Distances: [25 50 100] m
+
+--- RESULTS BY DISTANCE ---
+
+Distance: 25 meters
+  UE Position: [25, 0, 1.5] m
+  Number of Taps: 34
+  Path Loss: 75.71 dB
+  Dominant Tap: 0.000160
+  Total Power: 2.688253e-08
+
+Distance: 50 meters
+  UE Position: [50, 0, 1.5] m
+  Number of Taps: 34
+  Path Loss: 75.72 dB
+  Dominant Tap: 0.000158
+  Total Power: 2.682210e-08
+
+Distance: 100 meters
+  UE Position: [100, 0, 1.5] m
+  Number of Taps: 34
+  Path Loss: 84.44 dB
+  Dominant Tap: 0.000058
+  Total Power: 3.601122e-09
+
+--- PATH LOSS ANALYSIS ---
+Distance vs Path Loss:
+   25 m → 75.71 dB
+   50 m → 75.72 dB
+  100 m → 84.44 dB
+
+Path Loss Increase (doubling distance):
+  25m to 50m: 0.01 dB
+  50m to 100m: 8.72 dB
+
+Theory: Doubling distance → ~6 dB increase (free space)
+
+--- KEY INSIGHTS ---
+• CSI magnitude decreases with distance
+• Path loss increases logarithmically (~6dB per distance doubling)
+• Number of taps may vary with distance
+• First tap usually dominant in LOS scenarios
+• Position affects received power significantly
+
+--- ML RELEVANCE ---
+Distance estimation from CSI is a key ML task.
+Features for ML:
+  - Total received power (path loss)
+  - Dominant tap magnitude
+  - Number of significant taps
+  - Power distribution across taps
+
+--- FILES GENERATED ---
+distance_comparison.png
+distance_comparison.fig
+experiment_report.txt
+
+========================================
+END OF REPORT
+========================================
