@@ -1,0 +1,56 @@
+======================================================================
+TRAINING RUN SUMMARY
+======================================================================
+
+Configuration: resnet_cosine_100
+Model: RESNET
+Timestamp: 2025-11-14_08-07-29
+Run Directory: D:\gilad\projects\Academy\CSI-Location\ml_training\runs\resnet_cosine_100_2025-11-14_08-07-29
+
+======================================================================
+TRAINING CONFIGURATION
+======================================================================
+Learning Rate: 0.001
+Batch Size: 128
+Scheduler: cosine
+Weight Decay: 1e-05
+Max Epochs: 100
+Early Stopping Patience: 20
+
+======================================================================
+DATASET INFO
+======================================================================
+Training Samples: 32,000
+Validation Samples: 8,000
+Features: 3075
+
+======================================================================
+TRAINING RESULTS
+======================================================================
+Total Epochs: 75
+Total Training Time: 16.37 minutes
+Average Epoch Time: 13.10 seconds
+
+======================================================================
+BEST MODEL METRICS
+======================================================================
+Best Epoch: 55
+Best Validation R²: 0.8142
+Best Validation MAE: 13.46 m
+
+======================================================================
+FINAL EVALUATION
+======================================================================
+Final Validation R²: 0.8108
+Final Validation MAE: 13.54 m
+Final Validation Loss: 128.0184
+
+======================================================================
+OUTPUT FILES
+======================================================================
+- Training log: training.log
+- Epoch metrics: epoch_metrics.csv
+- Best model: resnet_model.pth
+- Best checkpoint: best_model_checkpoint.pth
+- Full results: results.json
+- Configuration: config.json

@@ -1,0 +1,16 @@
+{
+  "config_name": "resnet_cosine_100",
+  "model": "resnet",
+  "device": "auto",
+  "dataset_path": "D:\\gilad\\projects\\Academy\\CSI-Location\\results\\exp10_2025-11-07_12-40-00\\dataset",
+  "training_config": {
+    "model": "resnet",
+    "lr": 0.001,
+    "batch_size": 128,
+    "epochs": 100,
+    "weight_decay": 1e-05,
+    "scheduler": "cosine",
+    "early_stopping_patience": 20
+  },
+  "timestamp": "2025-11-14_08-07-29"
+}
