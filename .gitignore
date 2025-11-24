@@ -1,3 +1,46 @@
-WiMANS/
-indoor_location/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Output directories
+output/
+plots/
+saved_models/
+results/
+processed_data/
+
+# Data files
+*.mat
+*.npz
+*.pkl
+*.h5
+*.hdf5
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+training.log
+
+# Misc
 Archive/

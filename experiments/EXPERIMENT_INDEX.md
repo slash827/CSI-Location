@@ -47,23 +47,61 @@
 
 ---
 
-### 📊 Level 4: Data Generation
-**Location**: `experiments/04_data_generation/`  
+### 📊 Level 4: Data Generation - LOS
+**Location**: `experiments/04_data_generation_LOS/`  
 **Time**: 2-3 hours  
-**Goal**: Create ML training datasets
+**Goal**: Create large-scale ML training datasets with LOS conditions
 
 | Experiment | Description | Status |
 |------------|-------------|--------|
-| exp10_feature_extraction | Extract 25+ features | Coming soon |
-| exp11_dataset_builder | Batch process 50+ trajectories | Coming soon |
-| exp12_dataset_validation | Verify data quality | Coming soon |
+| exp10_large_dataset | Generate 500+ diverse LOS trajectories | ✅ Ready |
+| validate_dataset | Verify data quality & coverage | ✅ Ready |
 
-**✓ Completion criteria**: 100+ trajectories with features
+**✓ Completion criteria**: 
+- 30,000+ training samples
+- 8,000+ validation samples  
+- 90%+ spatial coverage
+- 7 trajectory types (linear, circular, zigzag, random_walk, grid, spiral, figure8)
 
 ---
 
-### 🤖 Level 5: ML Training
-**Location**: `experiments/05_ml_training/`  
+### 📊 Level 5: Data Generation - NLOS
+**Location**: `experiments/05_data_generation_NLOS/`  
+**Time**: 2-3 hours  
+**Goal**: Create large-scale ML training datasets with NLOS conditions
+
+| Experiment | Description | Status |
+|------------|-------------|--------|
+| exp11_nlos_dataset | Generate 500+ diverse NLOS trajectories | ✅ Ready |
+| validate_dataset | Verify data quality & coverage | ✅ Ready |
+
+**✓ Completion criteria**: 
+- 30,000+ training samples (NLOS scenarios)
+- 8,000+ validation samples  
+- 90%+ spatial coverage
+- 7 trajectory types with realistic indoor propagation
+
+---
+
+### 📊 Level 6: CSI Distribution Study
+**Location**: `experiments/06_csi_distribution/`  
+**Time**: 1-2 hours  
+**Goal**: Study statistical distribution of CSI at fixed locations
+
+| Experiment | Description | Status |
+|------------|-------------|--------|
+| exp12_csi_distribution | CSI distribution on 20×20 grid, 100 samples/point | ✅ Ready |
+
+**✓ Completion criteria**: 
+- Understand CSI variability at fixed locations
+- Characterize statistical properties (mean, variance)
+- Generate spatial heatmaps of signal quality
+- Study LOS/NLOS effects on CSI distributions
+
+---
+
+### 🤖 Level 7: ML Training
+**Location**: `experiments/07_ml_training/`  
 **Time**: Ongoing  
 **Goal**: Train and evaluate location prediction models
 
@@ -99,8 +137,10 @@ Track your learning:
 - [ ] **Level 1 Complete**: Basics mastered
 - [ ] **Level 2 Complete**: Metrics mastered  
 - [ ] **Level 3 Complete**: Movement simulated
-- [ ] **Level 4 Complete**: Dataset generated (100+ trajectories)
-- [ ] **Level 5 Complete**: Model trained (< 10m error)
+- [ ] **Level 4 Complete**: LOS dataset generated (500+ trajectories)
+- [ ] **Level 5 Complete**: NLOS dataset generated (500+ trajectories)
+- [ ] **Level 6 Complete**: CSI distributions characterized
+- [ ] **Level 7 Complete**: Model trained (< 10m error)
 - [ ] **Project Complete**: Thesis written!
 
 ---
