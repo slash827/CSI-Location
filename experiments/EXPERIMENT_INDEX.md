@@ -83,14 +83,32 @@
 
 ---
 
-### 📊 Level 6: CSI Distribution Study
-**Location**: `experiments/06_csi_distribution/`  
+### 📊 Level 6: Urban Scenario Generation
+**Location**: `experiments/06_urban_scenario/`  
+**Time**: 2-3 hours  
+**Goal**: Generate production-scale urban dataset with indoor/outdoor mix
+
+| Experiment | Description | Status |
+|------------|-------------|--------|
+| exp13_urban_dataset | 300×300m urban area, 6 BSs, 200K samples, zone-based NLOS | ✅ Ready |
+
+**✓ Completion criteria**: 
+- 200,000 samples with mixed indoor/outdoor environments
+- Hybrid BS deployment (macro + outdoor + indoor small cells)
+- Zone-based propagation (outdoor open/obstructed, indoor light/heavy)
+- Variable UE heights (0.8-1.8m)
+- Production-grade dataset for real-world deployment
+
+---
+
+### 📊 Level 7: CSI Distribution Study
+**Location**: `experiments/07_csi_distribution/`  
 **Time**: 1-2 hours  
 **Goal**: Study statistical distribution of CSI at fixed locations
 
 | Experiment | Description | Status |
 |------------|-------------|--------|
-| exp12_csi_distribution | CSI distribution on 20×20 grid, 100 samples/point | ✅ Ready |
+| exp12_csi_distribution | CSI distribution on 20×20 grid, 100 samples/point | Coming soon |
 
 **✓ Completion criteria**: 
 - Understand CSI variability at fixed locations
@@ -100,17 +118,38 @@
 
 ---
 
-### 🤖 Level 7: ML Training
-**Location**: `experiments/07_ml_training/`  
+### 🧪 Level 8: Static vs Walk CSI Comparison
+**Location**: `experiments/08_static_vs_walk/`  
+**Time**: 1-2 hours  
+**Goal**: Test if CSI at a location depends on UE movement history
+
+| Experiment | Description | Status |
+|------------|-------------|--------|
+| exp08a_static_grid | 9 UEs on 3×3 grid, 100 repetitions | ✅ Ready |
+| exp08b_random_walk | Single UE random walk, 900 steps | ✅ Ready |
+| analyze_static_vs_walk.py | Statistical comparison (Python) | ✅ Ready |
+
+**Hypothesis**: CSI at location B should be the same whether UE arrived from A or was placed directly at B.
+
+**✓ Completion criteria**: 
+- Compare CSI difference distributions (static vs walk)
+- K-S test for distribution similarity
+- Per-pair analysis for all adjacent grid points
+- Determine if channel model has memory/temporal effects
+
+---
+
+### 🤖 Level 9: ML Training
+**Location**: `experiments/09_ml_training/`  
 **Time**: Ongoing  
 **Goal**: Train and evaluate location prediction models
 
 | Experiment | Description | Status |
 |------------|-------------|--------|
-| exp13_baseline_rf | Random Forest baseline | Coming soon |
-| exp14_neural_network | Feedforward NN | Coming soon |
-| exp15_lstm_temporal | LSTM for trajectories | Coming soon |
-| exp16_model_comparison | Compare all models | Coming soon |
+| exp14_baseline_rf | Random Forest baseline | Coming soon |
+| exp15_neural_network | Feedforward NN | Coming soon |
+| exp16_lstm_temporal | LSTM for trajectories | Coming soon |
+| exp17_model_comparison | Compare all models | Coming soon |
 
 **✓ Completion criteria**: < 10m mean localization error
 
@@ -139,8 +178,10 @@ Track your learning:
 - [ ] **Level 3 Complete**: Movement simulated
 - [ ] **Level 4 Complete**: LOS dataset generated (500+ trajectories)
 - [ ] **Level 5 Complete**: NLOS dataset generated (500+ trajectories)
-- [ ] **Level 6 Complete**: CSI distributions characterized
-- [ ] **Level 7 Complete**: Model trained (< 10m error)
+- [ ] **Level 6 Complete**: Urban dataset generated (2000 trajectories, 200K samples)
+- [ ] **Level 7 Complete**: CSI distributions characterized
+- [ ] **Level 8 Complete**: Static vs Walk comparison analyzed
+- [ ] **Level 9 Complete**: Model trained (< 10m error)
 - [ ] **Project Complete**: Thesis written!
 
 ---
