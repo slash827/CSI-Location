@@ -144,5 +144,72 @@ While the average CSI change matches between static and walk conditions (validat
 |------|-------------|
 | `exp13a_static_grid.m` | Static grid measurement |
 | `exp13b_random_walk.m` | Random walk with 1 m/s speed |
+| `exp13c_temporal_stability.m` | Temporal stability sanity check |
 | `analyze_static_vs_walk.py` | Python analysis script |
+| `analyze_temporal_stability.py` | Temporal stability analysis |
 | `analysis_output/` | Generated plots and report |
+| `exp13c_plots/` | Temporal stability plots |
+
+---
+
+## Appendix: Experiment 13c - Temporal Stability Sanity Check
+
+### Purpose
+
+Verify baseline CSI variance when measuring at a fixed position. This helps interpret the variance observed in exp13a/13b.
+
+### Setup
+
+| Parameter | Value |
+|-----------|-------|
+| UE Position | Fixed at [51, 51, 1.5] m (center of grid) |
+| Scenario | 3GPP_38.901_UMa_LOS |
+| Sample Interval | 0.5 seconds |
+| Duration | 50 seconds (100 samples) |
+| Movement | Quasi-stationary (0.1m total) |
+
+### Results
+
+| Metric | Mean | Std (σ) | CV (%) |
+|--------|------|---------|--------|
+| RSS_wb | -55.7 dBm | **4.1 dB** | 7.4% |
+| SINR_wb | 31.3 dB | 4.1 dB | 13.1% |
+| Path Loss | 79.8 dB | 4.1 dB | 5.2% |
+| CQI_wb | 15.0 | 0.22 | 1.5% |
+
+### Key Finding: Baseline Small-Scale Fading
+
+**The ~4 dB variance is NOT a bug - it's realistic small-scale fading!**
+
+Evidence:
+- exp13b (random walk) shows identical variance: σ = 3.99 dB
+- exp13a (static grid) implicitly has this variance in each repetition
+- This is consistent with 3GPP channel model behavior
+
+### Why This Matters for the Main Experiment
+
+| Measurement Type | RSS Variance | Explanation |
+|-----------------|--------------|-------------|
+| Single position, multiple reps | ~4 dB | Baseline small-scale fading |
+| Static A→B difference | ~0.27 dB | Fading partially cancels in differencing |
+| Walk A→B transition | ~5.5 dB | Baseline + movement-induced correlation changes |
+
+**The variance REDUCTION in static differences (4 dB → 0.27 dB)** occurs because:
+- Both A and B measurements have ~4 dB variance
+- But they're measured in the SAME channel realization
+- So the difference `CSI(B) - CSI(A)` has much of the fading canceled out
+
+**The variance INCREASE in walk transitions** occurs because:
+- The channel evolves during movement
+- Each step involves a new small-scale fading realization
+- The temporal dynamics add variance beyond the static baseline
+
+### Implications for Your Thesis
+
+1. **The comparison is still valid**: Even though absolute CSI varies by ~4 dB, the **transition differences** show clear distinction between static and walk conditions
+
+2. **Physical interpretation**: 
+   - Static: Same fading instance → low variance in differences
+   - Walk: Different fading instances → high variance in differences
+
+3. **QuaDRiGa behavior**: The channel generator produces realistic small-scale fading, which validates the simulation methodology

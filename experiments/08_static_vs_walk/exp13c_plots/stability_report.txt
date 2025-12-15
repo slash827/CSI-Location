@@ -1,0 +1,31 @@
+======================================================================
+TEMPORAL STABILITY ANALYSIS REPORT - Experiment 13c
+Generated: 2025-12-04 18:12:12
+======================================================================
+
+SUMMARY STATISTICS
+----------------------------------------------------------------------
+Metric                       Mean          Std      CV(%)   Autocorr
+----------------------------------------------------------------------
+RSS_wb                   -55.7222       4.1072       7.37     -0.100
+SINR_wb                   31.2530       4.1072      13.14     -0.100
+CQI_wb                    14.9700       0.2216       1.48     -0.019
+path_loss                 79.8046       4.1072       5.15     -0.100
+rms_delay_spread           0.0000       0.0000     142.49     -0.000
+
+======================================================================
+STABILITY ASSESSMENT
+======================================================================
+
+⚠ RSS_wb: HIGH VARIANCE (σ = 4.1072 dB)
+⚠ SINR_wb: HIGH VARIANCE (σ = 4.1072 dB)
+⚠ path_loss: HIGH VARIANCE (σ = 4.1072 dB)
+
+----------------------------------------------------------------------
+INTERPRETATION:
+----------------------------------------------------------------------
+WARNING: The channel shows higher than expected variation.
+Possible causes:
+  - Fallback to independent samples (no temporal correlation)
+  - NLOS scenario with significant multipath variation
+  - Check QuaDRiGa track configuration

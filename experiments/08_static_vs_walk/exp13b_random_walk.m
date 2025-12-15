@@ -28,20 +28,20 @@ config = struct();
 
 % Grid parameters (same as exp13a)
 config.grid_size = 3;           % 3x3 grid
-config.spacing = 1.0;           % 1 meter between points
+config.spacing = 1.5;           % 1.5 meters between points
 config.ue_height = 1.5;         % UE height in meters
-config.grid_offset = [50, 50];  % Offset from BS to place grid center
+config.grid_offset = [10, 0];  % Closer to BS for more geometric diversity
 
 % Random walk parameters
 config.n_steps = 900;           % Total steps in random walk
-config.ue_speed = 1.0;          % UE walking speed in m/s
+config.ue_speed = 1.5;          % UE walking speed in m/s
 config.step_duration = config.spacing / config.ue_speed;  % Time per step (1 second)
 
 % Simulation parameters (same as exp13a)
 config.center_frequency = 3e9;
 config.bandwidth = 100e6;
 config.n_subcarriers = 256;
-config.scenario = '3GPP_38.901_UMa_LOS';  % LOS scenario
+config.scenario = '3GPP_38.901_UMa_LOS';  % LOS for more multipath diversity
 
 % Base station configuration
 config.bs_position = [0; 0; 25];  % BS at origin, 25m height
@@ -233,7 +233,16 @@ end
 
 fprintf('Progress: ');
 
+% Initialize per-grid-point metric storage
+metrics_by_point = struct();
+for pt = 1:config.n_points
+    metrics_by_point(pt).RSS = [];
+    metrics_by_point(pt).SINR = [];
+    metrics_by_point(pt).CQI = [];
+end
+
 if use_track
+
     % Process all snapshots from track-generated channels
     for step = 1:n_snapshots
         % Get channel for this snapshot
@@ -273,6 +282,12 @@ if use_track
         metrics.path_loss(step) = stats.path_loss_dB;
         metrics.rms_delay_spread(step) = stats.rms_delay_spread_ns;
         metrics.mean_delay(step) = stats.mean_delay_ns;
+        
+        % Store metrics by grid point
+        pt = walk_path(step);
+        metrics_by_point(pt).RSS = [metrics_by_point(pt).RSS, metrics.RSS_wb(step)];
+        metrics_by_point(pt).SINR = [metrics_by_point(pt).SINR, metrics.SINR_wb(step)];
+        metrics_by_point(pt).CQI = [metrics_by_point(pt).CQI, metrics.CQI_wb(step)];
         
         % Compute transition differences (if not first step)
         if step > 1
@@ -358,6 +373,12 @@ else
         metrics.rms_delay_spread(step) = stats.rms_delay_spread_ns;
         metrics.mean_delay(step) = stats.mean_delay_ns;
         
+        % Store metrics by grid point
+        pt = walk_path(step);
+        metrics_by_point(pt).RSS = [metrics_by_point(pt).RSS, metrics.RSS_wb(step)];
+        metrics_by_point(pt).SINR = [metrics_by_point(pt).SINR, metrics.SINR_wb(step)];
+        metrics_by_point(pt).CQI = [metrics_by_point(pt).CQI, metrics.CQI_wb(step)];
+        
         % Compute transition differences (if not first step)
         if step > 1
             t_idx = step - 1;
@@ -383,6 +404,13 @@ if use_track
 else
     fprintf('  (Used step-by-step generation - channels are independent)\n');
 end
+fprintf('\n');
+
+%% Compute and display overall standard deviations
+fprintf('\n=== OVERALL TEMPORAL STATISTICS ===\n');
+fprintf('RSS  - Mean: %.2f dBm, Std: %.4f dB\n', mean(metrics.RSS_wb), std(metrics.RSS_wb));
+fprintf('SINR - Mean: %.2f dB,  Std: %.4f dB\n', mean(metrics.SINR_wb), std(metrics.SINR_wb));
+fprintf('CQI  - Mean: %.2f,     Std: %.4f\n', mean(metrics.CQI_wb), std(metrics.CQI_wb));
 fprintf('\n');
 
 %% Create transition pair index (which static adjacent pair matches each transition)
@@ -459,6 +487,50 @@ results.use_track = use_track;  % Whether time-correlated channels were used
 
 save(fullfile(output_dir, 'random_walk_results.mat'), '-struct', 'results', '-v7.3');
 fprintf('  ✓ Saved random_walk_results.mat\n');
+
+%% Save per-grid-point CSVs
+fprintf('Saving per-grid-point CSVs...\n');
+
+for pt = 1:config.n_points
+    % Get data for this point
+    rss_vals = metrics_by_point(pt).RSS(:);
+    sinr_vals = metrics_by_point(pt).SINR(:);
+    cqi_vals = metrics_by_point(pt).CQI(:);
+    
+    n_visits = length(rss_vals);
+    
+    if n_visits > 0
+        % Create table with visit index and metrics
+        T = table((1:n_visits)', rss_vals, sinr_vals, cqi_vals, ...
+                  'VariableNames', {'Visit', 'RSS_dBm', 'SINR_dB', 'CQI'});
+        
+        % Save CSV
+        csv_filename = sprintf('grid_point_%d_metrics.csv', pt);
+        writetable(T, fullfile(output_dir, csv_filename));
+        fprintf('  ✓ Saved %s (%d visits)\n', csv_filename, n_visits);
+    end
+end
+
+%% Print per-grid-point statistics
+fprintf('\n=== PER-GRID-POINT STATISTICS ===\n');
+fprintf('%-8s %8s %10s %10s %10s %10s %10s\n', 'Point', 'Visits', 'RSS_std', 'SINR_std', 'CQI_std', 'RSS_mean', 'SINR_mean');
+fprintf('%s\n', repmat('-', 1, 76));
+
+for pt = 1:config.n_points
+    n_visits = length(metrics_by_point(pt).RSS);
+    if n_visits > 1
+        rss_std = std(metrics_by_point(pt).RSS);
+        sinr_std = std(metrics_by_point(pt).SINR);
+        cqi_std = std(metrics_by_point(pt).CQI);
+        rss_mean = mean(metrics_by_point(pt).RSS);
+        sinr_mean = mean(metrics_by_point(pt).SINR);
+        fprintf('%-8d %8d %10.4f %10.4f %10.4f %10.2f %10.2f\n', ...
+                pt, n_visits, rss_std, sinr_std, cqi_std, rss_mean, sinr_mean);
+    else
+        fprintf('%-8d %8d %10s %10s %10s %10s %10s\n', pt, n_visits, 'N/A', 'N/A', 'N/A', 'N/A', 'N/A');
+    end
+end
+fprintf('\n');
 
 %% Visualization 1: Random walk trajectory
 fig1 = ExperimentUtils.createFigure('Random Walk - Trajectory', 'square');

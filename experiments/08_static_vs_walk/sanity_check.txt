@@ -1,0 +1,20 @@
+# Experiment: Temporal Stability Sanity Check
+"""
+Goal: Verify that CSI remains stable when UE is stationary
+"""
+
+# Setup:
+- Single UE at fixed position (preferably NLOS)
+- Sample CSI every 0.5 seconds for 50 seconds (100 samples)
+- No movement, no parameter changes
+
+# Measure:
+- RSS over time
+- SINR over time  
+- CQI over time
+- Path loss over time
+
+# Expected result:
+- Values should be relatively stable (small variance)
+- No wild jumps or discontinuities
+- This validates QuaDRiGa's temporal modeling
