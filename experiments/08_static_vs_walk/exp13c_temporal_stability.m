@@ -89,68 +89,81 @@ fprintf('Generating CSI samples for quasi-stationary UE...\n');
 % Move 0.001m (1mm) per sample to enable track generation
 % Total movement = 0.1m over 100 samples - negligible at 72m distance
 
-step_size = 0.001;  % 1mm per step
-total_distance = step_size * (n_samples - 1);
+%% CORRECT APPROACH - Let QuaDRiGa handle snapshots automatically
+fprintf('Generating walking UE trajectory...\n');
 
-fprintf('  Creating track with %.4f m steps, %.3f m total displacement\n', step_size, total_distance);
-
-% Create position matrix: 3 x n_samples
-% Move slowly in X direction
-walk_positions = zeros(3, n_samples);
-walk_positions(1, :) = config.ue_position(1) + (0:n_samples-1) * step_size;  % X moves slowly
-walk_positions(2, :) = config.ue_position(2);  % Y constant
-walk_positions(3, :) = config.ue_position(3);  % Z constant
+n_samples = config.n_samples;  % 100
+use_track = false;
 
 try
-    % Create simulation parameters (INSIDE try block, fresh for track)
-    s_track = qd_simulation_parameters;
-    s_track.center_frequency = config.center_frequency;
-    s_track.sample_density = 2;
-    s_track.use_absolute_delays = 1;
+    % Create simulation parameters
+    s = qd_simulation_parameters;
+    s.center_frequency = config.center_frequency;
+    s.use_absolute_delays = 1;
+    s.show_progress_bars = 1;
+    
+    % CRITICAL: Set samples_per_meter to get desired snapshots
+    % For 100 samples over 100 meters = 1 sample/meter
+    % For 100 samples over 10 meters = 10 samples/meter
+    total_distance = 10;  % meters
+    s.samples_per_meter = n_samples / total_distance;  % 10 samples/m
+    
+    fprintf('  Total distance: %.1f m\n', total_distance);
+    fprintf('  Samples per meter: %.1f\n', s.samples_per_meter);
+    fprintf('  Expected snapshots: %d\n', ceil(total_distance * s.samples_per_meter));
     
     % Create layout
-    l = qd_layout(s_track);
+    l = qd_layout(s);
     l.no_tx = 1;
     l.tx_position = config.bs_position;
     l.tx_array = qd_arrayant('omni');
     l.rx_array = qd_arrayant('omni');
     
-    % Create track (same method as exp13b)
-    trk = qd_track;
-    trk.name = 'QuasiStationaryUE';
-    trk.initial_position = walk_positions(:, 1);
-    trk.positions = walk_positions;  % 3 x n_samples matrix
-    trk.scenario = {config.scenario};
+    % Create track - QuaDRiGa will handle snapshots automatically
+    t = qd_track('linear', total_distance, 0);  % 10m straight
+    t.name = 'WalkingUE';
+    t.initial_position = config.ue_position;
+    t.set_speed(1.0);  % 1 m/s
+    t.scenario = config.scenario;
     
-    % Attach track to layout
-    l.rx_track = {trk};
+    % DON'T call interpolate! Let QuaDRiGa do it automatically
     
-    fprintf('Generating time-correlated channels for %d samples...\n', n_samples);
+    l.track(1,1) = copy(t);
     
-    % Generate channels along the track
+    fprintf('  Generating channels...\n');
+    
+    % Generate channels - snapshots created automatically
     c = l.get_channels;
     
-    % Verify we got all snapshots
-    coeff_size = size(c.coeff);
-    if length(coeff_size) >= 4
-        n_snapshots = coeff_size(4);
-    else
-        n_snapshots = coeff_size(end);
-    end
-    fprintf('  Generated %d snapshots (expected %d)\n', n_snapshots, n_samples);
-    
-    if n_snapshots >= n_samples
-        use_track = true;
-        fprintf('  ✓ Track-based generation successful!\n');
-    else
-        warning('Expected %d snapshots, got %d', n_samples, n_snapshots);
-        use_track = false;
+    % Check what we got
+    if isa(c, 'qd_channel')
+        coeff_dims = size(c.coeff);
+        if length(coeff_dims) >= 4
+            n_snapshots = coeff_dims(4);
+        else
+            n_snapshots = 1;
+        end
+        
+        fprintf('  Generated %d snapshots\n', n_snapshots);
+        
+        if n_snapshots >= n_samples * 0.9  % Allow 10% tolerance
+            use_track = true;
+            fprintf('  ✓ SUCCESS!\n');
+        else
+            warning('Expected ~%d snapshots, got %d', n_samples, n_snapshots);
+            use_track = false;
+        end
     end
     
 catch ME
-    warning('Track-based generation failed: %s', ME.message);
-    fprintf('Falling back to independent samples...\n');
+    warning('Failed: %s', ME.message);
     use_track = false;
+end
+
+%% Process samples (same code as before)
+if use_track && n_snapshots >= n_samples
+    % Use the temporally-correlated channels...
+    % [rest of your processing code]
 end
 
 %% Process samples

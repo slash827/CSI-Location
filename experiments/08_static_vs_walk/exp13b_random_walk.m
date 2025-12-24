@@ -28,13 +28,13 @@ config = struct();
 
 % Grid parameters (same as exp13a)
 config.grid_size = 3;           % 3x3 grid
-config.spacing = 1.5;           % 1.5 meters between points
+config.spacing = 2;           % 1.5 meters between points
 config.ue_height = 1.5;         % UE height in meters
 config.grid_offset = [10, 0];  % Closer to BS for more geometric diversity
 
 % Random walk parameters
 config.n_steps = 900;           % Total steps in random walk
-config.ue_speed = 1.5;          % UE walking speed in m/s
+config.ue_speed = 2;          % UE walking speed in m/s
 config.step_duration = config.spacing / config.ue_speed;  % Time per step (1 second)
 
 % Simulation parameters (same as exp13a)
