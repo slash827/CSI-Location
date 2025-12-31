@@ -1,0 +1,24 @@
+
+Based on the results from the NLOS (Non-Line-of-Sight) run compared to the previous LOS run, here are the key conclusions:
+
+1. Significantly Higher Variance (The "Noise" Factor)
+Observation: The standard deviation (Std) for the RSS deltas has jumped from ~0.2 dB (in LOS) to ~1.0 dB (in NLOS).
+Conclusion: In NLOS, the signal is dominated by multipath reflections rather than a direct path. This means that even a small 1.5m step involves moving through a complex interference pattern, causing much higher fluctuation in signal strength. This "jitter" makes it harder to trust a single step's measurement.
+2. Steeper Signal Gradients (The "Drop" Factor)
+Observation: The mean differences for movements away from the Base Station are much larger.
+1 -> 2: Dropped by 2.29 dB (vs ~0.05 dB in LOS).
+1 -> 4: Dropped by 1.38 dB.
+Conclusion: The "Path Loss Exponent" is higher in NLOS. Signal strength decays much faster with distance than in LOS. This is actually good for localization because it creates a steeper "slope" to climb, making coarse movements easier to detect despite the noise.
+3. Distinctiveness is Mixed
+Clear Zones (Close to BS): Transitions involving points 1, 2, and 4 (likely closest to the BS) are highly distinct (Overlap: NO). The steep path loss outweighs the multipath noise.
+Example: If you see a drop of ~2 dB, you almost certainly moved 1 -> 2.
+Ambiguous Zones (Far from BS): Transitions like 8 <-> 9, 5 <-> 8, and 2 <-> 3 are now indistinguishable (Overlap: YES).
+Example: Moving 8 -> 9 has a mean delta of 0.02 +/- 0.61. The signal is effectively flat on average, and the random fading dominates. You cannot reliably tell direction based solely on RSS delta here.
+4. Symmetry Holds
+Observation: The forward and reverse means are still roughly symmetric (e.g., 1->2 is -2.29, 2->1 is +2.33).
+Conclusion: The channel reciprocity holds statistically.
+Summary for Tracking Algorithms
+LOS: Precision is high, but gradients are shallow (hard to tell if you moved 1m or 2m).
+NLOS: Gradients are steep (good for detecting movement), but noise is high (hard to be precise).
+Strategy: A tracking algorithm (like a Particle Filter) in this NLOS environment needs to set its **process
+noise** parameter higher (~1.0 dB) to account for the variance, but it can rely strongly on the large drops observed near the base station to converge quickly.
