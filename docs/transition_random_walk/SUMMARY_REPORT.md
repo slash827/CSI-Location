@@ -1,5 +1,3 @@
-# Experiment 13E Summary: Transition-Based Localization (NLOS)
-
 **Date:** January 1, 2026
 **Scenario:** 3GPP UMa NLOS
 **Grid:** 3x3 (2m spacing)
