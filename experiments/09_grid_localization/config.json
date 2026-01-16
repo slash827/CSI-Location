@@ -1,0 +1,59 @@
+{
+  "_comment": "Configuration for Grid Localization Experiment (exp13e)",
+  
+  "experiment": {
+    "name": "exp13e_corrected_fair_comparison",
+    "description": "Static vs Transition-based localization comparison",
+    "random_seed": 42
+  },
+  
+  "grid": {
+    "size": 7,
+    "spacing": 2.0,
+    "ue_height": 1.5,
+    "grid_offset": [30, 0],
+    "position_jitter": 0.1
+  },
+  
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+  
+  "channel": {
+    "scenario": "3GPP_38.901_UMa_NLOS",
+    "center_frequency": 3e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    "interference_per_sc_dbm": -999
+  },
+  
+  "base_station": {
+    "position": [0, 0, 25],
+    "tx_power_dbm": 30,
+    "interferers": {
+      "enabled": true,
+      "positions": [
+        [150, 0, 25],
+        [-150, 0, 25],
+        [0, 150, 25]
+      ],
+      "tx_power_dbm": 30
+    }
+  },
+  
+  "classification": {
+    "test_ratio": 0.2,
+    "_comment_metrics": "For combined metrics (e.g., RSS+SINR fusion), see config_rf_fusion.json",
+    "metrics": ["RSS", "SINR", "CQI"],
+    "max_history_length": 3
+  },
+  
+  "output": {
+    "save_results": true,
+    "generate_plots": true,
+    "save_raw_data": true,
+    "verbose": true
+  }
+}

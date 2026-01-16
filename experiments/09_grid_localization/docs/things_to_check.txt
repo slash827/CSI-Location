@@ -1,0 +1,3 @@
+Check if the current train vs test split is not causing data leakage.
+how can we even make sure there is no data leakage in such scenario of random walking?
+maybe instead of random walking, we add some ordered walking (scanning rows then scanning columns etc)

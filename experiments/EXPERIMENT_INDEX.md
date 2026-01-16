@@ -125,8 +125,10 @@
 
 | Experiment | Description | Status |
 |------------|-------------|--------|
-| exp08a_static_grid | 9 UEs on 3×3 grid, 100 repetitions | ✅ Ready |
-| exp08b_random_walk | Single UE random walk, 900 steps | ✅ Ready |
+| exp13a_static_grid | 9 UEs on 3×3 grid, 100 repetitions | ✅ Ready |
+| exp13b_random_walk | Single UE random walk, 900 steps | ✅ Ready |
+| exp13c_temporal_stability | Temporal correlation analysis | ✅ Ready |
+| exp13d_delta_analysis | CSI delta characteristics | ✅ Ready |
 | analyze_static_vs_walk.py | Statistical comparison (Python) | ✅ Ready |
 
 **Hypothesis**: CSI at location B should be the same whether UE arrived from A or was placed directly at B.
@@ -139,8 +141,35 @@
 
 ---
 
-### 🤖 Level 9: ML Training
-**Location**: `experiments/09_ml_training/`  
+### 🎯 Level 9: Grid Localization (Static vs Transition-Based)
+**Location**: `experiments/09_grid_localization/`  
+**Time**: 2-4 hours (varies with grid size)  
+**Goal**: Test if movement history improves localization accuracy
+
+| Experiment | Description | Status |
+|------------|-------------|--------|
+| exp13e_corrected_fair_comparison | Static vs transition-based localization | ✅ Ready |
+| SCALING_TEST_PLAN.md | Guide for testing 3×3 to 20×20 grids | 📝 Doc |
+| reorganize_results.m | Migrate results to new structure | 🔧 Tool |
+| run_from_config.m | Reproduce experiments from JSON | 🔧 Tool |
+
+**Research Question**: Does adding movement history (RSS_previous) improve localization?
+
+**Approach**:
+- **Method 1 (Static)**: Predict location from RSS_current only
+- **Method 2 (Transition)**: Predict location from RSS_current + RSS_previous with spatial constraints
+
+**✓ Completion criteria**: 
+- Fair comparison (both solve same N-class problem)
+- MAE and accuracy metrics computed
+- Results organized by grid size (grid_NxN/)
+- JSON configs saved for reproducibility
+- Scaling tests: 3×3 → 5×5 → 10×10 → 20×20
+
+---
+
+### 🤖 Level 10: ML Training
+**Location**: `ml_training/`  
 **Time**: Ongoing  
 **Goal**: Train and evaluate location prediction models
 
@@ -181,7 +210,8 @@ Track your learning:
 - [ ] **Level 6 Complete**: Urban dataset generated (2000 trajectories, 200K samples)
 - [ ] **Level 7 Complete**: CSI distributions characterized
 - [ ] **Level 8 Complete**: Static vs Walk comparison analyzed
-- [ ] **Level 9 Complete**: Model trained (< 10m error)
+- [ ] **Level 9 Complete**: Grid localization tested (3×3 to 20×20)
+- [ ] **Level 10 Complete**: Model trained (< 10m error)
 - [ ] **Project Complete**: Thesis written!
 
 ---
