@@ -240,7 +240,8 @@ class GaussianTransitionModel(LocalizationModel):
             # neighbors has 0-indexed keys but 1-indexed values
             if curr_loc in self.neighbors.get(prev_loc - 1, []):
                 key = f"{prev_loc}_{curr_loc}"
-                delta = metric_values[idx] - metric_values[idx - 1]
+                # Convert to float to avoid overflow with uint8 data types
+                delta = float(metric_values[idx]) - float(metric_values[idx - 1])
                 
                 if key not in self.transition_models:
                     self.transition_models[key] = []
@@ -286,7 +287,8 @@ class GaussianTransitionModel(LocalizationModel):
             history_len = min(len(previous_values), self.history_length)
             
             # Build list of metric values: [t-h, t-h+1, ..., t-1, t]
-            metric_sequence = list(previous_values[-history_len:]) + [metric_value]
+            # Convert to float to avoid overflow with uint8 data types (e.g., CQI)
+            metric_sequence = [float(v) for v in previous_values[-history_len:]] + [float(metric_value)]
             
             # Compute deltas: delta[i] = metric_sequence[i+1] - metric_sequence[i]
             deltas_observed = np.diff(metric_sequence)

@@ -32,7 +32,7 @@ def run_matlab_data_generation(grid_size, scenario, n_samples):
     
     # Build MATLAB command
     matlab_cmd = (
-        f"cd experiments/09_grid_localization; "
+        f"cd experiments/09_grid_localization/src/matlab; "
         f"config.grid_size = '{grid_size}'; "
         f"config.scenario = '{scenario}'; "
         f"config.n_samples = {n_samples}; "
@@ -92,7 +92,7 @@ def run_localization_pipeline(data_dir, model_type, metrics, max_history):
     # Build command
     cmd = [
         'python',
-        'experiments/09_grid_localization/localization_pipeline.py',
+        'experiments/09_grid_localization/src/python/localization_pipeline.py',
         '--data-dir', data_dir,
         '--model', model_type,
         '--max-history', str(max_history),
@@ -152,7 +152,7 @@ def run_plotting(results_dir):
     # Run plotting script
     cmd = [
         'python',
-        'experiments/09_grid_localization/plot_results.py',
+        'experiments/09_grid_localization/src/python/plot_pipeline_results.py',
         results_dir
     ]
     

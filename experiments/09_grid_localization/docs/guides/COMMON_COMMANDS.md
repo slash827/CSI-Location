@@ -22,36 +22,36 @@ Quick reference for running the grid localization pipeline components.
 
 ```powershell
 # Run complete pipeline with defaults (10x10 NLOS, 40k samples, Gaussian model)
-python experiments\09_grid_localization\run_full_pipeline.py
+python experiments\09_grid_localization\src\python\run_full_pipeline.py
 ```
 
 ### Custom Configurations
 
 ```powershell
 # Generate 7x7 LOS grid with 20k samples
-python experiments\09_grid_localization\run_full_pipeline.py --grid-size 7x7 --scenario LOS --n-samples 20000
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --grid-size 7x7 --scenario LOS --n-samples 20000
 
 # Use Random Forest model
-python experiments\09_grid_localization\run_full_pipeline.py --model random_forest
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --model random_forest
 
 # Test combined metrics (RSS+SINR fusion)
-python experiments\09_grid_localization\run_full_pipeline.py --model random_forest --metrics RSS,SINR CQI
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --model random_forest --metrics RSS,SINR CQI
 
 # 3x3 grid for quick testing
-python experiments\09_grid_localization\run_full_pipeline.py --grid-size 3x3 --n-samples 5000
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --grid-size 3x3 --n-samples 5000
 ```
 
 ### Using Existing Data
 
 ```powershell
 # Skip MATLAB, use existing simulation data
-python experiments\09_grid_localization\run_full_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
 
 # Skip localization, only regenerate plots from existing results
-python experiments\09_grid_localization\run_full_pipeline.py --results-dir results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39 --skip-pipeline
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --results-dir results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39 --skip-pipeline
 
 # Run localization only (no plots)
-python experiments\09_grid_localization\run_full_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --skip-plots
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --skip-plots
 ```
 
 ---
@@ -65,7 +65,7 @@ python experiments\09_grid_localization\run_full_pipeline.py --data-dir results\
 
 ```matlab
 % In MATLAB - Run with default config (10x10 NLOS)
-cd experiments/09_grid_localization
+cd experiments/09_grid_localization/src/matlab
 generate_simulation_data
 ```
 
@@ -82,60 +82,60 @@ matlab -batch "cd experiments/09_grid_localization; config.grid_size = '7x7'; co
 
 ### 2. Localization Pipeline (Python)
 
-**Script:** `localization_pipeline.py`  
+**Script:** `src/python/localization_pipeline.py`  
 **Description:** Trains models and evaluates localization accuracy using different metrics and transition models
 
 #### Basic Usage
 
 ```powershell
 # Run with Gaussian models on RSS, SINR, CQI
-python experiments\09_grid_localization\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
 ```
 
 #### Model Selection
 
 ```powershell
 # Use Random Forest classifier
-python experiments\09_grid_localization\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --model random_forest
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --model random_forest
 
 # Use Gaussian models (default)
-python experiments\09_grid_localization\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --model gaussian
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --model gaussian
 ```
 
 #### Metric Selection
 
 ```powershell
 # Test only RSS
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --metrics rss
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --metrics rss
 
 # Test multiple individual metrics
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --metrics rss sinr cqi
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --metrics rss sinr cqi
 
 # Test combined metrics (requires Random Forest)
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics RSS,SINR RSS,CQI
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics RSS,SINR RSS,CQI
 
 # Mix of individual and combined
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss RSS,SINR,CQI
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss RSS,SINR,CQI
 ```
 
 #### History Length
 
 ```powershell
 # Test transition models with different history lengths
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --max-history 3
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --max-history 3
 
 # Only test static (no transition)
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --max-history 0
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --max-history 0
 ```
 
 #### Other Options
 
 ```powershell
 # Custom train/test split
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --test-ratio 0.3
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --test-ratio 0.3
 
 # Specify output directory
-python experiments\09_grid_localization\localization_pipeline.py --data-dir <DATA_DIR> --output-dir my_custom_results
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --output-dir my_custom_results
 ```
 
 **Output:** Creates `results/grid_localization/grid_NxN/expXX_SCENARIO_TIMESTAMP/`
@@ -146,21 +146,20 @@ python experiments\09_grid_localization\localization_pipeline.py --data-dir <DAT
 
 ### 3. Visualization (Python)
 
-**Script:** `plot_results.py`  
-**Description:** Generates comprehensive visualizations from pipeline results
+**Script:** `src/python/plot_pipeline_results.py`  
+**Description:** Generates comprehensive visualizations from pipeline results (new format)
 
 ```powershell
 # Generate all plots from results directory
-python experiments\09_grid_localization\plot_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
+python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
 ```
 
 **Output:** Adds to results directory:
-- `confusion_matrices.png` - Confusion matrices for each metric
-- `metrics_comparison.png` - Accuracy and MAE comparison
-- `rss_distributions.png` - RSS distributions per grid point
-- `spatial_error_map.png` - Error heatmap on grid
-- `summary_dashboard.png` - Combined overview
-- `visit_distribution.png` - Grid point visit frequency
+- `spatial_layout.png` - Grid and base station positions
+- `metrics_comparison.png` - Accuracy and MAE comparison across all metrics and history lengths
+- `history_progression.png` - Accuracy vs history length for each metric
+
+**Note:** The old `plot_results.py` script only works with legacy MATLAB `.mat` format results.
 
 ---
 
@@ -170,60 +169,60 @@ python experiments\09_grid_localization\plot_results.py results\grid_localizatio
 
 ```powershell
 # Fast test with small grid
-python experiments\09_grid_localization\run_full_pipeline.py --grid-size 3x3 --n-samples 5000
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --grid-size 3x3 --n-samples 5000
 ```
 
 ### Standard Evaluation (10x10 NLOS)
 
 ```powershell
 # Default configuration
-python experiments\09_grid_localization\run_full_pipeline.py
+python experiments\09_grid_localization\src\python\run_full_pipeline.py
 ```
 
 ### LOS vs NLOS Comparison
 
 ```powershell
 # Generate LOS data
-python experiments\09_grid_localization\run_full_pipeline.py --scenario LOS
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --scenario LOS
 
 # Generate NLOS data
-python experiments\09_grid_localization\run_full_pipeline.py --scenario NLOS
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --scenario NLOS
 ```
 
 ### Gaussian vs Random Forest Comparison
 
 ```powershell
 # Run Gaussian model
-python experiments\09_grid_localization\run_full_pipeline.py --data-dir <DATA_DIR> --model gaussian
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir <DATA_DIR> --model gaussian
 
 # Run Random Forest on same data
-python experiments\09_grid_localization\run_full_pipeline.py --data-dir <DATA_DIR> --model random_forest
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir <DATA_DIR> --model random_forest
 ```
 
 ### Metric Fusion Analysis
 
 ```powershell
 # Compare individual metrics vs combined (Random Forest only)
-python experiments\09_grid_localization\run_full_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss sinr cqi RSS,SINR RSS,SINR,CQI
+python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss sinr cqi RSS,SINR RSS,SINR,CQI
 ```
 
 ### Regenerate Plots Only
 
 ```powershell
 # If you already ran the pipeline and just want new plots
-python experiments\09_grid_localization\plot_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
+python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
 ```
 
 ### Batch Processing
 
 ```powershell
 # Process multiple existing datasets
-python experiments\09_grid_localization\localization_pipeline.py --data-dir results\grid_localization\grid_7x7\sim_data_LOS_2026-01-09_16-09-49
-python experiments\09_grid_localization\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_7x7\sim_data_LOS_2026-01-09_16-09-49
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
 
 # Then plot each result
-python experiments\09_grid_localization\plot_results.py results\grid_localization\grid_7x7\exp13e_LOS_2026-01-09_16-09-49
-python experiments\09_grid_localization\plot_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
+python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_7x7\exp13e_LOS_2026-01-09_16-09-49
+python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
 ```
 
 ---

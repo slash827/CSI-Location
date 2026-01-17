@@ -124,13 +124,18 @@ All experiment parameters are defined in **`config.json`**. Edit this file to cu
 
 ### Quick Start
 ```matlab
-% 1. Edit config.json with desired parameters
+% 1. Edit configs/config.json with desired parameters
 % 2. Run experiment
-cd experiments/09_grid_localization
-run exp13e_corrected_fair_comparison
+cd experiments/09_grid_localization/src/matlab
+generate_simulation_data
 
 % Results will be saved to:
-% results/grid_localization/grid_NxN/exp13e_corrected_YYYY-MM-DD_HH-MM-SS/
+% results/grid_localization/grid_NxN/sim_data_SCENARIO_YYYY-MM-DD_HH-MM-SS/
+```
+
+Or use the full Python pipeline:
+```powershell
+python experiments\09_grid_localization\src\python\run_full_pipeline.py
 ```
 
 ### Plotting
@@ -138,12 +143,9 @@ run exp13e_corrected_fair_comparison
 Plots are **automatically generated** using Python after the experiment completes.
 
 **Generated Plots:**
-1. **confusion_matrices.png** - Static vs transition confusion matrices
-2. **spatial_error_map.png** - Where errors occur on the grid
-3. **metrics_comparison.png** - Accuracy and MAE across all metrics
-4. **visit_distribution.png** - Random walk coverage
-5. **rss_distributions.png** - RSS statistics per location
-6. **summary_dashboard.png** - Comprehensive overview (all plots in one)
+1. **spatial_layout.png** - Grid and base station positions
+2. **metrics_comparison.png** - Accuracy and MAE across all metrics and history lengths
+3. **history_progression.png** - Accuracy vs history length for each metric
 
 **Requirements:**
 ```bash
@@ -152,24 +154,22 @@ pip install numpy matplotlib seaborn scipy
 
 **Manual plotting:**
 ```bash
-cd experiments/09_grid_localization
-python plot_results.py ../../results/grid_localization/grid_3x3/exp_*
+python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_3x3\exp_*
 ```
 
 ### Migrate Old Results
 ```matlab
-cd experiments/09_grid_localization
+cd experiments/09_grid_localization/archived/matlab
 reorganize_results  % Moves exp13* folders to grid_localization/grid_NxN/
 ```
 
 ### Reproduce Previous Experiment
 ```matlab
-cd experiments/09_grid_localization
-run_from_config('../../results/grid_localization/grid_3x3/exp_*/experiment_config.json')
+cd experiments/09_grid_localization/src/matlab
+run_from_config('../../../results/grid_localization/grid_3x3/exp_*/experiment_config.json')
 ```
 
 ## Results Directory Structure
-
 ```
 results/
 └── grid_localization/

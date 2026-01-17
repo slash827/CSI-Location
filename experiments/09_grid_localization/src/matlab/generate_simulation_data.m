@@ -18,7 +18,8 @@ addpath(utils_path);
 fprintf('=== Grid Localization Data Generation ===\n\n');
 
 %% Load Configuration
-config_file = fullfile(script_dir, 'config.json');
+% Config file is in ../../configs/ relative to src/matlab/
+config_file = fullfile(project_root, 'configs', 'config.json');
 if ~exist(config_file, 'file')
     error('Configuration file not found: %s', config_file);
 end
