@@ -4,278 +4,303 @@ Quick reference for running the grid localization pipeline components.
 
 ## 📋 Table of Contents
 
-- [Full Pipeline (Recommended)](#full-pipeline-recommended)
-- [Individual Components](#individual-components)
-  - [Data Generation (MATLAB)](#1-data-generation-matlab)
-  - [Localization Pipeline (Python)](#2-localization-pipeline-python)
-  - [Visualization (Python)](#3-visualization-python)
+- [Configuration](#configuration)
+- [Data Generation](#data-generation-matlab)
+- [Classification Pipeline](#classification-pipeline-python)
+- [Regression Pipeline](#regression-pipeline-python)
+- [Visualization](#visualization)
 - [Common Scenarios](#common-scenarios)
 
 ---
 
-## Full Pipeline (Recommended)
+## Configuration
 
-**Script:** `run_full_pipeline.py`  
-**Description:** Orchestrates all steps: MATLAB data generation → Python localization → Plotting
+Two separate config files:
+- **`configs/data_generation_config.jsonc`** - Data generation parameters (grid, channel, movement)
+- **`configs/ml_config.jsonc`** - ML training parameters (features, models, realistic AoA impairments)
 
-### Basic Usage
-
-```powershell
-# Run complete pipeline with defaults (10x10 NLOS, 40k samples, Gaussian model)
-python experiments\09_grid_localization\src\python\run_full_pipeline.py
-```
-
-### Custom Configurations
-
-```powershell
-# Generate 7x7 LOS grid with 20k samples
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --grid-size 7x7 --scenario LOS --n-samples 20000
-
-# Use Random Forest model
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --model random_forest
-
-# Test combined metrics (RSS+SINR fusion)
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --model random_forest --metrics RSS,SINR CQI
-
-# 3x3 grid for quick testing
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --grid-size 3x3 --n-samples 5000
-```
-
-### Using Existing Data
-
-```powershell
-# Skip MATLAB, use existing simulation data
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
-
-# Skip localization, only regenerate plots from existing results
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --results-dir results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39 --skip-pipeline
-
-# Run localization only (no plots)
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --skip-plots
-```
+The data generation config is automatically copied with each dataset for reproducibility.
 
 ---
 
-## Individual Components
+## Data Generation (MATLAB)
 
-### 1. Data Generation (MATLAB)
+**Script:** `src/matlab/generate_simulation_data.m`  
+**Config:** `configs/data_generation_config.jsonc`
 
-**Script:** `generate_simulation_data.m`  
-**Description:** Creates simulation data with user movement, channel models, and metrics (RSS/SINR/CQI)
+Generates simulation data with UE movement, channel models, and metrics (RSS, SINR, CQI, AoA, Timing Advance).
+
+### From MATLAB
 
 ```matlab
-% In MATLAB - Run with default config (10x10 NLOS)
 cd experiments/09_grid_localization/src/matlab
 generate_simulation_data
 ```
 
+### From PowerShell
+
 ```powershell
-# From PowerShell - Custom configuration
-matlab -batch "cd experiments/09_grid_localization; config.grid_size = '7x7'; config.scenario = 'LOS'; config.n_samples = 20000; generate_simulation_data(config);"
+# Generate data with current config
+cd D:\gilad\projects\Academy\CSI-Location
+matlab -batch "cd experiments/09_grid_localization/src/matlab; generate_simulation_data"
 ```
+
+### Configuration
+
+Edit `configs/data_generation_config.jsonc`:
+- `grid.size` - Grid dimensions (e.g., 3, 7, 10)
+- `channel.scenario` - `3GPP_38.901_UMa_LOS` or `3GPP_38.901_UMa_NLOS`
+- `movement.steps_per_point` - Samples per grid point (default: 400)
+- `grid.neighbor_connectivity` - 4 (straight) or 8 (includes diagonals)
+- `output.auto_run_pipeline` - Auto-run Python pipeline after generation (default: false)
 
 **Output:** Creates `results/grid_localization/grid_NxN/sim_data_SCENARIO_TIMESTAMP/`
-- `simulation_data.mat` - Metrics, true locations, grid configuration
-- `config.json` - Experiment configuration
+- `simulation_data.mat` - Metrics, walk path, grid config
+- `data_generation_config.jsonc` - Copy of generation parameters
+- `plots/` - Auto-generated visualization plots
 
 ---
 
-### 2. Localization Pipeline (Python)
+## Classification Pipeline (Python)
 
 **Script:** `src/python/localization_pipeline.py`  
-**Description:** Trains models and evaluates localization accuracy using different metrics and transition models
+**Task:** Predict which grid point the UE is at
 
-#### Basic Usage
-
-```powershell
-# Run with Gaussian models on RSS, SINR, CQI
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
-```
-
-#### Model Selection
+### Basic Usage
 
 ```powershell
-# Use Random Forest classifier
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --model random_forest
-
-# Use Gaussian models (default)
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07 --model gaussian
+# Run with Random Forest on RSS, SINR, CQI
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-22_10-02-40 --model random_forest --metrics rss,sinr,cqi
 ```
 
-#### Metric Selection
+### With AoA and Timing Advance
 
 ```powershell
-# Test only RSS
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --metrics rss
-
-# Test multiple individual metrics
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --metrics rss sinr cqi
-
-# Test combined metrics (requires Random Forest)
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics RSS,SINR RSS,CQI
-
-# Mix of individual and combined
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss RSS,SINR,CQI
+# Use all available features (realistic AoA noise applied from ml_config.jsonc)
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss,sinr,cqi,aoa_azimuth,aoa_elevation,timing_advance
 ```
 
-#### History Length
+### Data Split Methods
 
 ```powershell
-# Test transition models with different history lengths
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --max-history 3
+# Temporal split (prevent data leakage, recommended)
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --split-method temporal --model random_forest --metrics rss,sinr,cqi
 
-# Only test static (no transition)
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --max-history 0
+# Random split
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --split-method random --model random_forest --metrics rss,sinr,cqi
 ```
 
-#### Other Options
+### Model Options
 
 ```powershell
-# Custom train/test split
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --test-ratio 0.3
+# Random Forest (best for multiple features)
+--model random_forest
 
-# Specify output directory
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --output-dir my_custom_results
+# Gaussian models (static and transition-based)
+--model gaussian --max-history 3
 ```
 
-**Output:** Creates `results/grid_localization/grid_NxN/expXX_SCENARIO_TIMESTAMP/`
-- `SUMMARY_REPORT.md` - Accuracy, MAE, timing summary
-- `pipeline_results.npz` - Raw results for plotting
+**Output:** Creates `results/grid_localization/grid_NxN/exp_classification_SCENARIO_TIMESTAMP/`
+- `SUMMARY_REPORT.md` - Accuracy, MAE, confusion matrices
+- `*.png` - Plots and visualizations
 
 ---
 
-### 3. Visualization (Python)
+## Regression Pipeline (Python)
 
-**Script:** `src/python/plot_pipeline_results.py`  
-**Description:** Generates comprehensive visualizations from pipeline results (new format)
+**Script:** `src/python/localization_pipeline_regression.py`  
+**Task:** Predict distance, azimuth, and elevation to BS (continuous values)
+
+### Basic Usage
 
 ```powershell
-# Generate all plots from results directory
-python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
+# Regression with RSS, SINR, CQI only (no AoA as features)
+python experiments\09_grid_localization\src\python\localization_pipeline_regression.py --data-dir results\grid_localization\grid_10x10\sim_data_LOS_2026-01-22_09-02-09 --split-method temporal --features rss,sinr,cqi
 ```
 
-**Output:** Adds to results directory:
-- `spatial_layout.png` - Grid and base station positions
-- `metrics_comparison.png` - Accuracy and MAE comparison across all metrics and history lengths
-- `history_progression.png` - Accuracy vs history length for each metric
+### With Noisy AoA as Features
 
-**Note:** The old `plot_results.py` script only works with legacy MATLAB `.mat` format results.
+```powershell
+# Using noisy AoA measurements to predict clean position
+# Note: Realistic AoA impairments applied from ml_config.jsonc
+python experiments\09_grid_localization\src\python\localization_pipeline_regression.py --data-dir <DATA_DIR> --split-method temporal --features rss,sinr,cqi,aoa_azimuth,aoa_elevation
+```
+
+### Multiple Feature Sets
+
+```powershell
+# Test multiple feature combinations
+python experiments\09_grid_localization\src\python\localization_pipeline_regression.py --data-dir <DATA_DIR> --split-method temporal --features rss,sinr,cqi rss,sinr,cqi,timing_advance
+```
+
+**Output:** Creates `results/grid_localization/grid_NxN/exp_regression_SCENARIO_TIMESTAMP/`
+- `REGRESSION_REPORT.md` - MAE, RMSE, R² for distance, azimuth, elevation
+- Target predictions vs ground truth
+
+---
+
+## Visualization
+
+### Data Generation Plots (Automatic)
+
+Generated automatically after data generation (if `output.generate_plots: true`):
+- `metric_distributions.png` - Histograms and KDE for all metrics
+- `walk_path_analysis.png` - Heatmap and trajectory
+- `spatial_coverage.png` - Metric values per grid point
+- `temporal_evolution.png` - Time series with moving average
+
+### Manual Plot Generation
+
+```powershell
+# Regenerate data generation plots
+python experiments\09_grid_localization\src\python\plot_data_generation.py "results\grid_localization\grid_10x10\sim_data_LOS_2026-01-22_09-02-09"
+```
 
 ---
 
 ## Common Scenarios
 
-### Quick Test (3x3 Grid)
+### Quick Test (Generate LOS Data)
 
 ```powershell
-# Fast test with small grid
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --grid-size 3x3 --n-samples 5000
+# 1. Edit config: Set scenario to LOS, grid size to 10
+# 2. Generate data
+matlab -batch "cd experiments/09_grid_localization/src/matlab; generate_simulation_data"
 ```
 
-### Standard Evaluation (10x10 NLOS)
+### Classification with All Features
 
 ```powershell
-# Default configuration
-python experiments\09_grid_localization\src\python\run_full_pipeline.py
+# Use all available features including noisy AoA
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_LOS_2026-01-22_09-02-09 --split-method temporal --model random_forest --metrics rss,sinr,cqi,aoa_azimuth,aoa_elevation,timing_advance
+```
+
+### Regression: Predict Position from RSS/SINR/CQI
+
+```powershell
+# Predict distance + angles without using AoA as input
+python experiments\09_grid_localization\src\python\localization_pipeline_regression.py --data-dir results\grid_localization\grid_10x10\sim_data_LOS_2026-01-22_09-02-09 --split-method temporal --features rss,sinr,cqi
 ```
 
 ### LOS vs NLOS Comparison
 
 ```powershell
-# Generate LOS data
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --scenario LOS
+# 1. Generate LOS data (edit config, set scenario to LOS)
+matlab -batch "cd experiments/09_grid_localization/src/matlab; generate_simulation_data"
 
-# Generate NLOS data
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --scenario NLOS
+# 2. Generate NLOS data (edit config, set scenario to NLOS)
+matlab -batch "cd experiments/09_grid_localization/src/matlab; generate_simulation_data"
+
+# 3. Run regression on both
+python experiments\09_grid_localization\src\python\localization_pipeline_regression.py --data-dir results\grid_localization\grid_10x10\sim_data_LOS_<TIMESTAMP> --split-method temporal --features rss,sinr,cqi
+
+python experiments\09_grid_localization\src\python\localization_pipeline_regression.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_<TIMESTAMP> --split-method temporal --features rss,sinr,cqi
 ```
 
-### Gaussian vs Random Forest Comparison
+### Test Different AoA Noise Levels
 
 ```powershell
-# Run Gaussian model
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir <DATA_DIR> --model gaussian
+# Edit configs/ml_config.jsonc:
+#   "noise_std_deg": 2.0,  # Try 0, 2, 4, 6 degrees
+#   "quantization_deg": 5.0
 
-# Run Random Forest on same data
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir <DATA_DIR> --model random_forest
-```
-
-### Metric Fusion Analysis
-
-```powershell
-# Compare individual metrics vs combined (Random Forest only)
-python experiments\09_grid_localization\src\python\run_full_pipeline.py --data-dir <DATA_DIR> --model random_forest --metrics rss sinr cqi RSS,SINR RSS,SINR,CQI
-```
-
-### Regenerate Plots Only
-
-```powershell
-# If you already ran the pipeline and just want new plots
-python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
-```
-
-### Batch Processing
-
-```powershell
-# Process multiple existing datasets
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_7x7\sim_data_LOS_2026-01-09_16-09-49
-python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir results\grid_localization\grid_10x10\sim_data_NLOS_2026-01-11_22-43-07
-
-# Then plot each result
-python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_7x7\exp13e_LOS_2026-01-09_16-09-49
-python experiments\09_grid_localization\src\python\plot_pipeline_results.py results\grid_localization\grid_10x10\exp13e_NLOS_2026-01-12_07-40-39
+# Run classification with AoA features
+python experiments\09_grid_localization\src\python\localization_pipeline.py --data-dir <DATA_DIR> --split-method temporal --model random_forest --metrics aoa_azimuth,aoa_elevation
 ```
 
 ---
 
 ## Parameter Quick Reference
 
-### Data Generation Parameters
-- `--grid-size`: Grid dimensions (e.g., `3x3`, `7x7`, `10x10`)
-- `--scenario`: Channel model (`LOS` or `NLOS`)
-- `--n-samples`: Number of trajectory samples (default: 40000)
+### Data Generation (`data_generation_config.jsonc`)
+- `grid.size`: Grid dimensions (3, 7, 10)
+- `grid.neighbor_connectivity`: 4 or 8 neighbors
+- `channel.scenario`: LOS or NLOS
+- `movement.steps_per_point`: Samples per grid point (default: 400)
+- `output.auto_run_pipeline`: Run Python after generation (default: false)
 
-### Localization Parameters
-- `--model`: Model type (`gaussian` or `random_forest`)
-- `--metrics`: Metrics to test (space-separated, comma for fusion)
-- `--max-history`: Maximum transition history length (default: 3)
-- `--test-ratio`: Test set percentage (default: 0.2)
+### ML Training (`ml_config.jsonc`)
+- `realistic_aoa.enabled`: Apply noise to AoA features (default: true)
+- `realistic_aoa.noise_std_deg`: Gaussian noise std (default: 4.0°)
+- `realistic_aoa.quantization_deg`: Quantization step (default: 5.0°)
 
-### Pipeline Control
-- `--data-dir`: Use existing data (skip MATLAB)
-- `--results-dir`: Use existing results (skip localization)
-- `--skip-pipeline`: Skip localization step
-- `--skip-plots`: Skip visualization step
+### Classification Pipeline
+- `--model`: `gaussian` or `random_forest`
+- `--metrics`: Comma-separated feature list
+- `--split-method`: `temporal` or `random`
+- `--max-history`: History length for transition models (default: 3)
+
+### Regression Pipeline
+- `--features`: Comma-separated feature list (e.g., `rss,sinr,cqi`)
+- `--split-method`: `temporal` or `random`
+- `--model`: Currently only `random_forest`
+
+---
+
+## Available Features
+
+| Feature | Description | Notes |
+|---------|-------------|-------|
+| `rss` | Received Signal Strength (dBm) | Wideband average |
+| `sinr` | Signal-to-Interference-plus-Noise Ratio (dB) | Wideband average |
+| `cqi` | Channel Quality Indicator | Quantized quality metric |
+| `aoa_azimuth` | Angle of Arrival - Azimuth (degrees) | Clean in data, noisy in ML |
+| `aoa_elevation` | Angle of Arrival - Elevation (degrees) | Clean in data, noisy in ML |
+| `timing_advance` | Timing Advance (μs) | Usually constant on small grids |
 
 ---
 
 ## Tips
 
-1. **Always check the output directory path** - Results are timestamped
-2. **Use `--data-dir` to reuse data** - Saves time when testing different models
-3. **Start with 3x3 grids** - Fast iteration for debugging
-4. **Random Forest requires more samples** - Use at least 10k samples
-5. **Combined metrics only work with Random Forest** - Gaussian models support single metrics only
-6. **Check SUMMARY_REPORT.md** - Contains accuracy, MAE, and timing information
-7. **MAE is in meters** - Not grid points (after recent fix)
+1. **Use temporal split** - Prevents data leakage from correlated consecutive samples
+2. **Timing Advance is often useless** - Grid too small (18m range difference = 61ns)
+3. **AoA data is clean** - Realistic impairments applied during ML training for flexibility
+4. **Regression predicts clean targets** - Even when using noisy AoA as features
+5. **Start with RSS,SINR,CQI** - Baseline features before adding AoA
+6. **Compare classification vs regression** - Different approaches to localization
+7. **Check `ml_config.jsonc` for AoA noise** - Can experiment without regenerating data
 
 ---
 
 ## Troubleshooting
 
-### MATLAB Not Found
-```powershell
-# Add MATLAB to PATH or use full path
-"C:\Program Files\MATLAB\R2023a\bin\matlab.exe" -batch "..."
+### JSONC Comments Not Supported Error
+- Fixed: Both MATLAB and Python now use custom JSONC parsers
+- `read_jsonc.m` (MATLAB) and `read_jsonc.py` (Python)
+
+### Config File Not Found
+- Use `data_generation_config.jsonc` (renamed from `config.jsonc`)
+- File automatically copied to each generated dataset
+
+### AoA Perfect Fingerprinting (100% accuracy)
+- Enable realistic impairments in `ml_config.jsonc`
+- `realistic_aoa.enabled: true` applies 4° noise + 5° quantization
+
+### Data Generation Fails with Path Warning
+- Utils folder is now at workspace root (not experiment level)
+- Script automatically fixes paths
+
+---
+
+## File Structure
+
 ```
-
-### Unicode Errors in Reports
-- Fixed in latest version (UTF-8 encoding)
-- Reports now support ✓ and ✗ symbols
-
-### Memory Issues with Large Grids
-- Reduce `--n-samples` for 10x10 grids
-- Use `--test-ratio 0.1` for smaller test sets
-
-### Identical h=1, h=2, h=3 Results
-- Known issue: GaussianTransitionModel training doesn't use full history yet
-- Model architecture needs update to utilize multiple previous values
+experiments/09_grid_localization/
+├── configs/
+│   ├── data_generation_config.jsonc  # Data generation parameters
+│   └── ml_config.jsonc                # ML training parameters
+├── src/
+│   ├── matlab/
+│   │   ├── generate_simulation_data.m  # Data generation
+│   │   └── read_jsonc.m                # JSONC parser
+│   └── python/
+│       ├── localization_pipeline.py           # Classification
+│       ├── localization_pipeline_regression.py # Regression
+│       ├── plot_data_generation.py            # Data viz
+│       └── read_jsonc.py                      # JSONC parser
+└── results/
+    └── grid_localization/
+        └── grid_10x10/
+            ├── sim_data_LOS_<TIMESTAMP>/       # Generated data
+            └── exp_regression_LOS_<TIMESTAMP>/  # ML results
+```

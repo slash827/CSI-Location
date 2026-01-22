@@ -1,5 +1,5 @@
 {
-  "_comment": "Configuration for Grid Localization Experiment (exp13e)",
+  // Configuration for Grid Localization Data Generation
   
   "experiment": {
     "name": "exp13e_corrected_fair_comparison",
@@ -7,12 +7,20 @@
     "random_seed": 42
   },
   
+  "data_split": {
+    // Options: 'random' (original) or 'temporal' (sequential to avoid leakage)
+    "method": "temporal", 
+    "test_ratio": 0.2
+  },
+
   "grid": {
-    "size": 7,
+    "size": 10,
     "spacing": 2.0,
     "ue_height": 1.5,
     "grid_offset": [30, 0],
-    "position_jitter": 0.1
+    "position_jitter": 0.1,
+    // Options: 4 (up/down/left/right) or 8 (includes diagonals)
+    "neighbor_connectivity": 4
   },
   
   "movement": {
@@ -43,9 +51,13 @@
     }
   },
   
-  "classification": {
+  // ML task configuration (used by Python pipelines)
+  "ml_task": {
+    // Options: 'classification' (predict grid point) or 'regression' (predict position)
+    "type": "classification",
+    // For regression mode: predict distance (m), azimuth (deg), elevation (deg) relative to BS
+    "regression_targets": ["distance", "aoa_azimuth", "aoa_elevation"],
     "test_ratio": 0.2,
-    "_comment_metrics": "For combined metrics (e.g., RSS+SINR fusion), see config_rf_fusion.json",
     "metrics": ["RSS", "SINR", "CQI"],
     "max_history_length": 3
   },
@@ -54,6 +66,8 @@
     "save_results": true,
     "generate_plots": true,
     "save_raw_data": true,
-    "verbose": true
+    "verbose": true,
+    // Automatically run Python ML pipeline after data generation
+    "auto_run_pipeline": false
   }
 }

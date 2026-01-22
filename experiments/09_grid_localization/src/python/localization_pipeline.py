@@ -52,10 +52,21 @@ class SimulationData:
         print(f"Loading simulation data from: {sim_file}")
         data = loadmat(str(sim_file), squeeze_me=True, struct_as_record=False)
         
-        # Load configuration
-        config_file = self.data_dir / 'config.json'
-        with open(config_file, 'r') as f:
-            self.config = json.load(f)
+        # Load configuration from data directory (preserves generation parameters)
+        # Handle both old (config.json) and new (data_generation_config.jsonc) filenames
+        config_file = self.data_dir / 'data_generation_config.jsonc'
+        if not config_file.exists():
+            config_file = self.data_dir / 'config.jsonc'
+        if not config_file.exists():
+            config_file = self.data_dir / 'config.json'
+        self.config = read_jsonc(config_file) if config_file.suffix == '.jsonc' else json.load(open(config_file))
+        
+        # Load ML config for realistic_aoa settings
+        ml_config_file = Path(__file__).parent.parent.parent / 'configs' / 'ml_config.jsonc'
+        if ml_config_file.exists():
+            self.ml_config = read_jsonc(ml_config_file)
+        else:
+            self.ml_config = {}
         
         # Extract data
         self.metrics = {
@@ -64,13 +75,41 @@ class SimulationData:
             'cqi': data['metrics'].cqi_wb
         }
         
+        # Add AoA and Timing Advance if available (backward compatibility)
+        if hasattr(data['metrics'], 'aoa_azimuth'):
+            aoa_az = data['metrics'].aoa_azimuth
+            # Apply realistic impairments if configured in ml_config
+            if self.ml_config.get('realistic_aoa', {}).get('enabled', False):
+                noise_std = self.ml_config['realistic_aoa']['noise_std_deg']
+                quant_step = self.ml_config['realistic_aoa']['quantization_deg']
+                np.random.seed(42)  # Reproducible noise
+                aoa_az = aoa_az + noise_std * np.random.randn(len(aoa_az))
+                aoa_az = np.round(aoa_az / quant_step) * quant_step
+            self.metrics['aoa_azimuth'] = aoa_az
+            
+        if hasattr(data['metrics'], 'aoa_elevation'):
+            aoa_el = data['metrics'].aoa_elevation
+            # Apply realistic impairments if configured in ml_config
+            if self.ml_config.get('realistic_aoa', {}).get('enabled', False):
+                noise_std = self.ml_config['realistic_aoa']['noise_std_deg']
+                quant_step = self.ml_config['realistic_aoa']['quantization_deg']
+                np.random.seed(43)  # Reproducible noise (different seed)
+                aoa_el = aoa_el + noise_std * np.random.randn(len(aoa_el))
+                aoa_el = np.round(aoa_el / quant_step) * quant_step
+            self.metrics['aoa_elevation'] = aoa_el
+            
+        if hasattr(data['metrics'], 'timing_advance'):
+            self.metrics['timing_advance'] = data['metrics'].timing_advance
+        
         self.true_locations = data['walk_path'].grid_point_indices
         self.grid_positions = data['config'].grid_positions
         self.neighbors = self._convert_neighbors(data['config'].neighbors)
         self.n_points = int(data['config'].n_points)
         self.n_samples = len(self.true_locations)
         
+        available_metrics = ', '.join(self.metrics.keys())
         print(f"[OK] Loaded {self.n_samples} samples across {self.n_points} grid points")
+        print(f"     Available metrics: {available_metrics}")
     
     def _convert_neighbors(self, neighbors_cell):
         """Convert MATLAB cell array to Python dict"""
@@ -87,33 +126,55 @@ class SimulationData:
 class DataSplitter:
     """Handle train/test splitting with support for static and transition modes"""
     
-    def __init__(self, test_ratio=0.2, random_seed=42):
+    def __init__(self, test_ratio=0.2, random_seed=42, split_method='random'):
         self.test_ratio = test_ratio
         self.random_seed = random_seed
+        self.split_method = split_method
     
     def split_static(self, n_samples):
-        """Random train/test split for static classification"""
-        np.random.seed(self.random_seed)
-        all_indices = np.arange(n_samples)
-        np.random.shuffle(all_indices)
+        """Random or Temporal train/test split for static classification"""
         
-        n_test = int(n_samples * self.test_ratio)
-        test_indices = all_indices[:n_test]
-        train_indices = all_indices[n_test:]
+        if self.split_method == 'temporal':
+            # Sequential split - train on early trajectory, test on later
+            train_cutoff = int(n_samples * (1 - self.test_ratio))
+            train_indices = np.arange(0, train_cutoff)
+            test_indices = np.arange(train_cutoff, n_samples)
+        else:
+            # Random split (default)
+            np.random.seed(self.random_seed)
+            all_indices = np.arange(n_samples)
+            np.random.shuffle(all_indices)
+            
+            n_test = int(n_samples * self.test_ratio)
+            test_indices = all_indices[:n_test]
+            train_indices = all_indices[n_test:]
         
         return train_indices, test_indices
     
     def split_transition(self, n_samples, max_history=3):
         """Split for transition-based approach (exclude early samples without history)"""
-        np.random.seed(self.random_seed)
         
-        # Can't use samples without enough history
-        valid_indices = np.arange(max_history, n_samples)
-        np.random.shuffle(valid_indices)
-        
-        n_test = int(len(valid_indices) * self.test_ratio)
-        test_indices = valid_indices[:n_test]
-        train_indices = valid_indices[n_test:]
+        if self.split_method == 'temporal':
+            # Can't use samples without enough history even in temporal split
+            # Start after max_history
+            valid_start = max_history
+            n_valid = n_samples - valid_start
+            
+            train_cutoff = valid_start + int(n_valid * (1 - self.test_ratio))
+            
+            train_indices = np.arange(valid_start, train_cutoff)
+            test_indices = np.arange(train_cutoff, n_samples)
+        else:
+            # Random split
+            np.random.seed(self.random_seed)
+            
+            # Can't use samples without enough history
+            valid_indices = np.arange(max_history, n_samples)
+            np.random.shuffle(valid_indices)
+            
+            n_test = int(len(valid_indices) * self.test_ratio)
+            test_indices = valid_indices[:n_test]
+            train_indices = valid_indices[n_test:]
         
         return train_indices, test_indices
 
@@ -685,13 +746,13 @@ class Evaluator:
 class Pipeline:
     """Main pipeline orchestrator"""
     
-    def __init__(self, data_dir, output_dir=None, test_ratio=0.2, max_history=3):
+    def __init__(self, data_dir, output_dir=None, test_ratio=0.2, max_history=3, split_method='random'):
         t_start = time.time()
         self.data = SimulationData(data_dir)
         t_load = time.time() - t_start
         
         self.output_dir = Path(output_dir) if output_dir else self._create_output_dir()
-        self.splitter = DataSplitter(test_ratio=test_ratio)
+        self.splitter = DataSplitter(test_ratio=test_ratio, split_method=split_method)
         self.max_history = max_history
         self.results = {}
         self.timing = {'data_loading': t_load}
@@ -1126,6 +1187,8 @@ Examples:
     parser.add_argument('--output-dir', help='Output directory (auto-generated if not specified)')
     parser.add_argument('--test-ratio', type=float, default=0.2, help='Test set ratio')
     parser.add_argument('--max-history', type=int, default=3, help='Maximum history length')
+    parser.add_argument('--split-method', choices=['random', 'temporal'], default='random',
+                       help='Train/test split strategy: random (default) or temporal')
     parser.add_argument('--model', choices=['gaussian', 'random_forest'], default='gaussian',
                        help='Model type to use')
     parser.add_argument('--metrics', nargs='+', default=['rss', 'sinr', 'cqi'],
@@ -1148,7 +1211,8 @@ Examples:
         data_dir=args.data_dir,
         output_dir=args.output_dir,
         test_ratio=args.test_ratio,
-        max_history=args.max_history
+        max_history=args.max_history,
+        split_method=args.split_method
     )
     
     pipeline.run(metrics_to_test=parsed_metrics, model_type=args.model)
