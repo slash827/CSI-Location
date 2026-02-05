@@ -86,6 +86,19 @@ class RegressionData:
         if hasattr(data['metrics'], 'timing_advance'):
             self.metrics['timing_advance'] = data['metrics'].timing_advance
         
+        # Add path-loss and multi-path metrics if available
+        if hasattr(data['metrics'], 'path_loss'):
+            self.metrics['path_loss'] = data['metrics'].path_loss
+        
+        if hasattr(data['metrics'], 'n_multipath'):
+            self.metrics['n_multipath'] = data['metrics'].n_multipath
+        
+        if hasattr(data['metrics'], 'rms_delay_spread'):
+            self.metrics['rms_delay_spread'] = data['metrics'].rms_delay_spread
+        
+        if hasattr(data['metrics'], 'k_factor'):
+            self.metrics['k_factor'] = data['metrics'].k_factor
+        
         # Compute ground truth targets from UE positions
         ue_positions = data['walk_path'].positions_jittered  # [N x 3] array
         bs_position = self.config['base_station']['position']

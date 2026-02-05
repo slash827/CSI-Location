@@ -2,31 +2,52 @@
   // ML Training Configuration
   // This config controls ML pipeline behavior independently from data generation
   // The data generation config is copied with each dataset for reproducibility
-  
   "experiment": {
     "name": "grid_localization_ml",
     "description": "ML-based localization from channel metrics",
     "random_seed": 42
   },
-  
   "data_split": {
     // Options: 'random' or 'temporal' (sequential to prevent data leakage)
     "method": "temporal",
     "test_ratio": 0.2
   },
-  
   "features": {
     // Available features: rss, sinr, cqi, aoa_azimuth, aoa_elevation, timing_advance
     "classification_features": [
-      ["rss", "sinr", "cqi"],
-      ["rss", "sinr", "cqi", "aoa_azimuth", "aoa_elevation"]
+      [
+        "rss",
+        "sinr",
+        "cqi"
+      ],
+      [
+        "rss",
+        "sinr",
+        "cqi",
+        "aoa_azimuth",
+        "aoa_elevation"
+      ]
     ],
     "regression_features": [
-      ["rss", "sinr", "cqi"],
-      ["rss", "sinr", "cqi", "timing_advance"]
+      [
+        "rss",
+        "sinr",
+        "cqi"
+      ],
+      [
+        "rss",
+        "sinr",
+        "cqi",
+        "aoa_azimuth",
+        "aoa_elevation",
+        "timing_advance",
+        "path_loss",
+        "n_multipath",
+        "rms_delay_spread",
+        "k_factor"
+      ]
     ]
   },
-  
   "realistic_aoa": {
     // Apply realistic impairments to AoA features during training
     // Data generation saves clean AoA; noise added here for flexibility
@@ -36,7 +57,6 @@
     // Quantization resolution in degrees (5° typical for practical systems)
     "quantization_deg": 5.0
   },
-  
   "models": {
     "classification": {
       "static": {
@@ -46,7 +66,11 @@
       "transition": {
         // Gaussian model with movement history
         "enabled": true,
-        "max_history_values": [1, 2, 3]
+        "max_history_values": [
+          1,
+          2,
+          3
+        ]
       },
       "random_forest": {
         "enabled": true,
@@ -58,26 +82,36 @@
     "regression": {
       "random_forest": {
         "enabled": true,
-        "n_estimators": 100,
+        "n_estimators": 200,
         "random_state": 42,
         "n_jobs": -1,
         // Targets: distance (m), azimuth (deg), elevation (deg)
-        "targets": ["distance", "aoa_azimuth", "aoa_elevation"]
+        "targets": [
+          "distance",
+          "aoa_azimuth",
+          "aoa_elevation"
+        ]
       }
     }
   },
-  
   "evaluation": {
     "metrics": {
-      "classification": ["accuracy", "confusion_matrix", "mae_meters"],
-      "regression": ["mae", "rmse", "r2"]
+      "classification": [
+        "accuracy",
+        "confusion_matrix",
+        "mae_meters"
+      ],
+      "regression": [
+        "mae",
+        "rmse",
+        "r2"
+      ]
     },
     "cross_validation": {
       "enabled": false,
       "n_folds": 5
     }
   },
-  
   "output": {
     "save_results": true,
     "generate_plots": true,

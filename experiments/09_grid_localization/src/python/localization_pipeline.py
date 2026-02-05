@@ -33,6 +33,7 @@ from abc import ABC, abstractmethod
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 import time
+from read_jsonc import read_jsonc
 
 
 class SimulationData:
@@ -100,6 +101,19 @@ class SimulationData:
             
         if hasattr(data['metrics'], 'timing_advance'):
             self.metrics['timing_advance'] = data['metrics'].timing_advance
+        
+        # Add path-loss and multi-path metrics if available
+        if hasattr(data['metrics'], 'path_loss'):
+            self.metrics['path_loss'] = data['metrics'].path_loss
+        
+        if hasattr(data['metrics'], 'n_multipath'):
+            self.metrics['n_multipath'] = data['metrics'].n_multipath
+        
+        if hasattr(data['metrics'], 'rms_delay_spread'):
+            self.metrics['rms_delay_spread'] = data['metrics'].rms_delay_spread
+        
+        if hasattr(data['metrics'], 'k_factor'):
+            self.metrics['k_factor'] = data['metrics'].k_factor
         
         self.true_locations = data['walk_path'].grid_point_indices
         self.grid_positions = data['config'].grid_positions
@@ -481,23 +495,25 @@ class RandomForestModel(LocalizationModel):
     - Good with high-dimensional data
     """
     
-    def __init__(self, use_transition=False, history_length=1, n_estimators=100):
+    def __init__(self, use_transition=False, history_length=1, n_estimators=100, max_depth=30, n_jobs=4):
         """
         Args:
             use_transition: If True, include history as features
             history_length: Number of previous timesteps to include
             n_estimators: Number of trees in the forest
+            max_depth: Maximum depth of trees (limits memory usage)
+            n_jobs: Number of parallel jobs (reduce for memory constraints)
         """
         self.use_transition = use_transition
         self.history_length = history_length
         self.n_estimators = n_estimators
         self.model = RandomForestClassifier(
             n_estimators=n_estimators,
-            max_depth=None,
+            max_depth=max_depth,  # Limit tree depth to prevent memory explosion
             min_samples_split=5,
             min_samples_leaf=2,
             random_state=42,
-            n_jobs=-1  # Use all CPU cores
+            n_jobs=n_jobs  # Reduce parallelism to limit memory usage
         )
         mode = "Transition" if use_transition else "Static"
         self.name = f"RandomForest ({mode}, h={history_length})"

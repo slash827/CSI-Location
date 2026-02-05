@@ -193,9 +193,69 @@ fprintf('  Visit distribution: min=%d, max=%d\n', min(visit_counts), max(visit_c
 %% Setup QuaDRiGa
 fprintf('\nSetting up QuaDRiGa channel simulation...\n');
 
+% Check for mixed scenario (Voronoi cells)
+mixed_scenario_enabled = false;
+if isfield(config_json.channel, 'mixed_scenario') && ...
+   config_json.channel.mixed_scenario.enabled
+    mixed_scenario_enabled = true;
+    voronoi_cells = config_json.channel.mixed_scenario.voronoi_cells;
+    n_cells = length(voronoi_cells);
+    
+    % Extract Voronoi centers and scenarios
+    voronoi_centers = zeros(n_cells, 2);
+    voronoi_scenarios = cell(n_cells, 1);
+    voronoi_names = cell(n_cells, 1);
+    
+    for i = 1:n_cells
+        % Access struct array element (not cell array)
+        cell_data = voronoi_cells(i);
+        voronoi_centers(i, :) = cell_data.center;
+        voronoi_scenarios{i} = cell_data.scenario;
+        voronoi_names{i} = cell_data.name;
+    end
+    
+    fprintf('Using Voronoi-based mixed scenarios:\n');
+    for i = 1:n_cells
+        fprintf('  Cell %d (%s): %s at [%.1f, %.1f]\n', ...
+            i, voronoi_names{i}, voronoi_scenarios{i}, ...
+            voronoi_centers(i, 1), voronoi_centers(i, 2));
+    end
+    
+    % Assign each UE position to nearest Voronoi cell
+    n_snapshots = size(walk_path.positions_jittered, 1);
+    voronoi_assignments = zeros(n_snapshots, 1);
+    
+    for t = 1:n_snapshots
+        ue_pos = walk_path.positions_jittered(t, 1:2);  % [x, y]
+        
+        % Find nearest Voronoi center
+        distances = sqrt(sum((voronoi_centers - ue_pos).^2, 2));
+        [~, cell_idx] = min(distances);
+        voronoi_assignments(t) = cell_idx;
+    end
+    
+    % Store Voronoi assignments in walk_path
+    walk_path.voronoi_cell_idx = voronoi_assignments;
+    walk_path.voronoi_centers = voronoi_centers;
+    walk_path.voronoi_scenarios = voronoi_scenarios;
+    walk_path.voronoi_names = voronoi_names;
+    
+    % Statistics
+    fprintf('Voronoi cell assignment statistics:\n');
+    for i = 1:n_cells
+        count = sum(voronoi_assignments == i);
+        percentage = 100 * count / n_snapshots;
+        fprintf('  %s: %d samples (%.1f%%)\n', voronoi_names{i}, count, percentage);
+    end
+end
+
 % Create layout
 l = qd_layout;
-l.set_scenario(config.scenario);
+
+% Set scenario (will be overridden per-snapshot if mixed_scenario enabled)
+if ~mixed_scenario_enabled
+    l.set_scenario(config.scenario);
+end
 
 % Base station configuration
 if interferers_enabled
@@ -224,10 +284,40 @@ l.no_rx = 1;
 l.rx_array = qd_arrayant('omni');
 l.rx_track = qd_track('linear', 0, 0);
 l.rx_track.positions = walk_path.positions_jittered';
-l.rx_track.scenario = {config.scenario};
+
+% Set scenario per segment if using Voronoi cells
+if mixed_scenario_enabled
+    % Get the actual number of segments from the track
+    % QuaDRiGa may have a different number of segments than N-1
+    n_segments = l.rx_track.no_segments;
+    
+    fprintf('  Track has %d positions and %d segments\n', n_snapshots, n_segments);
+    
+    % Create scenario string for each segment
+    scenario_per_segment = cell(1, n_segments);
+    
+    % Assign scenario based on the starting position of each segment
+    for seg = 1:n_segments
+        % Use the position index for this segment (segments correspond to positions 1:N-1)
+        if seg <= length(voronoi_assignments)
+            cell_idx = voronoi_assignments(seg);
+            scenario_per_segment{seg} = voronoi_scenarios{cell_idx};
+        else
+            % Fallback for any extra segments
+            scenario_per_segment{seg} = voronoi_scenarios{1};
+        end
+    end
+    l.rx_track.scenario = scenario_per_segment;
+else
+    l.rx_track.scenario = {config.scenario};
+end
 
 fprintf('QuaDRiGa setup complete:\n');
-fprintf('  Scenario: %s\n', config.scenario);
+if mixed_scenario_enabled
+    fprintf('  Scenario: Mixed (Voronoi-based, %d cells)\n', n_cells);
+else
+    fprintf('  Scenario: %s\n', config.scenario);
+end
 fprintf('  Base stations: %d\n', l.no_tx);
 fprintf('  UE trajectory points: %d\n', size(l.rx_track.positions, 2));
 
@@ -275,22 +365,69 @@ end
 fprintf('Extracted channels: %d subcarriers x %d snapshots\n', ...
     config.n_subcarriers, n_snapshots);
 
-%% Extract Angle of Arrival (AoA) and Timing Advance
-fprintf('\nExtracting AoA and Timing Advance...\n');
+%% Extract Angle of Arrival (AoA), Timing Advance, Path Loss, and Multi-path metrics
+fprintf('\nExtracting AoA, Timing Advance, Path Loss, and Multi-path metrics...\n');
 
 % Preallocate
-aoa_azimuth = zeros(n_snapshots, 1);  % Azimuth angle in degrees
-aoa_elevation = zeros(n_snapshots, 1); % Elevation angle in degrees
+aoa_azimuth = zeros(n_snapshots, 1);    % Azimuth angle in degrees
+aoa_elevation = zeros(n_snapshots, 1);  % Elevation angle in degrees
 timing_advance = zeros(n_snapshots, 1); % Timing advance in microseconds
+path_loss_db = zeros(n_snapshots, 1);   % Path loss in dB
+n_multipath = zeros(n_snapshots, 1);    % Number of significant multipath components
+rms_delay_spread = zeros(n_snapshots, 1); % RMS delay spread in nanoseconds
+k_factor_db = zeros(n_snapshots, 1);    % K-factor (LOS/NLOS power ratio) in dB
 
 for t = 1:n_snapshots
-    % Extract delay information
+    % Extract delay and path gain information
     delays = ch.delay(1, 1, :, t);  % Delays for all paths at snapshot t
-    path_gains = abs(ch.coeff(1, 1, :, t));  % Path gains
+    path_gains = abs(ch.coeff(1, 1, :, t));  % Path gains (complex magnitude)
+    path_powers = path_gains(:).^2;  % Path powers
     
     % Timing Advance: Use first arrival (minimum delay)
     % Convert from seconds to microseconds
     timing_advance(t) = min(delays(:)) * 1e6;
+    
+    % Path Loss: Compute from total received power
+    % Path loss = -10*log10(sum of all path powers)
+    total_power = sum(path_powers);
+    if total_power > 0
+        path_loss_db(t) = -10 * log10(total_power);
+    else
+        path_loss_db(t) = NaN;
+    end
+    
+    % Number of significant multipath components
+    % Count paths with power > 1% of max path power
+    if max(path_powers) > 0
+        significant_threshold = 0.01 * max(path_powers);
+        n_multipath(t) = sum(path_powers > significant_threshold);
+    else
+        n_multipath(t) = 0;
+    end
+    
+    % RMS Delay Spread (in nanoseconds)
+    % sigma_tau = sqrt(E[tau^2] - E[tau]^2), weighted by power
+    if total_power > 0
+        delays_vec = delays(:);
+        weights = path_powers / total_power;
+        mean_delay = sum(delays_vec .* weights);
+        mean_delay_sq = sum((delays_vec.^2) .* weights);
+        rms_delay_spread(t) = sqrt(max(0, mean_delay_sq - mean_delay^2)) * 1e9;  % Convert to ns
+    else
+        rms_delay_spread(t) = 0;
+    end
+    
+    % K-factor: Ratio of LOS (first/strongest path) to NLOS power
+    % K = P_LOS / P_NLOS, where P_NLOS = total - P_LOS
+    [max_power, los_idx] = max(path_powers);
+    nlos_power = total_power - max_power;
+    if nlos_power > 0 && max_power > 0
+        k_factor_db(t) = 10 * log10(max_power / nlos_power);
+    elseif max_power > 0
+        k_factor_db(t) = 30;  % Strong LOS, cap at 30 dB
+    else
+        k_factor_db(t) = NaN;
+    end
     
     % Angle of Arrival: Power-weighted average or dominant path
     % Extract arrival angles (azimuth and elevation)
@@ -300,11 +437,10 @@ for t = 1:n_snapshots
         aoa_el = ch.par.EoA_cb(1, :, t);  % Elevation angles
         
         % Power-weighted average (using path gains as weights)
-        path_power = path_gains(:).^2;
-        path_power = path_power / sum(path_power);  % Normalize to sum to 1
+        weights = path_powers / sum(path_powers);
         
-        aoa_azimuth(t) = sum(aoa_az(:) .* path_power);
-        aoa_elevation(t) = sum(aoa_el(:) .* path_power);
+        aoa_azimuth(t) = sum(aoa_az(:) .* weights);
+        aoa_elevation(t) = sum(aoa_el(:) .* weights);
     else
         % Fallback: estimate from UE position relative to BS
         ue_pos = walk_path.positions_jittered(t, :);
@@ -321,11 +457,15 @@ for t = 1:n_snapshots
     end
 end
 
-fprintf('AoA and TA extracted for %d snapshots\n', n_snapshots);
+fprintf('Metrics extracted for %d snapshots:\n', n_snapshots);
 fprintf('  AoA Azimuth range: [%.2f, %.2f] degrees\n', min(aoa_azimuth), max(aoa_azimuth));
 fprintf('  AoA Elevation range: [%.2f, %.2f] degrees\n', min(aoa_elevation), max(aoa_elevation));
 fprintf('  Timing Advance range: [%.3f, %.3f] μs\n', min(timing_advance), max(timing_advance));
-fprintf('  NOTE: Clean AoA saved; noise/quantization applied during ML training\n');
+fprintf('  Path Loss range: [%.2f, %.2f] dB\n', min(path_loss_db), max(path_loss_db));
+fprintf('  Multipath count range: [%d, %d] paths\n', min(n_multipath), max(n_multipath));
+fprintf('  RMS Delay Spread range: [%.2f, %.2f] ns\n', min(rms_delay_spread), max(rms_delay_spread));
+fprintf('  K-factor range: [%.2f, %.2f] dB\n', min(k_factor_db), max(k_factor_db));
+fprintf('  NOTE: Clean values saved; noise/quantization applied during ML training\n');
 %% Compute interference (if applicable)
 if interferers_enabled
     fprintf('\nComputing interference from %d interfering BSs...\n', n_interferers);
@@ -375,6 +515,10 @@ metrics.cqi_wb = zeros(n_snapshots, 1);
 metrics.aoa_azimuth = zeros(n_snapshots, 1);
 metrics.aoa_elevation = zeros(n_snapshots, 1);
 metrics.timing_advance = zeros(n_snapshots, 1);
+metrics.path_loss = zeros(n_snapshots, 1);
+metrics.n_multipath = zeros(n_snapshots, 1);
+metrics.rms_delay_spread = zeros(n_snapshots, 1);
+metrics.k_factor = zeros(n_snapshots, 1);
 
 tx_power_dbm = config_json.base_station.tx_power_dbm;
 
@@ -395,20 +539,29 @@ for t = 1:n_snapshots
     metrics.aoa_azimuth(t) = aoa_azimuth(t);
     metrics.aoa_elevation(t) = aoa_elevation(t);
     metrics.timing_advance(t) = timing_advance(t);
+    metrics.path_loss(t) = path_loss_db(t);
+    metrics.n_multipath(t) = n_multipath(t);
+    metrics.rms_delay_spread(t) = rms_delay_spread(t);
+    metrics.k_factor(t) = k_factor_db(t);
 end
 
 fprintf('Metrics computed for %d snapshots\n', n_snapshots);
 fprintf('  RSS range: [%.2f, %.2f] dBm\n', min(metrics.rss_wb), max(metrics.rss_wb));
 fprintf('  SINR range: [%.2f, %.2f] dB\n', min(metrics.sinr_wb), max(metrics.sinr_wb));
 fprintf('  CQI range: [%.2f, %.2f]\n', min(metrics.cqi_wb), max(metrics.cqi_wb));
-fprintf('  AoA Azimuth range: [%.2f, %.2f] degrees\n', min(metrics.aoa_azimuth), max(metrics.aoa_azimuth));
-fprintf('  AoA Elevation range: [%.2f, %.2f] degrees\n', min(metrics.aoa_elevation), max(metrics.aoa_elevation));
-fprintf('  Timing Advance range: [%.3f, %.3f] μs\n', min(metrics.timing_advance), max(metrics.timing_advance));
+fprintf('  Path Loss range: [%.2f, %.2f] dB\n', min(metrics.path_loss), max(metrics.path_loss));
+fprintf('  K-factor range: [%.2f, %.2f] dB\n', min(metrics.k_factor), max(metrics.k_factor));
+fprintf('  N Multipath range: [%d, %d]\n', min(metrics.n_multipath), max(metrics.n_multipath));
+fprintf('  RMS Delay Spread range: [%.2f, %.2f] ns\n', min(metrics.rms_delay_spread), max(metrics.rms_delay_spread));
 
 %% Create output directory
-scenario_type = 'LOS';
-if contains(config.scenario, 'NLOS')
-    scenario_type = 'NLOS';
+if mixed_scenario_enabled
+    scenario_type = 'voronoi';
+else
+    scenario_type = 'LOS';
+    if contains(config.scenario, 'NLOS')
+        scenario_type = 'NLOS';
+    end
 end
 
 timestamp = datestr(now, 'yyyy-mm-dd_HH-MM-SS');

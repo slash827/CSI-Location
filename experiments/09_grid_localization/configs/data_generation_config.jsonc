@@ -1,67 +1,134 @@
 {
   // Configuration for Grid Localization Data Generation
-  
   "experiment": {
     "name": "exp13e_corrected_fair_comparison",
     "description": "Static vs Transition-based localization comparison",
     "random_seed": 42
   },
-  
   "data_split": {
     // Options: 'random' (original) or 'temporal' (sequential to avoid leakage)
-    "method": "temporal", 
+    "method": "temporal",
     "test_ratio": 0.2
   },
-
   "grid": {
-    "size": 10,
+    "size": 20,
     "spacing": 2.0,
     "ue_height": 1.5,
-    "grid_offset": [30, 0],
+    "grid_offset": [
+      30,
+      0
+    ],
     "position_jitter": 0.1,
     // Options: 4 (up/down/left/right) or 8 (includes diagonals)
-    "neighbor_connectivity": 4
+    "neighbor_connectivity": 8
   },
-  
   "movement": {
     "steps_per_point": 400,
     "ue_speed": 1.5,
     "starting_point": "center"
   },
-  
   "channel": {
+    // Default/fallback scenario (used when mixed_scenario.enabled = false)
     "scenario": "3GPP_38.901_UMa_NLOS",
     "center_frequency": 3e9,
     "bandwidth": 1e8,
     "n_subcarriers": 256,
-    "interference_per_sc_dbm": -999
+    "interference_per_sc_dbm": -999,
+    // Mixed scenario configuration using Voronoi cells
+    "mixed_scenario": {
+      "enabled": false,
+      "voronoi_cells": [
+        {
+          "center": [
+            35,
+            5
+          ],
+          "scenario": "3GPP_38.901_UMa_LOS",
+          "name": "LOS_South"
+        },
+        {
+          "center": [
+            35,
+            33
+          ],
+          "scenario": "3GPP_38.901_UMa_NLOS",
+          "name": "NLOS_North"
+        },
+        {
+          "center": [
+            60,
+            5
+          ],
+          "scenario": "3GPP_38.901_UMa_LOS",
+          "name": "LOS_East"
+        },
+        {
+          "center": [
+            60,
+            33
+          ],
+          "scenario": "3GPP_38.901_UMa_NLOS",
+          "name": "NLOS_NorthEast"
+        }
+      ]
+    }
   },
-  
   "base_station": {
-    "position": [0, 0, 25],
+    // Main BS positioned in upper third of grid (grid spans Y: 0-38, upper third ≈ Y: 25-38)
+    // Grid center X: 44, so BS at [44, 26, 25] is in upper-middle area
+    "position": [
+      44,
+      26,
+      25
+    ],
     "tx_power_dbm": 30,
     "interferers": {
       "enabled": true,
+      // Interferers positioned ~10m outside grid boundaries
+      // Grid spans: X: [30, 68], Y: [0, 38]
       "positions": [
-        [150, 0, 25],
-        [-150, 0, 25],
-        [0, 150, 25]
+        [
+          78,
+          19,
+          25
+        ],
+        [
+          20,
+          19,
+          25
+        ],
+        [
+          44,
+          -10,
+          25
+        ],
+        [
+          44,
+          48,
+          25
+        ]
       ],
       "tx_power_dbm": 30
     }
   },
-  
   // ML task configuration (used by Python pipelines)
   "ml_task": {
     // Options: 'classification' (predict grid point) or 'regression' (predict position)
     "type": "classification",
     // For regression mode: predict distance (m), azimuth (deg), elevation (deg) relative to BS
-    "regression_targets": ["distance", "aoa_azimuth", "aoa_elevation"],
+    "regression_targets": [
+      "distance",
+      "aoa_azimuth",
+      "aoa_elevation"
+    ],
     "test_ratio": 0.2,
-    "metrics": ["RSS", "SINR", "CQI"],
+    "metrics": [
+      "RSS",
+      "SINR",
+      "CQI"
+    ],
     "max_history_length": 3
   },
-  
   "output": {
     "save_results": true,
     "generate_plots": true,

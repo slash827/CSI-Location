@@ -342,6 +342,106 @@ def plot_temporal_evolution(metrics_data, config, output_dir):
     plt.close()
 
 
+def plot_grid_bs_map(grid_positions, config, output_dir):
+    """Plot a map showing the grid and all base station locations"""
+    
+    grid_size = config['grid']['size']
+    
+    # Create figure
+    fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+    
+    # Plot grid points
+    ax.scatter(grid_positions[:, 0], grid_positions[:, 1], 
+               c='lightblue', s=150, marker='s', alpha=0.7, 
+               edgecolors='darkblue', linewidths=1.5, label='Grid Points', zorder=2)
+    
+    # Draw grid boundary
+    x_min, x_max = grid_positions[:, 0].min(), grid_positions[:, 0].max()
+    y_min, y_max = grid_positions[:, 1].min(), grid_positions[:, 1].max()
+    margin = config['grid']['spacing']
+    
+    from matplotlib.patches import Rectangle
+    grid_rect = Rectangle((x_min - margin/2, y_min - margin/2), 
+                          x_max - x_min + margin, 
+                          y_max - y_min + margin,
+                          linewidth=2, edgecolor='darkblue', 
+                          facecolor='none', linestyle='--', 
+                          label='Grid Boundary', zorder=1)
+    ax.add_patch(grid_rect)
+    
+    # Plot main base station
+    bs_pos = config['base_station']['position']
+    ax.scatter(bs_pos[0], bs_pos[1], c='red', s=500, marker='^', 
+               edgecolors='darkred', linewidths=3, label='Main BS', zorder=5)
+    
+    # Add BS label with height
+    ax.text(bs_pos[0], bs_pos[1] - 3, f'Main BS\n({bs_pos[0]}, {bs_pos[1]}, {bs_pos[2]}m)', 
+            ha='center', va='top', fontsize=10, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.5', facecolor='red', alpha=0.3))
+    
+    # Calculate and display distance from main BS to grid center
+    grid_center = np.mean(grid_positions, axis=0)
+    dist_to_center = np.sqrt((bs_pos[0] - grid_center[0])**2 + (bs_pos[1] - grid_center[1])**2)
+    ax.plot([bs_pos[0], grid_center[0]], [bs_pos[1], grid_center[1]], 
+            'r--', alpha=0.5, linewidth=1.5, zorder=1)
+    mid_x, mid_y = (bs_pos[0] + grid_center[0])/2, (bs_pos[1] + grid_center[1])/2
+    ax.text(mid_x, mid_y, f'{dist_to_center:.1f}m', 
+            ha='center', va='bottom', fontsize=9, color='red', fontweight='bold')
+    
+    # Plot interfering base stations if enabled
+    if config['base_station']['interferers']['enabled']:
+        interferer_positions = config['base_station']['interferers']['positions']
+        colors = ['orange', 'purple', 'green', 'brown', 'pink']  # Support up to 5 interferers
+        
+        for idx, int_pos in enumerate(interferer_positions):
+            color = colors[idx % len(colors)]
+            ax.scatter(int_pos[0], int_pos[1], c=color, s=400, marker='v', 
+                      edgecolors='black', linewidths=2, 
+                      label=f'Interferer {idx+1}', zorder=4)
+            
+            # Add interferer label
+            ax.text(int_pos[0], int_pos[1] - 3, f'Int-{idx+1}\n({int_pos[0]}, {int_pos[1]}, {int_pos[2]}m)', 
+                   ha='center', va='top', fontsize=9,
+                   bbox=dict(boxstyle='round,pad=0.4', facecolor=color, alpha=0.3))
+            
+            # Calculate and display distance from interferer to grid center
+            dist_int_to_center = np.sqrt((int_pos[0] - grid_center[0])**2 + 
+                                        (int_pos[1] - grid_center[1])**2)
+            ax.plot([int_pos[0], grid_center[0]], [int_pos[1], grid_center[1]], 
+                   color=color, linestyle=':', alpha=0.4, linewidth=1.5, zorder=1)
+    
+    # Mark grid center
+    ax.scatter(grid_center[0], grid_center[1], c='yellow', s=200, marker='*', 
+              edgecolors='black', linewidths=2, label='Grid Center', zorder=3)
+    
+    # Set labels and title
+    ax.set_xlabel('X Position (m)', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Y Position (m)', fontsize=13, fontweight='bold')
+    ax.set_title(f'Grid and Base Station Layout Map\n{grid_size}x{grid_size} Grid', 
+                fontsize=15, fontweight='bold')
+    ax.legend(loc='best', fontsize=11, framealpha=0.9)
+    ax.grid(True, alpha=0.3, linestyle='--')
+    ax.set_aspect('equal', adjustable='box')
+    
+    # Add info box with grid details
+    info_text = f'Grid Size: {grid_size}x{grid_size}\n'
+    info_text += f'Grid Spacing: {config["grid"]["spacing"]}m\n'
+    info_text += f'Grid Offset: {config["grid"]["grid_offset"]}\n'
+    info_text += f'UE Height: {config["grid"]["ue_height"]}m\n'
+    info_text += f'BS Height: {bs_pos[2]}m'
+    
+    ax.text(0.02, 0.98, info_text, transform=ax.transAxes, fontsize=10,
+            verticalalignment='top', horizontalalignment='left',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    
+    plt.tight_layout()
+    
+    output_file = output_dir / 'grid_bs_layout_map.png'
+    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    print(f"[SAVED] {output_file}")
+    plt.close()
+
+
 def main():
     if len(sys.argv) != 2:
         print("Usage: python plot_data_generation.py <sim_data_directory>")
@@ -368,19 +468,22 @@ def main():
     print(f"Generating plots...\n")
     
     # Generate all plots
-    print("[1/5] Plotting metric distributions...")
+    print("[1/6] Plotting metric distributions...")
     plot_metric_distributions(data['metrics'], config, output_dir)
     
-    print("[2/5] Plotting walk path analysis...")
+    print("[2/6] Plotting walk path analysis...")
     plot_walk_path_visualization(data['walk_path'], data['config'].grid_positions, 
                                   config, output_dir)
     
-    print("[3/5] Plotting spatial coverage...")
+    print("[3/6] Plotting spatial coverage...")
     plot_spatial_coverage(data['walk_path'], data['config'].grid_positions, 
                           data['metrics'], config, output_dir)
     
-    print("[4/5] Plotting temporal evolution...")
+    print("[4/6] Plotting temporal evolution...")
     plot_temporal_evolution(data['metrics'], config, output_dir)
+    
+    print("[5/6] Plotting grid and base station layout map...")
+    plot_grid_bs_map(data['config'].grid_positions, config, output_dir)
     
     print("\n" + "="*70)
     print(f"All plots saved to: {output_dir}")
