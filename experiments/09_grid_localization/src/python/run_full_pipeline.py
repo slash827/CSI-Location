@@ -110,9 +110,18 @@ def run_localization_pipeline(data_dir, model_type, metrics, max_history):
     data_path = Path(data_dir)
     
     # Load config to get grid size and scenario
-    config_file = data_path / 'config.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    config_file = data_path / 'data_generation_config.jsonc'
+    if not config_file.exists():
+        config_file = data_path / 'config.jsonc'
+    if not config_file.exists():
+        config_file = data_path / 'config.json'
+
+    if config_file.suffix == '.jsonc':
+        from read_jsonc import read_jsonc
+        config = read_jsonc(config_file)
+    else:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
     
     grid_config = config['grid']
     grid_size = f"{grid_config['nx']}x{grid_config['ny']}"

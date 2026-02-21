@@ -20,12 +20,19 @@ fprintf('=== Grid Localization Data Generation ===\n\n');
 
 %% Load Configuration
 % Config file is in ../../configs/ relative to src/matlab/
-config_file = fullfile(experiment_root, 'configs', 'data_generation_config.jsonc');
+% Check for global override from wrapper script (e.g., run_voronoi.m)
+global OVERRIDE_CONFIG_NAME;
+if ~isempty(OVERRIDE_CONFIG_NAME)
+    config_name = OVERRIDE_CONFIG_NAME;
+elseif ~exist('config_name', 'var')
+    config_name = 'voronoi_config.jsonc';
+end
+config_file = fullfile(experiment_root, 'configs', config_name);
 if ~exist(config_file, 'file')
     error('Configuration file not found: %s', config_file);
 end
 
-fprintf('Loading configuration from: data_generation_config.jsonc\n');
+fprintf('Loading configuration from: %s\n', config_name);
 config_json = read_jsonc(config_file);
 
 %% Build configuration
@@ -65,6 +72,12 @@ config.bandwidth = config_json.channel.bandwidth;
 config.n_subcarriers = config_json.channel.n_subcarriers;
 config.scenario = config_json.channel.scenario;
 config.bs_position = config_json.base_station.position;
+
+% Ensure bs_position is a column vector [3x1] for QuaDRiGa
+if numel(config.bs_position) ~= 3
+    error('base_station.position must have exactly 3 elements [x, y, z]');
+end
+config.bs_position = reshape(config.bs_position, 3, 1);
 
 %% Generate grid positions
 [X, Y] = meshgrid(0:config.spacing:(config.grid_size-1)*config.spacing, ...
@@ -198,23 +211,74 @@ mixed_scenario_enabled = false;
 if isfield(config_json.channel, 'mixed_scenario') && ...
    config_json.channel.mixed_scenario.enabled
     mixed_scenario_enabled = true;
-    voronoi_cells = config_json.channel.mixed_scenario.voronoi_cells;
-    n_cells = length(voronoi_cells);
     
-    % Extract Voronoi centers and scenarios
-    voronoi_centers = zeros(n_cells, 2);
-    voronoi_scenarios = cell(n_cells, 1);
-    voronoi_names = cell(n_cells, 1);
-    
-    for i = 1:n_cells
-        % Access struct array element (not cell array)
-        cell_data = voronoi_cells(i);
-        voronoi_centers(i, :) = cell_data.center;
-        voronoi_scenarios{i} = cell_data.scenario;
-        voronoi_names{i} = cell_data.name;
+    % Check if AreaGenerator should auto-generate the Voronoi cells
+    if isfield(config_json.channel.mixed_scenario, 'auto_generate') && ...
+       config_json.channel.mixed_scenario.auto_generate
+        
+        fprintf('Auto-generating Voronoi cells via AreaGenerator...\n');
+        ag_params = config_json.channel.mixed_scenario.area_generator;
+        
+        % Build AreaGenerator config
+        ag_config = struct();
+        ag_config.num_areas = ag_params.num_areas;
+        ag_config.transition_width = ag_params.transition_width;
+        ag_config.random_seed = config_json.experiment.random_seed;
+        
+        % Convert area_types from struct array / cell to cell array of strings
+        if iscell(ag_params.area_types)
+            ag_config.area_types = ag_params.area_types;
+        else
+            ag_config.area_types = arrayfun(@(x) x, ag_params.area_types, 'UniformOutput', false);
+        end
+        
+        % Calculate area bounds from grid or use explicit value
+        if ischar(ag_params.area_bounds) && strcmp(ag_params.area_bounds, 'auto')
+            x_min = config.grid_offset(1) - config.spacing;
+            x_max = config.grid_offset(1) + (config.grid_size) * config.spacing;
+            y_min = config.grid_offset(2) - config.spacing;
+            y_max = config.grid_offset(2) + (config.grid_size) * config.spacing;
+            ag_config.area_bounds = [x_min, x_max, y_min, y_max];
+            fprintf('  Auto-calculated bounds: [%.0f, %.0f, %.0f, %.0f]\n', ...
+                x_min, x_max, y_min, y_max);
+        else
+            ag_config.area_bounds = ag_params.area_bounds;
+        end
+        
+        % Generate areas using AreaGenerator
+        areas = AreaGenerator.generate(ag_config);
+        n_cells = length(areas);
+        
+        % Convert AreaGenerator output to voronoi_cells format
+        voronoi_centers = zeros(n_cells, 2);
+        voronoi_scenarios = cell(n_cells, 1);
+        voronoi_names = cell(n_cells, 1);
+        
+        for i = 1:n_cells
+            voronoi_centers(i, :) = areas(i).seed;
+            voronoi_scenarios{i} = areas(i).scenario;
+            voronoi_names{i} = areas(i).area_type;
+        end
+    else
+        % Manual Voronoi cells from config
+        voronoi_cells = config_json.channel.mixed_scenario.voronoi_cells;
+        n_cells = length(voronoi_cells);
+        
+        % Extract Voronoi centers and scenarios
+        voronoi_centers = zeros(n_cells, 2);
+        voronoi_scenarios = cell(n_cells, 1);
+        voronoi_names = cell(n_cells, 1);
+        
+        for i = 1:n_cells
+            % Access struct array element (not cell array)
+            cell_data = voronoi_cells(i);
+            voronoi_centers(i, :) = cell_data.center;
+            voronoi_scenarios{i} = cell_data.scenario;
+            voronoi_names{i} = cell_data.name;
+        end
     end
     
-    fprintf('Using Voronoi-based mixed scenarios:\n');
+    fprintf('Using Voronoi-based mixed scenarios (%d cells):\n', n_cells);
     for i = 1:n_cells
         fprintf('  Cell %d (%s): %s at [%.1f, %.1f]\n', ...
             i, voronoi_names{i}, voronoi_scenarios{i}, ...
@@ -264,7 +328,7 @@ if interferers_enabled
     l.no_tx = n_bs_total;
     
     % Serving BS
-    l.tx_position(:, 1) = config.bs_position';
+    l.tx_position(:, 1) = config.bs_position;
     l.tx_array(1) = qd_arrayant('omni');
     
     % Interfering BSs
@@ -275,7 +339,7 @@ if interferers_enabled
 else
     % Single BS
     l.no_tx = 1;
-    l.tx_position = config.bs_position';
+    l.tx_position = config.bs_position;
     l.tx_array = qd_arrayant('omni');
 end
 

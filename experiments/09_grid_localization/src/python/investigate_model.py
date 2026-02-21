@@ -38,9 +38,18 @@ def load_data(data_dir):
     print(f"Loading data from: {sim_file}")
     data = loadmat(str(sim_file), squeeze_me=True, struct_as_record=False)
     
-    config_file = data_dir / 'config.json'
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    config_file = data_dir / 'data_generation_config.jsonc'
+    if not config_file.exists():
+        config_file = data_dir / 'config.jsonc'
+    if not config_file.exists():
+        config_file = data_dir / 'config.json'
+
+    if config_file.suffix == '.jsonc':
+        from read_jsonc import read_jsonc
+        config = read_jsonc(config_file)
+    else:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
     
     return data, config
 

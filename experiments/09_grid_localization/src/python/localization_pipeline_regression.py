@@ -206,7 +206,8 @@ class DataSplitter:
 class RegressionPipeline:
     """Main regression pipeline"""
     
-    def __init__(self, data_dir, output_dir=None, test_ratio=0.2, split_method='random', max_history=0):
+    def __init__(self, data_dir, output_dir=None, test_ratio=0.2, split_method='random', max_history=0, 
+                 n_estimators=100, max_depth=None, min_samples_split=2, min_samples_leaf=1):
         t_start = time.time()
         self.data = RegressionData(data_dir)
         t_load = time.time() - t_start
@@ -214,6 +215,10 @@ class RegressionPipeline:
         self.output_dir = Path(output_dir) if output_dir else self._create_output_dir()
         self.splitter = DataSplitter(test_ratio=test_ratio, split_method=split_method)
         self.max_history = max_history
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
         self.results = {}
         self.timing = {'data_loading': t_load}
     
@@ -319,7 +324,16 @@ class RegressionPipeline:
                 t_train = time.time()
                 
                 if model_type == 'random_forest':
-                    model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+                    model = RandomForestRegressor(
+                        n_estimators=self.n_estimators,
+                        max_depth=self.max_depth,
+                        min_samples_split=self.min_samples_split,
+                        min_samples_leaf=self.min_samples_leaf,
+                        random_state=42,
+                        n_jobs=-1
+                    )
+                    print(f"  Model: RandomForest(n_estimators={self.n_estimators}, max_depth={self.max_depth}, "
+                          f"min_samples_split={self.min_samples_split}, min_samples_leaf={self.min_samples_leaf})")
                 else:
                     raise ValueError(f"Unknown model type: {model_type}")
                 
@@ -381,6 +395,14 @@ class RegressionPipeline:
                     'position_mae_3d': position_mae_3d,
                     'position_errors_3d': position_errors_3d
                 }
+                
+                # Save results to disk for per-cell analysis
+                if h == 0:  # Save baseline h=0 for per-cell analysis
+                    results_file = self.output_dir / f'results_h{h}.npz'
+                    np.savez(results_file,
+                            y_test=y_test,
+                            y_pred=y_pred,
+                            test_indices=test_idx)
         
         # Generate report
         self.generate_report()
@@ -447,6 +469,16 @@ def main():
     parser.add_argument('--max-history', type=int, default=3,
                        help='Maximum history length to test (0 to max_history)')
     
+    # Random Forest hyperparameters
+    parser.add_argument('--n-estimators', type=int, default=100,
+                       help='Number of trees in Random Forest (default: 100)')
+    parser.add_argument('--max-depth', type=int, default=None,
+                       help='Maximum depth of trees (default: None = unlimited)')
+    parser.add_argument('--min-samples-split', type=int, default=2,
+                       help='Minimum samples required to split a node (default: 2)')
+    parser.add_argument('--min-samples-leaf', type=int, default=1,
+                       help='Minimum samples required at leaf node (default: 1)')
+    
     args = parser.parse_args()
     
     # Run pipeline (uses all available features)
@@ -455,7 +487,11 @@ def main():
         output_dir=args.output_dir,
         test_ratio=args.test_ratio,
         split_method=args.split_method,
-        max_history=args.max_history
+        max_history=args.max_history,
+        n_estimators=args.n_estimators,
+        max_depth=args.max_depth,
+        min_samples_split=args.min_samples_split,
+        min_samples_leaf=args.min_samples_leaf
     )
     
     pipeline.run(model_type=args.model)

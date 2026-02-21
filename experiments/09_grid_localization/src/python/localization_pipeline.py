@@ -32,6 +32,14 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+try:
+    from xgboost import XGBClassifier
+    HAS_XGBOOST = True
+except ImportError:
+    HAS_XGBOOST = False
 import time
 from read_jsonc import read_jsonc
 
@@ -484,150 +492,302 @@ class GaussianTransitionModel(LocalizationModel):
         return self.name
 
 
-class RandomForestModel(LocalizationModel):
-    """Random Forest classifier for localization
-    
-    Advantages:
-    - Handles multiple features naturally (can combine RSS + SINR)
-    - Learns non-linear relationships
-    - Captures feature interactions automatically
-    - No Gaussian assumption needed
-    - Good with high-dimensional data
+class TransitionFeatureExtractor:
+    """Extract engineered transition features from metric history.
+
+    Instead of raw stacking (which scales as O(h * n_metrics) and requires
+    enumerating possible paths through grid points), this creates a fixed-size
+    feature vector that captures transition dynamics:
+
+    - Current values (absolute position signal)
+    - Per-step deltas (movement signal)
+    - Cumulative change (total displacement signal)
+    - Trend slope (acceleration/direction signal)
+    - Variance (stability signal)
+
+    Feature vector size = n_metrics * (h + 4) for history length h.
+    This is INDEPENDENT of grid size — the key scalability property.
     """
-    
-    def __init__(self, use_transition=False, history_length=1, n_estimators=100, max_depth=30, n_jobs=4):
-        """
+
+    @staticmethod
+    def extract(current_values, previous_values_list):
+        """Extract transition features from a history window.
+
         Args:
-            use_transition: If True, include history as features
-            history_length: Number of previous timesteps to include
-            n_estimators: Number of trees in the forest
-            max_depth: Maximum depth of trees (limits memory usage)
-            n_jobs: Number of parallel jobs (reduce for memory constraints)
+            current_values: Current metric values (scalar or 1D array)
+            previous_values_list: List of previous values [t-h, ..., t-2, t-1]
+                                 Each element is scalar or 1D array
+
+        Returns:
+            1D numpy feature vector
         """
+        current = np.atleast_1d(np.asarray(current_values, dtype=float))
+        n_metrics = len(current)
+
+        if not previous_values_list or len(previous_values_list) == 0:
+            return current
+
+        # Build sequence: [t-h, ..., t-1, t]
+        sequence = []
+        for pv in previous_values_list:
+            sequence.append(np.atleast_1d(np.asarray(pv, dtype=float)))
+        sequence.append(current)
+        sequence = np.array(sequence)  # shape: (h+1, n_metrics)
+
+        features = []
+
+        # 1. Current absolute values
+        features.extend(current)
+
+        # 2. Per-step deltas
+        deltas = np.diff(sequence, axis=0)  # shape: (h, n_metrics)
+        features.extend(deltas.flatten())
+
+        # 3. Cumulative change (current - oldest)
+        features.extend(current - sequence[0])
+
+        # 4. Trend (slope of linear fit per metric)
+        h_plus_1 = len(sequence)
+        if h_plus_1 >= 2:
+            x = np.arange(h_plus_1, dtype=float)
+            for m in range(n_metrics):
+                slope = np.polyfit(x, sequence[:, m], 1)[0]
+                features.append(slope)
+
+        # 5. Variance over window
+        features.extend(np.var(sequence, axis=0))
+
+        return np.array(features)
+
+    @staticmethod
+    def feature_size(n_metrics, history_length):
+        """Calculate feature vector size for given parameters."""
+        if history_length == 0:
+            return n_metrics
+        # current(k) + deltas(h*k) + cumulative(k) + trend(k) + variance(k)
+        return n_metrics * (history_length + 4)
+
+
+def _build_sklearn_features(metric_value, previous_values, history_length, feature_mode):
+    """Build feature vector for sklearn-style models.
+
+    Shared helper used by RandomForest, XGBoost, and MLP models.
+
+    Args:
+        metric_value: Current observation (scalar or array)
+        previous_values: List of previous values [t-h, ..., t-1] or None
+        history_length: Number of history steps
+        feature_mode: 'raw' for stacking, 'smart' for engineered features
+
+    Returns:
+        1D numpy feature vector
+    """
+    current = np.atleast_1d(np.asarray(metric_value, dtype=float))
+
+    if previous_values is None or len(previous_values) == 0:
+        return current
+
+    if feature_mode == 'smart':
+        return TransitionFeatureExtractor.extract(current, previous_values)
+    else:
+        # Raw stacking: [current, t-1, t-2, ..., t-h]
+        vec = list(current)
+        n_history = min(len(previous_values), history_length)
+        history_to_use = previous_values[-n_history:]
+        # Reverse to get newest-first: [t-1, t-2, ..., t-h]
+        for prev_val in reversed(history_to_use):
+            vec.extend(np.atleast_1d(np.asarray(prev_val, dtype=float)))
+        return np.array(vec)
+
+
+class BaseSklearnModel(LocalizationModel):
+    """Base class for sklearn-based classifiers with smart feature support.
+
+    Handles common logic for feature building, training, and prediction.
+    Subclasses only need to provide the sklearn classifier instance.
+    """
+
+    def __init__(self, classifier, model_name, use_transition=False,
+                 history_length=1, feature_mode='raw'):
+        self.classifier = classifier
         self.use_transition = use_transition
         self.history_length = history_length
-        self.n_estimators = n_estimators
-        self.model = RandomForestClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,  # Limit tree depth to prevent memory explosion
-            min_samples_split=5,
-            min_samples_leaf=2,
-            random_state=42,
-            n_jobs=n_jobs  # Reduce parallelism to limit memory usage
-        )
-        mode = "Transition" if use_transition else "Static"
-        self.name = f"RandomForest ({mode}, h={history_length})"
-    
+        self.feature_mode = feature_mode
+        self.name = model_name
+
     def train(self, metric_values, true_locations, train_indices, n_points):
-        """Train random forest classifier
-        
-        Args:
-            metric_values: Can be 1D array (single metric) or 2D array (multiple metrics)
-                          Shape: (n_samples,) or (n_samples, n_features)
-            true_locations: Array of location labels (1-indexed from MATLAB)
-            train_indices: Indices to use for training
-            n_points: Number of grid points
-        """
-        # Ensure metric_values is 2D
+        """Train the classifier."""
         if metric_values.ndim == 1:
             metric_values = metric_values.reshape(-1, 1)
-        
-        n_samples, n_base_features = metric_values.shape
-        
-        # Build feature matrix
+
+        min_idx = self.history_length if self.use_transition else 0
+
         if self.use_transition and self.history_length > 0:
-            # Include history as features
             features_list = []
             labels_list = []
-            
             for idx in train_indices:
-                if idx < self.history_length:
-                    continue  # Skip if not enough history
-                
-                # Current + history features
-                feature_vec = []
-                for h in range(self.history_length + 1):
-                    feature_vec.extend(metric_values[idx - h])
-                
-                features_list.append(feature_vec)
+                if idx < min_idx:
+                    continue
+                previous = [metric_values[idx - h] for h in range(self.history_length, 0, -1)]
+                feat = _build_sklearn_features(metric_values[idx], previous,
+                                               self.history_length, self.feature_mode)
+                features_list.append(feat)
                 labels_list.append(true_locations[idx])
-            
             X_train = np.array(features_list)
             y_train = np.array(labels_list)
         else:
-            # Static: just current features
             X_train = metric_values[train_indices]
             y_train = true_locations[train_indices]
-        
-        # Train model
-        self.model.fit(X_train, y_train)
-        self.n_base_features = n_base_features
-    
+
+        self.classifier.fit(X_train, y_train)
+
     def predict(self, metric_value, previous_values=None):
-        """Predict location probabilities
-        
-        Args:
-            metric_value: Current observation(s), can be scalar or array
-            previous_values: List of previous observations (if use_transition=True)
-                           Each element can be scalar or array
-        
-        Returns:
-            Array of probabilities for each location
-        """
-        # Ensure metric_value is array
+        """Predict location probabilities."""
         if np.isscalar(metric_value):
             metric_value = np.array([metric_value])
-        elif metric_value.ndim == 0:
+        elif hasattr(metric_value, 'ndim') and metric_value.ndim == 0:
             metric_value = metric_value.reshape(1)
-        
-        # Build feature vector
+
         if self.use_transition and previous_values is not None:
-            feature_vec = []
-            
-            # Must match training order: current, then history (t-1, t-2, ..., t-h)
-            # Add current value first
-            feature_vec.extend(metric_value if hasattr(metric_value, '__iter__') else [metric_value])
-            
-            # Add history: from most recent (t-1) to oldest (t-history_length)
-            # Training uses: for h in range(history_length+1): extend(metric_values[idx-h])
-            # This gives: [idx-0 (current), idx-1, idx-2, ..., idx-history_length]
-            # previous_values comes as [idx-history_length, ..., idx-2, idx-1] (oldest to newest)
-            # So we need to REVERSE it to get [idx-1, idx-2, ..., idx-history_length]
-            n_history_needed = self.history_length
-            if len(previous_values) < n_history_needed:
-                # Pad with zeros if not enough history (shouldn't happen in evaluation)
-                previous_values = [0] * (n_history_needed - len(previous_values)) + list(previous_values)
-            
-            # Take the last history_length values and reverse to match training order
-            history_to_use = previous_values[-n_history_needed:] if len(previous_values) >= n_history_needed else previous_values
-            history_to_use = list(reversed(history_to_use))  # Reverse to get [t-1, t-2, ..., t-h]
-            
-            for prev_val in history_to_use:
-                if np.isscalar(prev_val):
-                    feature_vec.append(prev_val)
-                else:
-                    feature_vec.extend(prev_val if hasattr(prev_val, '__iter__') else [prev_val])
-            
-            X = np.array(feature_vec).reshape(1, -1)
+            feat = _build_sklearn_features(metric_value, previous_values,
+                                           self.history_length, self.feature_mode)
+            X = feat.reshape(1, -1)
         else:
-            # Static mode
-            X = metric_value.reshape(1, -1)
-        
-        # Get probability predictions
-        proba = self.model.predict_proba(X)[0]
-        
-        # Return probabilities in the order of classes
-        # Note: sklearn classes are sorted, need to map back to grid points
-        n_classes = len(self.model.classes_)
-        posterior = np.zeros(n_classes)
-        for i, class_label in enumerate(self.model.classes_):
-            # class_label is 1-indexed from MATLAB, convert to 0-indexed
+            X = np.atleast_1d(metric_value).reshape(1, -1)
+
+        proba = self.classifier.predict_proba(X)[0]
+
+        # Map sklearn class probabilities back to grid point indices (1-indexed)
+        max_class = int(max(self.classifier.classes_))
+        posterior = np.zeros(max_class)
+        for i, class_label in enumerate(self.classifier.classes_):
             posterior[int(class_label) - 1] = proba[i]
-        
+
         return posterior
-    
+
     def get_name(self):
         return self.name
+
+
+class RandomForestModel(BaseSklearnModel):
+    """Random Forest classifier for localization."""
+
+    def __init__(self, use_transition=False, history_length=1, n_estimators=100,
+                 max_depth=30, n_jobs=4, feature_mode='raw'):
+        clf = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            min_samples_split=5,
+            min_samples_leaf=2,
+            random_state=42,
+            n_jobs=n_jobs
+        )
+        mode = "Transition" if use_transition else "Static"
+        fm = f", {feature_mode}" if use_transition else ""
+        name = f"RandomForest ({mode}, h={history_length}{fm})"
+        super().__init__(clf, name, use_transition, history_length, feature_mode)
+
+
+class XGBoostModel(BaseSklearnModel):
+    """XGBoost classifier for localization."""
+
+    def __init__(self, use_transition=False, history_length=1, n_estimators=100,
+                 max_depth=6, learning_rate=0.1, feature_mode='raw', n_jobs=4):
+        if not HAS_XGBOOST:
+            raise ImportError("xgboost is not installed. Install with: pip install xgboost")
+        clf = XGBClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            random_state=42,
+            n_jobs=n_jobs,
+            verbosity=0,
+            use_label_encoder=False,
+            eval_metric='mlogloss'
+        )
+        mode = "Transition" if use_transition else "Static"
+        fm = f", {feature_mode}" if use_transition else ""
+        name = f"XGBoost ({mode}, h={history_length}{fm})"
+        super().__init__(clf, name, use_transition, history_length, feature_mode)
+
+    def train(self, metric_values, true_locations, train_indices, n_points):
+        """Train XGBoost - needs 0-indexed labels."""
+        if metric_values.ndim == 1:
+            metric_values = metric_values.reshape(-1, 1)
+
+        min_idx = self.history_length if self.use_transition else 0
+
+        if self.use_transition and self.history_length > 0:
+            features_list = []
+            labels_list = []
+            for idx in train_indices:
+                if idx < min_idx:
+                    continue
+                previous = [metric_values[idx - h] for h in range(self.history_length, 0, -1)]
+                feat = _build_sklearn_features(metric_values[idx], previous,
+                                               self.history_length, self.feature_mode)
+                features_list.append(feat)
+                labels_list.append(true_locations[idx])
+            X_train = np.array(features_list)
+            y_train = np.array(labels_list)
+        else:
+            X_train = metric_values[train_indices]
+            y_train = true_locations[train_indices]
+
+        # XGBoost needs 0-indexed labels for multi-class
+        self._label_offset = int(y_train.min())
+        y_train_0idx = y_train - self._label_offset
+        self.classifier.fit(X_train, y_train_0idx)
+
+    def predict(self, metric_value, previous_values=None):
+        """Predict with XGBoost - handle 0-indexed labels."""
+        if np.isscalar(metric_value):
+            metric_value = np.array([metric_value])
+        elif hasattr(metric_value, 'ndim') and metric_value.ndim == 0:
+            metric_value = metric_value.reshape(1)
+
+        if self.use_transition and previous_values is not None:
+            feat = _build_sklearn_features(metric_value, previous_values,
+                                           self.history_length, self.feature_mode)
+            X = feat.reshape(1, -1)
+        else:
+            X = np.atleast_1d(metric_value).reshape(1, -1)
+
+        proba = self.classifier.predict_proba(X)[0]
+
+        # Map back to 1-indexed grid points
+        max_class = int(max(self.classifier.classes_)) + self._label_offset
+        posterior = np.zeros(max_class)
+        for i, class_label in enumerate(self.classifier.classes_):
+            posterior[int(class_label) + self._label_offset - 1] = proba[i]
+
+        return posterior
+
+
+class MLPModel(BaseSklearnModel):
+    """Multi-Layer Perceptron classifier for localization.
+
+    Uses StandardScaler internally since MLPs are sensitive to feature scales.
+    """
+
+    def __init__(self, use_transition=False, history_length=1,
+                 hidden_layers=(256, 128, 64), max_iter=500, feature_mode='raw'):
+        clf = make_pipeline(
+            StandardScaler(),
+            MLPClassifier(
+                hidden_layer_sizes=hidden_layers,
+                activation='relu',
+                solver='adam',
+                max_iter=max_iter,
+                random_state=42,
+                early_stopping=True,
+                validation_fraction=0.1
+            )
+        )
+        mode = "Transition" if use_transition else "Static"
+        fm = f", {feature_mode}" if use_transition else ""
+        name = f"MLP ({mode}, h={history_length}{fm})"
+        super().__init__(clf, name, use_transition, history_length, feature_mode)
 
 
 class Evaluator:
@@ -762,14 +922,16 @@ class Evaluator:
 class Pipeline:
     """Main pipeline orchestrator"""
     
-    def __init__(self, data_dir, output_dir=None, test_ratio=0.2, max_history=3, split_method='random'):
+    def __init__(self, data_dir, output_dir=None, test_ratio=0.2, max_history=3,
+                 split_method='random', feature_mode='raw'):
         t_start = time.time()
         self.data = SimulationData(data_dir)
         t_load = time.time() - t_start
-        
+
         self.output_dir = Path(output_dir) if output_dir else self._create_output_dir()
         self.splitter = DataSplitter(test_ratio=test_ratio, split_method=split_method)
         self.max_history = max_history
+        self.feature_mode = feature_mode
         self.results = {}
         self.timing = {'data_loading': t_load}
     
@@ -808,24 +970,59 @@ class Pipeline:
         else:
             raise ValueError(f"Invalid metric specification: {metric_spec}")
     
-    def run(self, metrics_to_test=['rss', 'sinr', 'cqi'], model_type='gaussian'):
+    def _create_model(self, model_type, is_transition, history_length,
+                      n_estimators=100, n_jobs=4, max_depth=30):
+        """Factory method to create the appropriate model."""
+        if model_type == 'gaussian':
+            if is_transition:
+                return GaussianTransitionModel(self.data.neighbors, history_length=history_length)
+            else:
+                return GaussianStaticModel()
+        elif model_type == 'random_forest':
+            return RandomForestModel(
+                use_transition=is_transition, history_length=history_length,
+                n_estimators=n_estimators, max_depth=max_depth, n_jobs=n_jobs,
+                feature_mode=self.feature_mode
+            )
+        elif model_type == 'xgboost':
+            return XGBoostModel(
+                use_transition=is_transition, history_length=history_length,
+                n_estimators=n_estimators, max_depth=min(max_depth, 10) if max_depth else 6,
+                n_jobs=n_jobs, feature_mode=self.feature_mode
+            )
+        elif model_type == 'mlp':
+            return MLPModel(
+                use_transition=is_transition, history_length=history_length,
+                feature_mode=self.feature_mode
+            )
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
+
+    def run(self, metrics_to_test=['rss', 'sinr', 'cqi'], model_type='gaussian',
+             n_estimators=100, n_jobs=4, max_depth=30, max_train_samples=None):
         """Run complete pipeline
-        
+
         Args:
             metrics_to_test: List of metric specifications. Each can be:
                            - String: 'rss', 'sinr', 'cqi'
                            - List: ['RSS', 'SINR'] for combined metrics
-            model_type: 'gaussian' or 'random_forest'
+            model_type: 'gaussian', 'random_forest', 'xgboost', or 'mlp'
+            n_estimators: Number of estimators (trees for RF/XGBoost)
+            n_jobs: Number of parallel jobs
+            max_depth: Maximum tree depth
+            max_train_samples: Subsample training data to this many samples
         """
         t_pipeline_start = time.time()
-        
+
         print(f"\n{'='*70}")
         print(f"LOCALIZATION PIPELINE")
         print(f"{'='*70}")
         print(f"Output directory: {self.output_dir}")
         print(f"Model type: {model_type}")
+        if model_type != 'gaussian':
+            print(f"Feature mode: {self.feature_mode}")
         print(f"Data loading time: {self.timing['data_loading']:.2f}s")
-        
+
         # Display metrics in readable format
         metric_names = []
         for m_spec in metrics_to_test:
@@ -835,144 +1032,92 @@ class Pipeline:
                 metric_names.append(str(m_spec).upper())
         print(f"Metrics to test: {', '.join(metric_names)}")
         print(f"Max history length: {self.max_history}")
-        
+
         # Split data
         train_static, test_static = self.splitter.split_static(self.data.n_samples)
         train_transition, test_transition = self.splitter.split_transition(
             self.data.n_samples, self.max_history
         )
-        
+
         print(f"\nData splits:")
         print(f"  Static: {len(train_static)} train, {len(test_static)} test")
         print(f"  Transition: {len(train_transition)} train, {len(test_transition)} test")
-        
+
         # Track timing for each metric
         self.timing['metrics'] = {}
-        
+
         # Evaluate each metric (or metric combination)
         for metric_spec in metrics_to_test:
             t_metric_start = time.time()
             metric_name, metric_values = self._prepare_metric_data(metric_spec)
-            
+
             print(f"\n{'-'*70}")
             print(f"Evaluating {metric_name}")
             if metric_values.ndim > 1:
                 print(f"  Feature dimension: {metric_values.shape[1]}")
             print(f"{'-'*70}")
-            
+
+            # Gaussian models only work with 1D features (single metric)
+            if model_type == 'gaussian' and metric_values.ndim > 1:
+                print(f"\n  WARNING: Gaussian models only support single metrics.")
+                print(f"           Skipping {metric_name}. Use --model random_forest instead.")
+                continue
+
             metric_timing = {}
-            
-            # Choose model based on type
-            if model_type == 'random_forest':
-                # Static model
-                print(f"\nTraining Random Forest (static)...")
+
+            # --- Static model ---
+            print(f"\nTraining {model_type} (static)...")
+            t_train = time.time()
+            static_model = self._create_model(model_type, False, 0,
+                                              n_estimators, n_jobs, max_depth)
+            static_model.train(metric_values, self.data.true_locations,
+                             train_static, self.data.n_points)
+            metric_timing['static_train'] = time.time() - t_train
+
+            print(f"Evaluating static model...")
+            t_eval = time.time()
+            static_results = Evaluator.evaluate_static(
+                static_model, metric_values, self.data.true_locations, test_static,
+                grid_positions=self.data.grid_positions
+            )
+            metric_timing['static_eval'] = time.time() - t_eval
+
+            print(f"  Accuracy: {static_results['accuracy']:.2f}%")
+            print(f"  MAE: {static_results['mae']:.3f} meters")
+            print(f"  Time: train={metric_timing['static_train']:.2f}s, eval={metric_timing['static_eval']:.2f}s")
+
+            # --- Transition models with different history lengths ---
+            transition_results = []
+            metric_timing['transition_train'] = []
+            metric_timing['transition_eval'] = []
+
+            for h in range(1, self.max_history + 1):
+                print(f"\nTraining {model_type} (transition, h={h})...")
                 t_train = time.time()
-                static_model = RandomForestModel(use_transition=False, history_length=0, n_estimators=100)
-                static_model.train(metric_values, self.data.true_locations, 
-                                 train_static, self.data.n_points)
-                metric_timing['static_train'] = time.time() - t_train
-                
-                print(f"Evaluating static model...")
+                trans_model = self._create_model(model_type, True, h,
+                                                 n_estimators, n_jobs, max_depth)
+                trans_model.train(metric_values, self.data.true_locations,
+                                train_transition, self.data.n_points)
+                metric_timing['transition_train'].append(time.time() - t_train)
+
+                print(f"Evaluating transition model (h={h})...")
                 t_eval = time.time()
-                static_results = Evaluator.evaluate_static(
-                    static_model, metric_values, self.data.true_locations, test_static,
+                trans_result = Evaluator.evaluate_transition(
+                    trans_model, metric_values, self.data.true_locations, test_transition,
                     grid_positions=self.data.grid_positions
                 )
-                metric_timing['static_eval'] = time.time() - t_eval
-                
-                print(f"  Accuracy: {static_results['accuracy']:.2f}%")
-                print(f"  MAE: {static_results['mae']:.3f} meters")
-                print(f"  Time: train={metric_timing['static_train']:.2f}s, eval={metric_timing['static_eval']:.2f}s")
-                
-                # Transition models with different history lengths
-                transition_results = []
-                metric_timing['transition_train'] = []
-                metric_timing['transition_eval'] = []
-                
-                for h in range(1, self.max_history + 1):
-                    print(f"\nTraining Random Forest (transition, h={h})...")
-                    t_train = time.time()
-                    trans_model = RandomForestModel(use_transition=True, history_length=h, n_estimators=100)
-                    trans_model.train(metric_values, self.data.true_locations,
-                                    train_transition, self.data.n_points)
-                    metric_timing['transition_train'].append(time.time() - t_train)
-                    
-                    print(f"Evaluating transition model (h={h})...")
-                    t_eval = time.time()
-                    trans_result = Evaluator.evaluate_transition(
-                        trans_model, metric_values, self.data.true_locations, test_transition,
-                        grid_positions=self.data.grid_positions
-                    )
-                    metric_timing['transition_eval'].append(time.time() - t_eval)
-                    
-                    print(f"  Accuracy: {trans_result['accuracy']:.2f}%")
-                    print(f"  MAE: {trans_result['mae']:.3f} meters")
-                    print(f"  Time: train={metric_timing['transition_train'][-1]:.2f}s, eval={metric_timing['transition_eval'][-1]:.2f}s")
-                    
-                    transition_results.append(trans_result)
-            
-            else:  # gaussian (default)
-                # Note: Gaussian models only work with 1D features (single metric)
-                if metric_values.ndim > 1:
-                    print(f"\n  WARNING: Gaussian models only support single metrics.")
-                    print(f"           Skipping {metric_name}. Use --model random_forest instead.")
-                    continue
-                
-                # Static model
-                print(f"\nTraining Gaussian (static)...")
-                t_train = time.time()
-                static_model = GaussianStaticModel()
-                static_model.train(metric_values, self.data.true_locations, 
-                                 train_static, self.data.n_points)
-                metric_timing['static_train'] = time.time() - t_train
-                
-                print(f"Evaluating static model...")
-                t_eval = time.time()
-                static_results = Evaluator.evaluate_static(
-                    static_model, metric_values, self.data.true_locations, test_static,
-                    grid_positions=self.data.grid_positions
-                )
-                metric_timing['static_eval'] = time.time() - t_eval
-                
-                print(f"  Accuracy: {static_results['accuracy']:.2f}%")
-                print(f"  MAE: {static_results['mae']:.3f} meters")
-                print(f"  Time: train={metric_timing['static_train']:.2f}s, eval={metric_timing['static_eval']:.2f}s")
-                
-                # Transition models with different history lengths
-                transition_results = []
-                metric_timing['transition_train'] = []
-                metric_timing['transition_eval'] = []
-                
-                for h in range(1, self.max_history + 1):
-                    print(f"\nTraining Gaussian (transition, h={h})...")
-                    print(f"  [DEBUG] Creating model with history_length={h}")
-                    t_train = time.time()
-                    trans_model = GaussianTransitionModel(self.data.neighbors, history_length=h)
-                    print(f"  [DEBUG] Model.history_length = {trans_model.history_length}")
-                    trans_model.train(metric_values, self.data.true_locations,
-                                    train_transition, self.data.n_points)
-                    metric_timing['transition_train'].append(time.time() - t_train)
-                    
-                    print(f"Evaluating transition model (h={h})...")
-                    print(f"  [DEBUG] Will skip samples with idx < {h}")
-                    t_eval = time.time()
-                    trans_result = Evaluator.evaluate_transition(
-                        trans_model, metric_values, self.data.true_locations, test_transition,
-                        grid_positions=self.data.grid_positions
-                    )
-                    metric_timing['transition_eval'].append(time.time() - t_eval)
-                    
-                    print(f"  Accuracy: {trans_result['accuracy']:.2f}%")
-                    print(f"  MAE: {trans_result['mae']:.3f} meters")
-                    print(f"  [DEBUG] Evaluated {len(trans_result['predictions'])} samples")
-                    print(f"  Time: train={metric_timing['transition_train'][-1]:.2f}s, eval={metric_timing['transition_eval'][-1]:.2f}s")
-                    
-                    transition_results.append(trans_result)
-            
+                metric_timing['transition_eval'].append(time.time() - t_eval)
+
+                print(f"  Accuracy: {trans_result['accuracy']:.2f}%")
+                print(f"  MAE: {trans_result['mae']:.3f} meters")
+                print(f"  Time: train={metric_timing['transition_train'][-1]:.2f}s, eval={metric_timing['transition_eval'][-1]:.2f}s")
+
+                transition_results.append(trans_result)
+
             # Store results
             metric_timing['total'] = time.time() - t_metric_start
             self.timing['metrics'][metric_name] = metric_timing
-            
+
             self.results[metric_name] = {
                 'static': static_results,
                 'transition': transition_results
@@ -1036,18 +1181,6 @@ class Pipeline:
         np.savez(output_file, **save_dict)
         print(f"\n[OK] Results saved to: {output_file}")
     
-    def generate_report(self):
-        """Generate summary report"""
-        report_file = self.output_dir / 'SUMMARY_REPORT.md'
-        
-        with open(report_file, 'w', encoding='utf-8') as f:
-            f.write('# Localization Pipeline Results\n\n')
-            f.write(f'**Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
-            
-            f.write('## Configuration\n\n')
-            f.write(f'- Scenario: {self.data.config["channel"]["scenario"]}\n')
-            f.write(f'- Grid Size: {self.data.config["grid"]["size"]}x{self.data.config["grid"]["size"]}\n')
-            f.write(f'- Total Samples: {self.data.n_samples}\n')
     def generate_report(self):
         """Generate summary report (MATLAB-compatible format)"""
         report_file = self.output_dir / 'SUMMARY_REPORT.md'
@@ -1205,10 +1338,17 @@ Examples:
     parser.add_argument('--max-history', type=int, default=3, help='Maximum history length')
     parser.add_argument('--split-method', choices=['random', 'temporal'], default='random',
                        help='Train/test split strategy: random (default) or temporal')
-    parser.add_argument('--model', choices=['gaussian', 'random_forest'], default='gaussian',
-                       help='Model type to use')
+    parser.add_argument('--model', choices=['gaussian', 'random_forest', 'xgboost', 'mlp'],
+                       default='gaussian', help='Model type to use')
+    parser.add_argument('--feature-mode', choices=['raw', 'smart'], default='raw',
+                       help='Feature mode: raw (stack history) or smart (engineered transition features)')
     parser.add_argument('--metrics', nargs='+', default=['rss', 'sinr', 'cqi'],
                        help='Metrics to evaluate. Use comma-separated for combinations (e.g., "RSS,SINR")')
+    parser.add_argument('--n-estimators', type=int, default=100, help='Number of trees for Random Forest')
+    parser.add_argument('--n-jobs', type=int, default=4, help='Parallel jobs for Random Forest')
+    parser.add_argument('--max-depth', type=int, default=30, help='Max tree depth for Random Forest')
+    parser.add_argument('--max-train-samples', type=int, default=None,
+                        help='Subsample training data to this many samples (for memory constraints)')
     
     args = parser.parse_args()
     
@@ -1228,10 +1368,13 @@ Examples:
         output_dir=args.output_dir,
         test_ratio=args.test_ratio,
         max_history=args.max_history,
-        split_method=args.split_method
+        split_method=args.split_method,
+        feature_mode=args.feature_mode
     )
     
-    pipeline.run(metrics_to_test=parsed_metrics, model_type=args.model)
+    pipeline.run(metrics_to_test=parsed_metrics, model_type=args.model,
+                 n_estimators=args.n_estimators, n_jobs=args.n_jobs,
+                 max_depth=args.max_depth, max_train_samples=args.max_train_samples)
 
 
 if __name__ == '__main__':
