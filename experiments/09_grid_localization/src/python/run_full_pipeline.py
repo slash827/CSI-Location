@@ -11,6 +11,9 @@ import json
 import re
 from datetime import datetime
 
+# Project root: 4 levels up from src/python/ -> experiments/09_grid_localization/ -> experiments/ -> CSI-Location/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+
 
 def run_matlab_data_generation(grid_size, scenario, n_samples):
     """Run MATLAB script to generate simulation data
@@ -128,7 +131,7 @@ def run_localization_pipeline(data_dir, model_type, metrics, max_history):
     scenario = 'LOS' if 'LOS' in config['channel']['scenario'] else 'NLOS'
     
     # Find output directory
-    results_base = Path('results/grid_localization') / f'grid_{grid_size}'
+    results_base = PROJECT_ROOT / 'results' / 'grid_localization' / f'grid_{grid_size}'
     if not results_base.exists():
         print(f"\n❌ Results directory not found: {results_base}")
         sys.exit(1)

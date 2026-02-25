@@ -12,6 +12,8 @@ Usage:
 import argparse
 import csv
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend (no Tk/Tcl needed)
 import matplotlib.pyplot as plt
 from pathlib import Path
 

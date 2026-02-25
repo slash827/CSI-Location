@@ -28,7 +28,7 @@ from localization_pipeline import (
     GaussianStaticModel, GaussianTransitionModel,
     RandomForestModel, XGBoostModel, MLPModel,
     TransitionFeatureExtractor, Evaluator,
-    _build_sklearn_features
+    _build_sklearn_features, PROJECT_ROOT
 )
 
 
@@ -147,6 +147,9 @@ def run_experiment_matrix(data_dirs, algorithms, metrics_list, max_history,
     for grid_label in data_dirs:
         for algo in algorithms:
             for metric_spec in metrics_list:
+                # Gaussian only supports single metrics (not multi-metric like RSS+SINR)
+                if algo == 'gaussian' and isinstance(metric_spec, list):
+                    continue
                 for h in range(0, max_history + 1):
                     for fm in feature_modes:
                         # Skip irrelevant combos
@@ -216,7 +219,7 @@ def run_experiment_matrix(data_dirs, algorithms, metrics_list, max_history,
 
                             print(f"acc={result['accuracy']:.1f}% "
                                   f"mae={result['mae']:.2f}m "
-                                  f"({result['train_time']:.1f}s)")
+                                  f"(train={result['train_time']:.1f}s eval={result['eval_time']:.1f}s)")
 
                             all_results.append({
                                 'grid': f"{grid_size}x{grid_size}",
@@ -500,7 +503,7 @@ Examples:
     # Auto output dir
     if args.output_dir is None:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        args.output_dir = f"results/experiment_matrix_{timestamp}"
+        args.output_dir = str(PROJECT_ROOT / f"results/experiment_matrix/{timestamp}")
 
     # Run
     results = run_experiment_matrix(

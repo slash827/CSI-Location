@@ -16,6 +16,10 @@ import numpy as np
 from pathlib import Path
 from scipy.io import loadmat
 from datetime import datetime
+
+# Project root: 4 levels up from src/python/ -> experiments/09_grid_localization/ -> experiments/ -> CSI-Location/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import time
@@ -229,7 +233,7 @@ class RegressionPipeline:
         grid_size = self.data.config['grid']['size']
         
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        output_dir = Path(f"results/grid_localization/grid_{grid_size}x{grid_size}/exp_regression_{los_nlos}_{timestamp}")
+        output_dir = PROJECT_ROOT / f"results/grid_localization/grid_{grid_size}x{grid_size}/exp_regression_{los_nlos}_{timestamp}"
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
     

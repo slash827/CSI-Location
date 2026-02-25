@@ -1,0 +1,99 @@
+{
+  // Voronoi Heterogeneous 10x10 Grid — BS Inside Grid
+  //
+  // KEY DESIGN:
+  //   - 10x10 grid, 2m spacing (18m x 18m area)
+  //   - Serving BS placed at CENTER of grid (inside the coverage area)
+  //   - Lower BS height (10m) — Urban Micro small cell deployment
+  //   - Voronoi-based mixed LOS/NLOS scenarios (4 areas)
+  //   - No interfering BSs
+  //
+  // This creates a realistic small-cell scenario where the UE moves
+  // within the cell coverage area directly under/around the BS.
+
+  "experiment": {
+    "name": "voronoi_10x10_bs_inside",
+    "description": "10x10 Voronoi heterogeneous grid with serving BS at grid center",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "grid": {
+    "size": 10,
+    "spacing": 2.0,
+    "ue_height": 1.5,
+    "grid_offset": [5, 5],
+    "position_jitter": 0.1,
+    "neighbor_connectivity": 8
+  },
+
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+
+  "channel": {
+    // Fallback scenario (for positions outside all Voronoi cells)
+    "scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    "interference_per_sc_dbm": -999,
+
+    // Voronoi-based mixed scenario
+    "mixed_scenario": {
+      "enabled": true,
+      "auto_generate": true,
+
+      "area_generator": {
+        "num_areas": 4,
+        "area_bounds": "auto",
+        "transition_width": 3,
+        "area_types": [
+          "shopping_center",
+          "residential",
+          "office",
+          "park"
+        ]
+      },
+
+      "voronoi_cells": []
+    }
+  },
+
+  "base_station": {
+    // BS at CENTER of the 10x10 grid
+    // Grid: 10 points, 2m spacing, offset [5,5]
+    //   X range: [5, 23], Y range: [5, 23]
+    //   Center: (14, 14)
+    // Height: 10m (Urban Micro small cell, closer to UEs)
+    "position": [14, 14, 10],
+    "tx_power_dbm": 30,
+    "interferers": {
+      "enabled": false,
+      "positions": [],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "classification",
+    "regression_targets": ["distance", "aoa_azimuth", "aoa_elevation"],
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR", "CQI"],
+    "max_history_length": 3
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": true,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}

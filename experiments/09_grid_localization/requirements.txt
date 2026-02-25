@@ -1,7 +1,10 @@
-# Python Requirements for Grid Localization Plotting
+# Python Requirements for Grid Localization Experiment
 # Install with: pip install -r requirements.txt
 
 numpy>=1.20.0
+scipy>=1.7.0
 matplotlib>=3.5.0
 seaborn>=0.11.0
-scipy>=1.7.0
+scikit-learn>=1.0.0
+xgboost>=1.5.0
+pandas>=1.3.0
