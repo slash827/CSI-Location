@@ -1,0 +1,106 @@
+{
+  // Voronoi Heterogeneous 20x20 Grid — BS Inside Grid
+  //
+  // KEY DESIGN (mirrors voronoi_10x10 and voronoi_15x15 for controlled scalability comparison):
+  //   - 20x20 grid, 2m spacing (38m x 38m area)
+  //   - Serving BS at CENTER of grid: (24, 24, 10)
+  //   - Same BS height (10m) — Urban Micro small cell, same as 10x10 and 15x15
+  //   - Same Voronoi area types as 10x10/15x15 (shopping_center/residential/highway/park)
+  //   - Same 400 steps/point — 160,000 total samples
+  //   - Same random seed (42) for reproducible Voronoi tessellation
+  //
+  // Grid geometry:
+  //   size=20, spacing=2m, offset=[5,5]
+  //   X range: [5, 43],  Y range: [5, 43]
+  //   Center: (24, 24)  ← BS is here (midpoint between 10th and 11th grid point)
+  //
+  // Distance range from BS:
+  //   Nearest grid point: [23, 23, 1.5] or [25, 25, 1.5] → ~8.6m
+  //   Farthest corner:    [5,  5,  1.5] or [43, 43, 1.5] → ~28.2m
+
+  "experiment": {
+    "name": "voronoi_20x20_bs_inside",
+    "description": "20x20 Voronoi heterogeneous grid with serving BS at grid center",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "grid": {
+    "size": 20,
+    "spacing": 2.0,
+    "ue_height": 1.5,
+    "grid_offset": [5, 5],
+    "position_jitter": 0.1,
+    "neighbor_connectivity": 8
+  },
+
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+
+  "channel": {
+    // Fallback scenario (for positions outside all Voronoi cells)
+    "scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    "interference_per_sc_dbm": -999,
+
+    // Voronoi-based mixed scenario — same 4 types as 10x10/15x15 for direct comparison
+    "mixed_scenario": {
+      "enabled": true,
+      "auto_generate": true,
+
+      "area_generator": {
+        "num_areas": 4,
+        "area_bounds": "auto",
+        "transition_width": 3,
+        "area_types": [
+          "shopping_center",  // → UMi_NLOS (dense indoor/enclosed)
+          "residential",      // → 50/50 UMi_LOS/NLOS (suburban mix)
+          "highway",          // → RMa_LOS (open, rural macro — most distinct model)
+          "park"              // → UMi_LOS (open outdoor)
+        ]
+      },
+
+      "voronoi_cells": []
+    }
+  },
+
+  "base_station": {
+    // BS at CENTER of the 20x20 grid
+    // Grid: 20 points, 2m spacing, offset [5,5]
+    //   X range: [5, 43],  Y range: [5, 43]
+    //   Center: (24, 24)  — midpoint of the 38m x 38m area
+    // Height: 10m — same as 10x10/15x15 for controlled comparison
+    "position": [24, 24, 10],
+    "tx_power_dbm": 30,
+    "interferers": {
+      "enabled": false,
+      "positions": [],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "classification",
+    "regression_targets": ["distance", "aoa_azimuth", "aoa_elevation"],
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR", "CQI"],
+    "max_history_length": 3
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": true,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}
