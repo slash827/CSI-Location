@@ -1,0 +1,103 @@
+{
+  // Multi-BS Heterogeneous 10x10 Grid — 1 Serving BS + 2 Interfering BSs
+  //
+  // KEY DESIGN (extends voronoi_10x10 to test multi-BS localization):
+  //   - Same 10x10 grid, 2m spacing, Voronoi environment as voronoi_10x10
+  //   - Serving BS at grid CENTER: [14, 14, 10]
+  //   - 2 interfering BSs at OPPOSITE CORNERS of the grid:
+  //       IBS-1: [5,  5,  10]  (lower-left)
+  //       IBS-2: [23, 23, 10]  (upper-right)
+  //   - SINR now encodes spatial position relative to ALL 3 BSs (not just distance ring)
+  //   - Per-interferer RSS stored as rss_ibs_1, rss_ibs_2 in simulation_data.mat
+  //
+  // Research question:
+  //   Can rss_ibs_1 + rss_ibs_2 (multi-BS ranging) replace AoA for localization?
+  //   Comparison: {RSS+SINR} vs {RSS+SINR+rss_ibs_1+rss_ibs_2} vs {RSS+SINR+AoA}
+
+  "experiment": {
+    "name": "multi_bs_10x10",
+    "description": "10x10 Voronoi grid with 3 total BSs: serving at center + 2 interferers at corners",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "grid": {
+    "size": 10,
+    "spacing": 2.0,
+    "ue_height": 1.5,
+    "grid_offset": [5, 5],
+    "position_jitter": 0.1,
+    "neighbor_connectivity": 8
+  },
+
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+
+  "channel": {
+    "scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    // No pre-set per-SC interference — computed dynamically from interferer channels
+    "interference_per_sc_dbm": -999,
+
+    "mixed_scenario": {
+      "enabled": true,
+      "auto_generate": true,
+
+      "area_generator": {
+        "num_areas": 4,
+        "area_bounds": "auto",
+        "transition_width": 3,
+        "area_types": [
+          "shopping_center",
+          "residential",
+          "highway",
+          "park"
+        ]
+      },
+
+      "voronoi_cells": []
+    }
+  },
+
+  "base_station": {
+    // Serving BS at grid center (same as voronoi_10x10)
+    "position": [14, 14, 10],
+    "tx_power_dbm": 30,
+
+    "interferers": {
+      "enabled": true,
+      // IBS-1 at lower-left corner, IBS-2 at upper-right corner.
+      // Diagonal placement maximises spatial variation in SINR across the grid.
+      "positions": [
+        [5,  5,  10],
+        [23, 23, 10]
+      ],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "classification",
+    "regression_targets": ["distance", "aoa_azimuth", "aoa_elevation"],
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR", "CQI"],
+    "max_history_length": 3
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": true,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}

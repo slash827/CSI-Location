@@ -1,0 +1,114 @@
+{
+  // Multi-BS Interference v2 — Realistic Interferer Placement Outside Grid
+  //
+  // KEY DIFFERENCE FROM v1:
+  //   v1 had interferers at grid corners [5,5] and [23,23] — INSIDE the grid footprint.
+  //   This made the serving BS non-dominant for nearby corner UEs and produced
+  //   SINR range of −47 to −23 dB (interferers overwhelmed serving BS).
+  //
+  // v2 places interferers OUTSIDE the grid, at ~30m ISD from the serving BS:
+  //   IBS-1: [-16, 14, 10]  — 30m directly WEST  (outside west grid boundary)
+  //   IBS-2: [14, -16, 10]  — 30m directly SOUTH (outside south grid boundary)
+  //
+  // RATIONALE:
+  //   - In a real network, a UE is always attached to the CLOSEST (strongest) BS.
+  //     Interferers are neighbour-cell BSs, which are outside the current cell area.
+  //   - With IBS at 30m ISD, serving BS is always dominant: min(serving distance) ≈ 8.5m,
+  //     min(IBS distance to any UE) ≈ 21m → SINR typically +5 to +15 dB.
+  //   - Orthogonal placement (west + south) creates a 2D SINR gradient:
+  //       IBS-1 creates west→east gradient, IBS-2 creates south→north gradient.
+  //       Combined SINR encodes approximate (x,y) position in the cell.
+  //
+  // RESEARCH QUESTION:
+  //   Does a realistic SINR gradient (positive values, 2D spatial pattern)
+  //   improve localization beyond single-BS `rss+sinr`?
+  //   Comparison: single-BS {rss+sinr} vs multi-BS {rss+sinr} vs {rss+sinr+aoa}
+  //   (rss_ibs_* captured in .mat but NOT used as features — triangulation is out of scope)
+
+  "experiment": {
+    "name": "multi_bs_10x10_v2",
+    "description": "10x10 Voronoi, serving BS at center + 2 interferers 30m outside grid (realistic ISD)",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "grid": {
+    "size": 10,
+    "spacing": 2.0,
+    "ue_height": 1.5,
+    "grid_offset": [5, 5],
+    "position_jitter": 0.1,
+    "neighbor_connectivity": 8
+  },
+
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+
+  "channel": {
+    "scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    "interference_per_sc_dbm": -999,
+
+    "mixed_scenario": {
+      "enabled": true,
+      "auto_generate": true,
+
+      "area_generator": {
+        "num_areas": 4,
+        "area_bounds": "auto",
+        "transition_width": 3,
+        "area_types": [
+          "shopping_center",
+          "residential",
+          "highway",
+          "park"
+        ]
+      },
+
+      "voronoi_cells": []
+    }
+  },
+
+  "base_station": {
+    // Serving BS at grid center — same as all voronoi_10x10 experiments
+    "position": [14, 14, 10],
+    "tx_power_dbm": 30,
+
+    "interferers": {
+      "enabled": true,
+      // IBS-1: 30m west  → creates east-west SINR gradient
+      // IBS-2: 30m south → creates north-south SINR gradient
+      // Both outside grid boundary → serving BS always dominant for all 100 grid points
+      "positions": [
+        [-16, 14,  10],
+        [ 14, -16, 10]
+      ],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "classification",
+    "regression_targets": ["distance", "aoa_azimuth", "aoa_elevation"],
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR", "CQI"],
+    "max_history_length": 3
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": true,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}
