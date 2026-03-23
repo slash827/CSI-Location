@@ -21,7 +21,9 @@ from datetime import datetime
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
 
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from xgboost import XGBRegressor
 import time
 from read_jsonc import read_jsonc
 
@@ -102,7 +104,12 @@ class RegressionData:
         
         if hasattr(data['metrics'], 'k_factor'):
             self.metrics['k_factor'] = data['metrics'].k_factor
-        
+
+        # Per-interferer RSS fields (rss_ibs_1, rss_ibs_2, ...) for multi-BS experiments
+        for field in dir(data['metrics']):
+            if field.startswith('rss_ibs_'):
+                self.metrics[field] = getattr(data['metrics'], field)
+
         # Compute ground truth targets from UE positions
         ue_positions = data['walk_path'].positions_jittered  # [N x 3] array
         bs_position = self.config['base_station']['position']
@@ -268,9 +275,10 @@ class RegressionPipeline:
         return X_stacked, valid_indices
     
     def _prepare_features(self, feature_spec):
-        """Prepare feature matrix"""
+        """Prepare feature matrix (always returns 2D)"""
         if isinstance(feature_spec, str):
-            return feature_spec, self.data.metrics[feature_spec.lower()]
+            vals = self.data.metrics[feature_spec.lower()]
+            return feature_spec, vals.reshape(-1, 1) if vals.ndim == 1 else vals
         elif isinstance(feature_spec, list):
             feature_name = '+'.join(feature_spec)
             feature_arrays = [self.data.metrics[f.lower()] for f in feature_spec]
@@ -324,9 +332,8 @@ class RegressionPipeline:
                 print(f"{'-'*70}")
                 
                 # Train model
-                print("Training Random Forest Regressor...")
                 t_train = time.time()
-                
+
                 if model_type == 'random_forest':
                     model = RandomForestRegressor(
                         n_estimators=self.n_estimators,
@@ -336,8 +343,16 @@ class RegressionPipeline:
                         random_state=42,
                         n_jobs=-1
                     )
-                    print(f"  Model: RandomForest(n_estimators={self.n_estimators}, max_depth={self.max_depth}, "
-                          f"min_samples_split={self.min_samples_split}, min_samples_leaf={self.min_samples_leaf})")
+                    print(f"Training RandomForest(n_estimators={self.n_estimators}, max_depth={self.max_depth})...")
+                elif model_type == 'xgboost':
+                    model = MultiOutputRegressor(XGBRegressor(
+                        n_estimators=self.n_estimators,
+                        max_depth=6,
+                        learning_rate=0.1,
+                        random_state=42,
+                        n_jobs=4
+                    ))
+                    print(f"Training XGBoost(n_estimators={self.n_estimators}, max_depth=6, lr=0.1)...")
                 else:
                     raise ValueError(f"Unknown model type: {model_type}")
                 
@@ -468,10 +483,13 @@ def main():
     parser.add_argument('--test-ratio', type=float, default=0.2, help='Test set ratio')
     parser.add_argument('--split-method', choices=['random', 'temporal'], default='temporal',
                        help='Train/test split strategy')
-    parser.add_argument('--model', choices=['random_forest'], default='random_forest',
+    parser.add_argument('--model', choices=['random_forest', 'xgboost'], default='random_forest',
                        help='Model type to use')
     parser.add_argument('--max-history', type=int, default=3,
                        help='Maximum history length to test (0 to max_history)')
+    parser.add_argument('--metrics', nargs='+', default=None,
+                       help='Metric combinations to test (comma-separated per combo). '
+                            'E.g.: rss sinr "rss,sinr" "rss,sinr,aoa_azimuth"')
     
     # Random Forest hyperparameters
     parser.add_argument('--n-estimators', type=int, default=100,
@@ -498,7 +516,15 @@ def main():
         min_samples_leaf=args.min_samples_leaf
     )
     
-    pipeline.run(model_type=args.model)
+    # Parse metric combinations
+    features_to_test = None
+    if args.metrics:
+        features_to_test = []
+        for spec in args.metrics:
+            parts = [m.strip() for m in spec.split(',')]
+            features_to_test.append(parts if len(parts) > 1 else parts[0])
+
+    pipeline.run(features_to_test=features_to_test, model_type=args.model)
 
 
 if __name__ == '__main__':

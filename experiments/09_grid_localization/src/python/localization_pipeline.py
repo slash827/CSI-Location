@@ -123,7 +123,12 @@ class SimulationData:
         
         if hasattr(data['metrics'], 'k_factor'):
             self.metrics['k_factor'] = data['metrics'].k_factor
-        
+
+        # Per-interferer RSS fields (rss_ibs_1, rss_ibs_2, ...) for multi-BS experiments
+        for field in dir(data['metrics']):
+            if field.startswith('rss_ibs_'):
+                self.metrics[field] = getattr(data['metrics'], field)
+
         self.true_locations = data['walk_path'].grid_point_indices
         self.grid_positions = data['config'].grid_positions
         self.neighbors = self._convert_neighbors(data['config'].neighbors)
@@ -518,34 +523,45 @@ class GaussianTransitionModel(LocalizationModel):
         path_means = self._paths['means']      # shape (P, history_len)
         path_stds = self._paths['stds']        # shape (P, history_len)
         P = len(path_curr)
-        
-        # Compute log-pdf for each (sample, path, delta_step): shape (N, P, history_len)
-        # Using broadcasting: deltas(N,1,H) vs means(1,P,H) and stds(1,P,H)
-        all_logpdfs = norm.logpdf(
-            deltas[:, None, :],        # (N, 1, H)
-            path_means[None, :, :],    # (1, P, H)
-            path_stds[None, :, :]      # (1, P, H)
-        )
-        
-        # Sum log-probs across delta steps for each path: shape (N, P)
-        path_scores = all_logpdfs.sum(axis=2)
-        
-        # For each sample and grid point, find the best path score
-        # transition_scores shape: (N, n_points), initialized to -inf
-        transition_scores = np.full((N, n_points), -np.inf)
-        for loc in range(n_points):
-            mask = path_curr == loc
-            if mask.any():
-                transition_scores[:, loc] = path_scores[:, mask].max(axis=1)
-        
-        # Combine static + transition in log space
-        log_posterior = static_logpdfs + transition_scores
-        
-        # Handle cases where all transition scores are -inf (fall back to static)
-        all_inf_mask = np.all(np.isinf(transition_scores), axis=1)
-        log_posterior[all_inf_mask] = static_logpdfs[all_inf_mask]
-        
-        predictions = np.argmax(log_posterior, axis=1) + 1
+
+        # Chunk over test samples to bound the dense (chunk, P, H) array to ~256 MB.
+        # Without chunking, shape (N, P, H) can reach several GB on larger grids
+        # (e.g. 10x10 h=3: 8000 × 35952 × 3 × 8 bytes ≈ 6.4 GB → OOM).
+        _MEM_BUDGET = 256 * 1024 * 1024  # 256 MB per chunk
+        chunk_size = max(1, int(_MEM_BUDGET / (P * history_len * 8))) if P > 0 else N
+
+        predictions = np.empty(N, dtype=int)
+
+        for start in range(0, N, chunk_size):
+            end = min(start + chunk_size, N)
+            nc = end - start  # number of samples in this chunk
+
+            # Log-pdf for each (sample, path, delta_step): shape (nc, P, H)
+            all_logpdfs = norm.logpdf(
+                deltas[start:end, None, :],    # (nc, 1, H)
+                path_means[None, :, :],         # (1, P, H)
+                path_stds[None, :, :]           # (1, P, H)
+            )
+
+            # Sum log-probs across delta steps for each path: shape (nc, P)
+            path_scores = all_logpdfs.sum(axis=2)
+
+            # Best path score per grid point: shape (nc, n_points)
+            transition_scores = np.full((nc, n_points), -np.inf)
+            for loc in range(n_points):
+                mask = path_curr == loc
+                if mask.any():
+                    transition_scores[:, loc] = path_scores[:, mask].max(axis=1)
+
+            # Combine static + transition in log space
+            log_posterior = static_logpdfs[start:end] + transition_scores
+
+            # Fall back to static where all transition scores are -inf
+            all_inf_mask = np.all(np.isinf(transition_scores), axis=1)
+            log_posterior[all_inf_mask] = static_logpdfs[start:end][all_inf_mask]
+
+            predictions[start:end] = np.argmax(log_posterior, axis=1) + 1
+
         return predictions, valid_mask
     
     def predict(self, metric_value, previous_values=None, previous_location=None):

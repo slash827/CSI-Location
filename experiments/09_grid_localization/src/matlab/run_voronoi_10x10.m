@@ -4,7 +4,8 @@
 % SCENARIO:
 %   - 10x10 grid, 2m spacing (18m x 18m)
 %   - Serving BS at grid center [14, 14, 10] — UMi small cell
-%   - 4 Voronoi areas: shopping_center, residential, office, park
+%   - 4 Voronoi areas: shopping_center, residential, highway, park
+%     → Scenarios: UMi_NLOS / 50-50 UMi / RMa_LOS / UMi_LOS (fully distinct)
 %   - 400 steps/point = 40,000 total samples
 %   - No interfering base stations
 %

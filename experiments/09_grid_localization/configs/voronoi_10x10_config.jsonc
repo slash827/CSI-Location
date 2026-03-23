@@ -5,7 +5,7 @@
   //   - 10x10 grid, 2m spacing (18m x 18m area)
   //   - Serving BS placed at CENTER of grid (inside the coverage area)
   //   - Lower BS height (10m) — Urban Micro small cell deployment
-  //   - Voronoi-based mixed LOS/NLOS scenarios (4 areas)
+  //   - Voronoi-based diverse scenarios (4 areas: UMi_NLOS, 50/50, RMa_LOS, UMi_LOS)
   //   - No interfering BSs
   //
   // This creates a realistic small-cell scenario where the UE moves
@@ -55,10 +55,10 @@
         "area_bounds": "auto",
         "transition_width": 3,
         "area_types": [
-          "shopping_center",
-          "residential",
-          "office",
-          "park"
+          "shopping_center",  // → UMi_NLOS (dense indoor/enclosed)
+          "residential",      // → 50/50 UMi_LOS/NLOS (suburban mix)
+          "highway",          // → RMa_LOS (open, rural macro — most distinct model)
+          "park"              // → UMi_LOS (open outdoor)
         ]
       },
 

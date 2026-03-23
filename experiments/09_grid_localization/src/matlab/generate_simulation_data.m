@@ -7,7 +7,34 @@
 %   - walk_path (locations)
 %   - config (grid, neighbors, etc.)
 
-clear; clc; close all;
+% Declare override globals BEFORE any clear so they survive the workspace reset.
+% These are used by multi-user wrapper scripts (run_multi_user_15x15.m).
+global OVERRIDE_CONFIG_NAME;
+global OVERRIDE_WALK_SEED;
+global OVERRIDE_N_RX_ANTENNAS;
+global OVERRIDE_ANTENNA_GAIN_DB;
+global OVERRIDE_UE_HEIGHT_M;
+global OVERRIDE_OUTPUT_DIR;
+global OVERRIDE_OUTPUT_FILENAME;
+global OVERRIDE_USER_ID;
+
+% Only clear the workspace when running standalone (no multi-user override).
+% When called from a loop in run_multi_user_15x15.m, OVERRIDE_OUTPUT_DIR is set
+% and we must NOT clear the base workspace (it would destroy the loop variables).
+if isempty(OVERRIDE_OUTPUT_DIR)
+    clear; clc; close all;
+    % Re-declare globals after clear (clear removes local references but not global data)
+    global OVERRIDE_CONFIG_NAME;
+    global OVERRIDE_WALK_SEED;
+    global OVERRIDE_N_RX_ANTENNAS;
+    global OVERRIDE_ANTENNA_GAIN_DB;
+    global OVERRIDE_UE_HEIGHT_M;
+    global OVERRIDE_OUTPUT_DIR;
+    global OVERRIDE_OUTPUT_FILENAME;
+    global OVERRIDE_USER_ID;
+else
+    clc;  % Clear console only — preserve workspace variables for the loop
+end
 
 %% Setup paths
 script_dir = fileparts(mfilename('fullpath'));
@@ -21,7 +48,6 @@ fprintf('=== Grid Localization Data Generation ===\n\n');
 %% Load Configuration
 % Config file is in ../../configs/ relative to src/matlab/
 % Check for global override from wrapper script (e.g., run_voronoi.m)
-global OVERRIDE_CONFIG_NAME;
 if ~isempty(OVERRIDE_CONFIG_NAME)
     config_name = OVERRIDE_CONFIG_NAME;
 elseif ~exist('config_name', 'var')
@@ -42,6 +68,12 @@ config.spacing = config_json.grid.spacing;
 config.ue_height = config_json.grid.ue_height;
 config.grid_offset = config_json.grid.grid_offset;
 config.position_jitter = config_json.grid.position_jitter;
+
+% UE height override for device profile experiments
+if ~isempty(OVERRIDE_UE_HEIGHT_M)
+    config.ue_height = OVERRIDE_UE_HEIGHT_M;
+    fprintf('Device profile override: ue_height = %.2f m\n', config.ue_height);
+end
 
 % Neighbor connectivity (4 or 8)
 if isfield(config_json.grid, 'neighbor_connectivity')
@@ -137,8 +169,13 @@ end
 %% Generate random walk path
 fprintf('\nGenerating random walk path (%d steps)...\n', config.n_steps);
 
-% Use random seed from config
-rng(config_json.experiment.random_seed);
+% Use random seed from config (or override for multi-user device isolation)
+if ~isempty(OVERRIDE_WALK_SEED)
+    rng(OVERRIDE_WALK_SEED);
+    fprintf('Device profile override: walk seed = %d\n', OVERRIDE_WALK_SEED);
+else
+    rng(config_json.experiment.random_seed);
+end
 
 % Generate random walk (constrained to grid neighbors)
 walk_indices = zeros(config.n_steps + 1, 1);
@@ -343,11 +380,22 @@ else
     l.tx_array = qd_arrayant('omni');
 end
 
-% UE
+% UE — configure antenna count for device profile experiments
+if ~isempty(OVERRIDE_N_RX_ANTENNAS) && OVERRIDE_N_RX_ANTENNAS > 0
+    n_rx_antennas = OVERRIDE_N_RX_ANTENNAS;
+else
+    n_rx_antennas = 1;  % Default: single omni antenna
+end
+
 l.no_rx = 1;
 l.rx_array = qd_arrayant('omni');
+if n_rx_antennas > 1
+    % Replicate omni element for multi-antenna UE (MRC combining in post-processing)
+    l.rx_array.no_elements = n_rx_antennas;
+end
 l.rx_track = qd_track('linear', 0, 0);
 l.rx_track.positions = walk_path.positions_jittered';
+fprintf('  UE: %d rx antenna(s), height = %.2f m\n', n_rx_antennas, config.ue_height);
 
 % Set scenario per segment if using Voronoi cells
 if mixed_scenario_enabled
@@ -423,7 +471,14 @@ H_serving = zeros(config.n_subcarriers, n_snapshots);
 
 for t = 1:n_snapshots
     H_t = ch.fr(config.bandwidth, config.n_subcarriers, t);
-    H_serving(:, t) = H_t(:);
+    if n_rx_antennas > 1
+        % MRC combining: H_eff(f) = sqrt( sum_i |H_i(f)|^2 )
+        % H_t is [n_rx x 1 x n_subcarriers] for single serving BS
+        H_mrc = sqrt(sum(abs(H_t).^2, 1));  % [1 x 1 x n_subcarriers]
+        H_serving(:, t) = H_mrc(:);
+    else
+        H_serving(:, t) = H_t(:);
+    end
 end
 
 fprintf('Extracted channels: %d subcarriers x %d snapshots\n', ...
@@ -533,32 +588,52 @@ fprintf('  NOTE: Clean values saved; noise/quantization applied during ML traini
 %% Compute interference (if applicable)
 if interferers_enabled
     fprintf('\nComputing interference from %d interfering BSs...\n', n_interferers);
-    
+
     % Preallocate interference power matrix
     I_dBm_sc = zeros(config.n_subcarriers, n_snapshots);
-    
+    % Per-BS wideband RSS (linear W) for multi-BS localization features
+    rss_ibs_lin = zeros(n_snapshots, n_interferers);
+
     for bs_idx = 1:n_interferers
         if iscell(ch_interferers)
             ch_interf = ch_interferers{bs_idx};
         else
             ch_interf = ch_interferers(bs_idx);
         end
-        
+
         for t = 1:n_snapshots
             H_interf = ch_interf.fr(config.bandwidth, config.n_subcarriers, t);
-            
-            % Interference power per subcarrier
-            I_linear = abs(H_interf(:)).^2 * (10^(interferer_tx_power/10) / 1000);
+
+            % For multi-antenna UE, apply MRC combining to get effective channel
+            % H_interf is [n_rx x 1 x n_subcarriers]; need [n_subcarriers x 1]
+            if n_rx_antennas > 1
+                H_interf_eff = sqrt(sum(abs(H_interf).^2, 1));  % [1 x 1 x n_sc]
+            else
+                H_interf_eff = H_interf;
+            end
+
+            % Interference power per subcarrier — must use same TX power reference
+            % as CSIMetrics (TxPowerPerSC_dBm = 0, i.e. 1 mW = 1e-3 W per SC).
+            % Relative IBS vs serving-BS TX power is preserved via rel_ibs_power.
+            % BUG FIXED: original code used interferer_tx_power directly (1 W),
+            % which was 30 dB higher than the serving-BS reference and made SINR
+            % 30 dB too negative.
+            rel_ibs_power = 10^((interferer_tx_power - config_json.base_station.tx_power_dbm) / 10);
+            I_linear = abs(H_interf_eff(:)).^2 * (1e-3 * rel_ibs_power);
             I_dBm_sc(:, t) = I_dBm_sc(:, t) + I_linear;
+
+            % Per-BS wideband RSS: mean subcarrier power for this BS
+            rss_ibs_lin(t, bs_idx) = mean(I_linear);
         end
     end
-    
+
     % Convert total interference to dBm
     I_dBm_sc = 10 * log10(I_dBm_sc * 1000);
-    
+
     fprintf('Interference computation complete\n');
 else
     I_dBm_sc = [];
+    rss_ibs_lin = [];
 end
 
 %% Compute metrics
@@ -609,6 +684,15 @@ for t = 1:n_snapshots
     metrics.k_factor(t) = k_factor_db(t);
 end
 
+% Add per-BS RSS fields for multi-BS localization experiments (rss_ibs_1, rss_ibs_2, ...)
+% Only populated when interferers are enabled in the config.
+if interferers_enabled && ~isempty(rss_ibs_lin)
+    for bs_idx = 1:n_interferers
+        field_name = sprintf('rss_ibs_%d', bs_idx);
+        metrics.(field_name) = 10 * log10(rss_ibs_lin(:, bs_idx) * 1000);
+    end
+    fprintf('  Per-interferer RSS fields added: rss_ibs_1 ... rss_ibs_%d\n', n_interferers);
+end
 fprintf('Metrics computed for %d snapshots\n', n_snapshots);
 fprintf('  RSS range: [%.2f, %.2f] dBm\n', min(metrics.rss_wb), max(metrics.rss_wb));
 fprintf('  SINR range: [%.2f, %.2f] dB\n', min(metrics.sinr_wb), max(metrics.sinr_wb));
@@ -618,38 +702,87 @@ fprintf('  K-factor range: [%.2f, %.2f] dB\n', min(metrics.k_factor), max(metric
 fprintf('  N Multipath range: [%d, %d]\n', min(metrics.n_multipath), max(metrics.n_multipath));
 fprintf('  RMS Delay Spread range: [%.2f, %.2f] ns\n', min(metrics.rms_delay_spread), max(metrics.rms_delay_spread));
 
-%% Create output directory
-if mixed_scenario_enabled
-    scenario_type = 'voronoi';
-else
-    scenario_type = 'LOS';
-    if contains(config.scenario, 'NLOS')
-        scenario_type = 'NLOS';
-    end
+% Apply antenna gain dB offset (device profile heterogeneity experiment)
+if ~isempty(OVERRIDE_ANTENNA_GAIN_DB) && OVERRIDE_ANTENNA_GAIN_DB ~= 0
+    metrics.rss_wb  = metrics.rss_wb  + OVERRIDE_ANTENNA_GAIN_DB;
+    metrics.sinr_wb = metrics.sinr_wb + OVERRIDE_ANTENNA_GAIN_DB;
+    fprintf('Applied device antenna gain offset: %.1f dB -> RSS: [%.2f, %.2f] dBm\n', ...
+        OVERRIDE_ANTENNA_GAIN_DB, min(metrics.rss_wb), max(metrics.rss_wb));
 end
 
-timestamp = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
-grid_subdir = sprintf('grid_%dx%d', config.grid_size, config.grid_size);
-output_dir = fullfile(workspace_root, 'results', 'grid_localization', grid_subdir, ...
-                      sprintf('sim_data_%s_%s', scenario_type, timestamp));
+% Store user_id in metrics (for multi-user experiments)
+if ~isempty(OVERRIDE_USER_ID)
+    metrics.user_id = OVERRIDE_USER_ID;
+end
 
-if ~exist(output_dir, 'dir')
-    mkdir(output_dir);
+%% Create output directory
+if ~isempty(OVERRIDE_OUTPUT_DIR)
+    % Multi-user experiment: use shared pre-created directory
+    output_dir = OVERRIDE_OUTPUT_DIR;
+    if ~exist(output_dir, 'dir')
+        mkdir(output_dir);
+    end
+else
+    if mixed_scenario_enabled
+        scenario_type = 'voronoi';
+    else
+        scenario_type = 'LOS';
+        if contains(config.scenario, 'NLOS')
+            scenario_type = 'NLOS';
+        end
+    end
+    timestamp = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
+    grid_subdir = sprintf('grid_%dx%d', config.grid_size, config.grid_size);
+    output_dir = fullfile(workspace_root, 'results', 'grid_localization', grid_subdir, ...
+                          sprintf('sim_data_%s_%s', scenario_type, timestamp));
+    if ~exist(output_dir, 'dir')
+        mkdir(output_dir);
+    end
 end
 
 %% Save simulation data
 fprintf('\nSaving simulation data...\n');
 
-output_file = fullfile(output_dir, 'simulation_data.mat');
-save(output_file, 'metrics', 'walk_path', 'config', '-v7');
+if ~isempty(OVERRIDE_OUTPUT_FILENAME)
+    % Multi-user experiment: save flat per-user format for Python pipeline
+    output_file = fullfile(output_dir, OVERRIDE_OUTPUT_FILENAME);
 
-% Copy configuration to output (preserves generation parameters with data)
-copyfile(config_file, fullfile(output_dir, 'data_generation_config.jsonc'));
+    % Flat arrays expected by multi_user_pipeline.py
+    user_id_val   = OVERRIDE_USER_ID;
+    rss           = metrics.rss_wb;               % [N x 1] dBm from serving BS
+    sinr          = metrics.sinr_wb;              % [N x 1] dB from serving BS
+    x_pos         = walk_path.positions(:, 1);    % [N x 1] ground truth x
+    y_pos         = walk_path.positions(:, 2);    % [N x 1] ground truth y
+    grid_point_id = walk_path.grid_point_indices; % [N x 1] 1-based grid index
+    step_index    = (1:n_snapshots)';             % [N x 1] chronological step
+    if isfield(walk_path, 'voronoi_cell_idx')
+        voronoi_cell_id = walk_path.voronoi_cell_idx;  % [N x 1] 1-based cell index
+    else
+        voronoi_cell_id = ones(n_snapshots, 1);
+    end
+    device_profile = struct('n_antennas', n_rx_antennas, ...
+                            'antenna_gain_db', double(OVERRIDE_ANTENNA_GAIN_DB), ...
+                            'ue_height_m', config.ue_height);
+    aoa_az        = aoa_azimuth;   % [N x 1] degrees, power-weighted cluster AoA
+    aoa_el        = aoa_elevation; % [N x 1] degrees, power-weighted cluster EoA
 
-fprintf('Simulation data saved to:\n');
-fprintf('  %s\n', output_dir);
-fprintf('  - simulation_data.mat (metrics, walk_path, config)\n');
-fprintf('  - data_generation_config.jsonc (generation parameters)\n');
+    save(output_file, 'user_id_val', 'rss', 'sinr', 'aoa_az', 'aoa_el', ...
+         'x_pos', 'y_pos', 'grid_point_id', 'voronoi_cell_id', ...
+         'step_index', 'device_profile', '-v7');
+    fprintf('Per-user data saved: %s\n', output_file);
+    fprintf('  user_id=%d, n_antennas=%d, gain=%.1f dB, height=%.2f m\n', ...
+        user_id_val, n_rx_antennas, OVERRIDE_ANTENNA_GAIN_DB, config.ue_height);
+else
+    % Standard format (existing experiments)
+    output_file = fullfile(output_dir, 'simulation_data.mat');
+    save(output_file, 'metrics', 'walk_path', 'config', '-v7');
+    % Copy configuration to output (preserves generation parameters with data)
+    copyfile(config_file, fullfile(output_dir, 'data_generation_config.jsonc'));
+    fprintf('Simulation data saved to:\n');
+    fprintf('  %s\n', output_dir);
+    fprintf('  - simulation_data.mat (metrics, walk_path, config)\n');
+    fprintf('  - data_generation_config.jsonc (generation parameters)\n');
+end
 
 %% Generate data visualization plots
 fprintf('\n=== Generating Data Visualization Plots ===\n');

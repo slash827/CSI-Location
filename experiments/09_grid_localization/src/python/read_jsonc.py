@@ -16,7 +16,7 @@ def read_jsonc(filepath):
     Returns:
         Parsed configuration dictionary
     """
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='utf-8') as f:
         text = f.read()
     
     # Remove single-line comments (// ...)

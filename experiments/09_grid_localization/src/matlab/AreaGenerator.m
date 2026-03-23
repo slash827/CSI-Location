@@ -46,21 +46,35 @@ classdef AreaGenerator
             
             % Generate random seeds
             seeds = AreaGenerator.generate_random_seeds(num_areas, bounds);
-            
+
+            % Shuffle area_types to guarantee all types are used exactly once.
+            % Previously used randi() with replacement, which could assign the
+            % same type multiple times and leave others unrepresented.
+            if num_areas == length(area_types)
+                shuffled_types = area_types(randperm(num_areas));
+            else
+                % More areas than types: cycle through shuffled list
+                shuffled_types = {};
+                base = area_types(randperm(length(area_types)));
+                for k = 1:num_areas
+                    shuffled_types{k} = base{mod(k-1, length(area_types)) + 1};
+                end
+            end
+
             % Initialize areas struct array
             areas = struct();
-            
+
             % Create each area
             for i = 1:num_areas
                 areas(i).id = i;
                 areas(i).seed = seeds(i, :);
-                
-                % Randomly assign area type
-                areas(i).area_type = AreaGenerator.assign_random_area_type(area_types);
-                
+
+                % Assign area type from shuffled list (guaranteed unique coverage)
+                areas(i).area_type = shuffled_types{i};
+
                 % Assign matching scenario based on area type
                 areas(i).scenario = AreaGenerator.assign_matching_scenario(areas(i).area_type);
-                
+
                 % Set transition width
                 areas(i).transition_width = transition_width;
             end
