@@ -178,13 +178,44 @@ Accumulate timings in `self.timing` dict, print summary at end of pipeline.
 
 ## Testing
 
-No formal test framework. Validation happens via:
-1. **Integration**: run `run_experiment_matrix.py` end-to-end and check the output CSV/report
-2. **Sanity checks in data loading**: raise `FileNotFoundError` / `ValueError` early
-3. **One-off analysis scripts**: `analyze_results.py`, `validate_*.py` in `src/python/`
+### Running the tests
 
-When adding new models or features, verify against known results:
-- 10×10 XGBoost static baseline ≈ 33.8% accuracy (RSS+SINR, temporal split)
+```bash
+# Python — from the project root
+.venv/Scripts/python -m pytest experiments/09_grid_localization/src/python/tests/ -v
+
+# MATLAB — from src/matlab/
+results = runtests('tests/TestGridGeneration'); disp(results)
+results = runtests('tests/TestReadJsonc');      disp(results)
+```
+
+All Python tests must pass before committing changes to the pipeline.
+
+### Python test files (`src/python/tests/`)
+
+| File | What it covers |
+|---|---|
+| `test_read_jsonc.py` | JSONC comment stripping, edge cases (URLs in strings), real config smoke-test |
+| `test_feature_engineering.py` | `build_history_features`, `build_delta_features`, `get_feature_cols`, `make_split` (chronological order + no leakage), `build_grid_lookup`, `compute_mae` |
+| `test_aoa_noise.py` | `_apply_aoa_noise`: quantized to 5° steps, zero-mean, user-specific seeds, azimuth ≠ elevation noise |
+| `test_experiment_runner.py` | `run_one_experiment`: label remapping round-trip (1-indexed IDs preserved through XGBoost 0-indexed training), cross-user exclusion logic, per-user/per-cell alignment |
+| `test_adaptive_vmax.py` | Heatmap colour-scale function: good/bad model regimes, outlier robustness |
+| `test_results_sanity.py` | **Integration** — loads saved CSVs + raw .mat files to verify: BASE_H > BASE for both models/experiments, AoA gain < 15 pp at NE BS, NE-BS azimuths confined to SW quadrant, SINR > −35 dB (catches the old 30 dB calibration bug), history gain similar across both BS placements |
+
+### MATLAB test files (`src/matlab/tests/`)
+
+| File | What it covers |
+|---|---|
+| `TestReadJsonc.m` | JSONC parsing, real config smoke-test |
+| `TestGridGeneration.m` | Grid positions, NE-BS angular spread (<90°), center-BS spread (>270°), neighbor symmetry, no self-loops, walk stays in grid, walk visits >95% of points |
+
+### Known baseline results (regression guard)
+
+If a change breaks these, the tests will catch it:
+- Center BS, XGBoost, BASE_H: ~50.4% accuracy, ~4.53 m MAE
+- Center BS, XGBoost, BASE_A_H: ~83.6% accuracy, ~0.39 m MAE
+- NE BS, XGBoost, AoA gain (BASE_A_H − BASE_H): ~7 pp (center BS: ~33 pp)
+- SINR range in simulation data: −35 to +65 dB
 
 ---
 

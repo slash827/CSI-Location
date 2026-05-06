@@ -197,14 +197,14 @@ Localization hierarchy: **AoA ≫ interference SINR > single-BS RSS alone.**
 
 **Results (RF, 225 classes) — without AoA:**
 
-| Experiment | Features | Accuracy | MAE | vs E1 |
+| Experiment | Features | Accuracy | MAE | vs BASE |
 |---|---|---|---|---|
-| E1 — Static | rss, sinr (h=0) | 43.5% | 5.81 m | baseline |
-| E2 — Transitions | lags h=3 | 52.5% | 4.01 m | **+9.0 pp** |
-| E3 — + Device params | E2 + [n_ant, gain, h_UE] | **61.2%** | **2.69 m** | **+17.7 pp** |
-| Cross-user E2 | E2, U5 held out | 46.3% | 4.92 m | +2.8 pp |
+| BASE — Static | rss, sinr (h=0) | 43.5% | 5.81 m | baseline |
+| BASE_H — Transitions | lags h=3 | 52.5% | 4.01 m | **+9.0 pp** |
+| BASE_H_dp — + Device params | BASE_H + [n_ant, gain, h_UE] | **61.2%** | **2.69 m** | **+17.7 pp** |
+| Cross-user BASE_H | BASE_H, U5 held out | 46.3% | 4.92 m | +2.8 pp |
 
-**Verdict (without AoA):** Transitions reduce device sensitivity (+9 pp), but explicit device calibration is the decisive factor (+17.7 pp E3 vs E2).
+**Verdict (without AoA):** Transitions reduce device sensitivity (+9 pp), but explicit device calibration is the decisive factor (+17.7 pp BASE_H_dp vs BASE_H).
 
 ---
 
@@ -217,7 +217,7 @@ Realistic impairments applied: **4° Gaussian noise + 5° quantization**.
 
 **Single-user sanity check (per-device, 320 train samples/class — the honest baseline):**
 
-| User | E1 (rss+sinr) | E5 (h=0+AoA) | E6 (h=3+AoA) |
+| User | BASE (rss+sinr) | BASE_A (h=0+AoA) | BASE_A_H (h=3+AoA) |
 |---|---|---|---|
 | U1 | 58.3% | 86.8% | 86.7% |
 | U2–U4 | 55–58% | 85–86% | 85–86% |
@@ -226,16 +226,16 @@ Realistic impairments applied: **4° Gaussian noise + 5° quantization**.
 
 **AoA adds +28.7 pp per device.** Transitions add only +0.3 pp on top of AoA (AoA lags are correlated with current AoA → no new information).
 
-**Pooled vs single-user with realistic noise**: With 4°/5° AoA noise, the pooled model (RF: 77.3%, XGB: 82.2% for E5) is slightly *below* per-device (~86%) — device-heterogeneous RSS/SINR creates feature ambiguity in the pooled model. Unlike oracle (no-noise) AoA, pooling does not inflate the result.
+**Pooled vs single-user with realistic noise**: With 4°/5° AoA noise, the pooled model (RF: 77.3%, XGB: 82.2% for BASE_A) is slightly *below* per-device (~86%) — device-heterogeneous RSS/SINR creates feature ambiguity in the pooled model. Unlike oracle (no-noise) AoA, pooling does not inflate the result.
 
 **Cross-device generalisation — the most meaningful AoA result:**
 
 | Experiment | Train | Test on U5 | RF Acc | XGB Acc |
 |---|---|---|---|---|
-| Cross-user E2 | U1–U4 (no AoA) | U5 | 46.3% | 46.4% |
-| **Cross-user E6** | **U1–U4 + AoA** | **U5** | **72.8%** | **76.7%** |
+| Cross-user BASE_H | U1–U4 (no AoA) | U5 | 46.3% | 46.4% |
+| **Cross-user BASE_A_H** | **U1–U4 + AoA** | **U5** | **72.8%** | **76.7%** |
 
-Cross-user E6 tests a multi-user AoA database against a completely unseen device — the practically relevant scenario. Residual ~9–13 pp gap vs per-device = device-specific RSS/SINR distributional shift + U5's height difference (0.9 m vs 1.5 m → ~3° elevation shift).
+Cross-user BASE_A_H tests a multi-user AoA database against a completely unseen device — the practically relevant scenario. Residual ~9–13 pp gap vs per-device = device-specific RSS/SINR distributional shift + U5's height difference (0.9 m vs 1.5 m → ~3° elevation shift).
 
 ---
 
@@ -247,8 +247,8 @@ Cross-user E6 tests a multi-user AoA database against a completely unseen device
 4. **Classification beats regression** at fine grid spacing (2 m); gap narrows toward ~28–30×30
 5. **Multi-BS interference (v2, realistic):** Realistic co-channel interference (30m ISD, IBSs outside grid) creates a usable 2D SINR gradient (+33pp accuracy over RSS alone), but remains ~40pp below AoA. Feature hierarchy: **AoA ≫ interference SINR > single-BS RSS**.
 6. Voronoi heterogeneity: **cell size > channel model** in determining per-cell accuracy (small cells bleed regardless of channel type)
-7. **Device heterogeneity (without AoA):** Transitions partially compensate (+9 pp), but explicit device calibration is decisive (+17.7 pp E3 vs E2). Cross-device generalisation degrades by ~6 pp for unseen device type.
-8. **AoA adds +28.7 pp per device** (single-user: 57.2% → 85.9%). Pooled multi-user results with realistic noise (RF E5: 77.3%, XGB E5: 82.2%) are slightly below per-device due to device-heterogeneous RSS/SINR ambiguity. Cross-user E6 (XGB: 76.7%, RF: 72.8%) is the meaningful result: multi-user AoA database tested on a completely unseen device type.
+7. **Device heterogeneity (without AoA):** Transitions partially compensate (+9 pp), but explicit device calibration is decisive (+17.7 pp BASE_H_dp vs BASE_H). Cross-device generalisation degrades by ~6 pp for unseen device type.
+8. **AoA adds +28.7 pp per device** (single-user: 57.2% → 85.9%). Pooled multi-user results with realistic noise (RF BASE_A: 77.3%, XGB BASE_A: 82.2%) are slightly below per-device due to device-heterogeneous RSS/SINR ambiguity. Cross-user BASE_A_H (XGB: 76.7%, RF: 72.8%) is the meaningful result: multi-user AoA database tested on a completely unseen device type.
 
 **Core contribution:**
 Transition history is a simple, model-agnostic improvement that works at every scale (9 to 400 classes) and with every feature set. No additional hardware required.
