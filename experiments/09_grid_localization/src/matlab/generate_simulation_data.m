@@ -17,6 +17,7 @@ global OVERRIDE_UE_HEIGHT_M;
 global OVERRIDE_OUTPUT_DIR;
 global OVERRIDE_OUTPUT_FILENAME;
 global OVERRIDE_USER_ID;
+global OVERRIDE_CHANNEL_SEED;
 
 % Only clear the workspace when running standalone (no multi-user override).
 % When called from a loop in run_multi_user_15x15.m, OVERRIDE_OUTPUT_DIR is set
@@ -32,6 +33,7 @@ if isempty(OVERRIDE_OUTPUT_DIR)
     global OVERRIDE_OUTPUT_DIR;
     global OVERRIDE_OUTPUT_FILENAME;
     global OVERRIDE_USER_ID;
+    global OVERRIDE_CHANNEL_SEED;
 else
     clc;  % Clear console only — preserve workspace variables for the loop
 end
@@ -184,12 +186,21 @@ walk_indices(1) = ceil(config.n_points / 2);  % Start from center
 % Track movement times (longer for diagonal movements)
 movement_times = zeros(config.n_steps, 1);
 
+walk_tic = tic;
 for step = 1:config.n_steps
     current = walk_indices(step);
     neighbors = config.neighbors{current};
     next = neighbors(randi(length(neighbors)));
     walk_indices(step + 1) = next;
-    
+
+    % Progress report every 10 000 steps
+    if mod(step, 10000) == 0
+        elapsed_w = toc(walk_tic);
+        eta_w = elapsed_w / step * (config.n_steps - step);
+        fprintf('  Walk: %d/%d steps (%.0f%%)  ETA: %.0fs\n', ...
+                step, config.n_steps, step/config.n_steps*100, eta_w);
+    end
+
     % Calculate if this is a diagonal movement
     if config.neighbor_connectivity == 8
         % Convert indices to row/col
@@ -434,11 +445,21 @@ fprintf('  Base stations: %d\n', l.no_tx);
 fprintf('  UE trajectory points: %d\n', size(l.rx_track.positions, 2));
 
 %% Run channel simulation
-fprintf('\nRunning channel simulation...\n');
-tic;
+% Re-seed QuaDRiGa RNG if OVERRIDE_CHANNEL_SEED is set (environmental variability).
+% This produces different fading/LSP realizations while keeping the walk path identical.
+global OVERRIDE_CHANNEL_SEED;
+if ~isempty(OVERRIDE_CHANNEL_SEED)
+    rng(OVERRIDE_CHANNEL_SEED);
+    fprintf('Channel seed override: %d\n', OVERRIDE_CHANNEL_SEED);
+end
+
+fprintf('\nRunning channel simulation (%d snapshots)...\n', n_snapshots);
+fprintf('[%s] QuaDRiGa get_channels started\n', datestr(now, 'HH:MM:SS'));
+ch_tic = tic;
 [h_channel, ~] = l.get_channels;
-sim_time = toc;
-fprintf('Channel simulation complete (%.1f seconds)\n', sim_time);
+ch_time = toc(ch_tic);
+fprintf('[%s] Channel simulation complete in %.1fs  (%.2f ms/snapshot)\n', ...
+        datestr(now, 'HH:MM:SS'), ch_time, ch_time/n_snapshots*1000);
 
 %% Extract channel coefficients
 fprintf('\nExtracting channel coefficients...\n');

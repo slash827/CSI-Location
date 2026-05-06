@@ -119,6 +119,17 @@ for u = 1:n_users
     end
 end
 
+%% Save experiment metadata (enables correct BS marker in Python plots)
+experiment_info = struct();
+experiment_info.config_name  = 'multi_user_voronoi_15x15_config.jsonc';
+experiment_info.profiles     = profiles;
+experiment_info.profile_names = profile_names;
+experiment_info.output_dir   = output_dir;
+experiment_info.timestamp    = timestamp;
+experiment_info.bs_position  = [19, 19, 10];
+experiment_info.bs_note      = 'Center of 15x15 grid (19,19)';
+save(fullfile(output_dir, 'experiment_info.mat'), 'experiment_info');
+
 fprintf('\nNext step — run Python pipeline:\n');
 fprintf('  python experiments/09_grid_localization/src/python/multi_user_pipeline.py \\\n');
 fprintf('    --data-dir "%s"\n', output_dir);

@@ -1,0 +1,114 @@
+{
+  // NE-BS Heterogeneous Environment — 15x15 Voronoi Grid
+  //
+  // OBJECTIVE: Test whether AoA informativeness depends on angular coverage diversity.
+  //   In the center-BS experiment the serving BS sat at the grid center, covering
+  //   ~360° of azimuth angles. Here the BS is placed 15m north and 15m east of the
+  //   NE corner, compressing all 225 grid points into a ~52° azimuth wedge.
+  //   Hypothesis: AoA gain (BASE_A_H − BASE_H) is much smaller than the ~35pp seen
+  //   with the center BS, because within-sector angular variation is limited.
+  //
+  // NETWORK SETUP:
+  //   Grid: X ∈ [5, 33],  Y ∈ [5, 33],  NE corner = (33, 33)
+  //   Serving BS: (48, 48, 10) — 15m north + 15m east of NE corner
+  //     d_min = 21.2m (NE corner),  d_max = 60.8m (SW corner)
+  //     Azimuth span seen by BS: ~52° (SW sector, 199°–251°)
+  //   IBS-1: (19, -10, 10) — south of grid  (N-S SINR gradient)
+  //   IBS-2: (-10, 19, 10) — west of grid   (E-W SINR gradient)
+  //   Features extracted: RSS and SINR from serving BS only
+  //
+  // COMPARE TO: multi_user_voronoi_15x15_config.jsonc (center BS at [19, 19, 10])
+  //
+  // DEVICE PROFILES (5 users — applied via MATLAB override globals):
+  //   U1: 4 antennas, 0 dB gain,  1.5 m height  (Flagship A,  seed=100)
+  //   U2: 2 antennas, -2 dB gain, 1.5 m height  (Mid-range,   seed=200)
+  //   U3: 1 antenna,  -4 dB gain, 1.5 m height  (Budget/Old,  seed=300)
+  //   U4: 4 antennas,  0 dB gain, 1.5 m height  (Flagship B,  seed=400)
+  //   U5: 2 antennas, -1 dB gain, 0.9 m height  (Tablet/IoT,  seed=500)
+
+  "experiment": {
+    "name": "ne_bs_voronoi_15x15",
+    "description": "NE-corner BS placement — 15x15 Voronoi grid, 5 device profiles",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "grid": {
+    "size": 15,
+    "spacing": 2.0,
+    "ue_height": 1.5,
+    "grid_offset": [5, 5],
+    "position_jitter": 0.1,
+    "neighbor_connectivity": 8
+  },
+
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+
+  "channel": {
+    "scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3.5e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    "interference_per_sc_dbm": -999,
+
+    "mixed_scenario": {
+      "enabled": true,
+      "auto_generate": true,
+
+      "area_generator": {
+        "num_areas": 4,
+        "area_bounds": "auto",
+        "transition_width": 3,
+        "area_types": [
+          "shopping_center",
+          "residential",
+          "highway",
+          "park"
+        ]
+      },
+
+      "voronoi_cells": []
+    }
+  },
+
+  "base_station": {
+    // Serving BS: 15m north + 15m east of NE grid corner (33, 33)
+    // All 225 grid points lie in a ~52° azimuth wedge as seen from this BS
+    "position": [48, 48, 10],
+    "tx_power_dbm": 30,
+
+    "interferers": {
+      "enabled": true,
+      // IBS-1: south of grid → creates N-S SINR gradient
+      // IBS-2: west of grid  → creates E-W SINR gradient
+      "positions": [
+        [ 19, -10, 10],
+        [-10,  19, 10]
+      ],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "classification",
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR"],
+    "max_history_length": 4
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": false,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}
