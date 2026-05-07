@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 
 CORE_EXPERIMENTS = ['BASE', 'BASE_H', 'BASE_A', 'BASE_A_H']
 MODELS = ['xgboost', 'rf']
@@ -47,7 +47,7 @@ def _bs_position(data_dir: Path | None):
     """Return (x, y) of the serving BS from the simulation data directory, or None."""
     if data_dir is None or not data_dir.exists():
         return None
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     try:
         from pipelines.multi_user_pipeline import _read_bs_geometry
         bs_xy, _ = _read_bs_geometry(data_dir)

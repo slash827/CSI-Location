@@ -26,7 +26,7 @@ from pathlib import Path
 from scipy.spatial.distance import cdist
 
 # Add pipeline to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from pipelines.localization_pipeline import (
     SimulationData, DataSplitter, XGBoostModel, RandomForestModel,
     Evaluator, PROJECT_ROOT

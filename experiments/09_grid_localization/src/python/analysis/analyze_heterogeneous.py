@@ -29,7 +29,7 @@ from datetime import datetime
 import sys
 
 # Add parent directory for imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.read_jsonc import read_jsonc
 
 
@@ -219,7 +219,7 @@ def run_classification(data_dir, split_method='temporal', max_history=3, n_jobs=
     print(f"{'='*60}")
 
     import subprocess
-    script = Path(__file__).parent / 'localization_pipeline.py'
+    script = Path(__file__).parent.parent / 'pipelines' / 'localization_pipeline.py'
     cmd = [
         sys.executable, str(script),
         '--data-dir', str(data_dir),
@@ -231,7 +231,7 @@ def run_classification(data_dir, split_method='temporal', max_history=3, n_jobs=
     ]
 
     print(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent.parent.parent.parent))
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent.parent.parent.parent.parent))
 
     if result.returncode != 0:
         print(f"[ERROR] Classification pipeline failed:")
@@ -250,7 +250,7 @@ def run_regression(data_dir, split_method='temporal', max_history=3, n_estimator
     print(f"{'='*60}")
 
     import subprocess
-    script = Path(__file__).parent / 'localization_pipeline_regression.py'
+    script = Path(__file__).parent.parent / 'pipelines' / 'localization_pipeline_regression.py'
     
     # Convert to absolute path
     data_dir = Path(data_dir).absolute()
@@ -269,7 +269,7 @@ def run_regression(data_dir, split_method='temporal', max_history=3, n_estimator
         cmd.extend(['--max-depth', str(max_depth)])
 
     print(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent.parent.parent.parent))
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent.parent.parent.parent.parent.parent))
 
     if result.returncode != 0:
         print(f"[ERROR] Regression pipeline failed:")
@@ -284,7 +284,7 @@ def run_regression(data_dir, split_method='temporal', max_history=3, n_estimator
         if 'Output directory:' in line:
             output_dir_str = line.split('Output directory:')[1].strip()
             # Convert to absolute path (subprocess runs from project root)
-            project_root = Path(__file__).parent.parent.parent.parent.parent
+            project_root = Path(__file__).parent.parent.parent.parent.parent.parent
             output_dir = str((project_root / output_dir_str).absolute())
             break
     

@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 # ── Shared utilities from the main pipeline ───────────────────────────────────
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from pipelines.multi_user_pipeline import (

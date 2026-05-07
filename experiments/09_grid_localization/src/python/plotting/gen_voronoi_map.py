@@ -8,7 +8,7 @@ import scipy.io as sio
 from pathlib import Path
 
 # Resolve paths
-SCRIPT_DIR   = Path(__file__).parent
+SCRIPT_DIR   = Path(__file__).parent.parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent.parent.parent
 DATA_DIR     = PROJECT_ROOT / 'results' / 'grid_localization' / 'grid_15x15' \
                / 'sim_data_multi_user_2026-03-02_19-41-39'
