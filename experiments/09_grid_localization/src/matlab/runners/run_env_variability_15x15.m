@@ -43,8 +43,10 @@ global OVERRIDE_CHANNEL_SEED;
 
 %% Setup paths and output directory
 script_dir      = fileparts(mfilename('fullpath'));
-experiment_root = fileparts(fileparts(script_dir));
-workspace_root  = fileparts(fileparts(experiment_root));
+experiment_root = fileparts(fileparts(src_matlab_dir));     % 09_grid_localization/
+workspace_root  = fileparts(fileparts(experiment_root));    % CSI-Location/
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
 
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
 output_dir = fullfile(workspace_root, 'results', 'grid_localization', ...

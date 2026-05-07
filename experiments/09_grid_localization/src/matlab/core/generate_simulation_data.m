@@ -39,11 +39,13 @@ else
 end
 
 %% Setup paths
-script_dir = fileparts(mfilename('fullpath'));
-experiment_root = fileparts(fileparts(script_dir));  % experiments/09_grid_localization
-workspace_root = fileparts(fileparts(experiment_root));  % CSI-Location
-utils_path = fullfile(workspace_root, 'utils');  % Utils at workspace root
+script_dir      = fileparts(mfilename('fullpath'));               % core/
+src_matlab_dir  = fileparts(script_dir);                         % src/matlab/
+experiment_root = fileparts(fileparts(src_matlab_dir));          % 09_grid_localization/
+workspace_root  = fileparts(fileparts(experiment_root));         % CSI-Location/
+utils_path      = fullfile(workspace_root, 'utils');
 addpath(utils_path);
+addpath(fullfile(src_matlab_dir, 'lib'));  % AreaGenerator, GeometryUtils, TrafficUtils, read_jsonc
 
 fprintf('=== Grid Localization Data Generation ===\n\n');
 
@@ -808,7 +810,7 @@ end
 %% Generate data visualization plots
 fprintf('\n=== Generating Data Visualization Plots ===\n');
 
-plot_script = fullfile(script_dir, '..', 'python', 'plot_data_generation.py');
+plot_script = fullfile(src_matlab_dir, '..', 'python', 'plot_data_generation.py');
 
 if exist(plot_script, 'file')
     python_cmd = sprintf('python "%s" "%s"', plot_script, output_dir);
@@ -831,7 +833,7 @@ end
 if isfield(config_json.output, 'auto_run_pipeline') && config_json.output.auto_run_pipeline
     fprintf('\n=== Calling Python Pipeline ===\n');
     
-    pipeline_script = fullfile(script_dir, '..', 'python', 'localization_pipeline.py');
+    pipeline_script = fullfile(src_matlab_dir, '..', 'python', 'pipelines', 'localization_pipeline.py');
     
     if exist(pipeline_script, 'file')
         python_cmd = sprintf('python "%s" --data-dir "%s"', pipeline_script, output_dir);

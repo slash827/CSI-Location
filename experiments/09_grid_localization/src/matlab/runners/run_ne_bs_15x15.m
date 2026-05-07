@@ -41,8 +41,10 @@
 
 %% Paths
 script_dir      = fileparts(mfilename('fullpath'));
-experiment_root = fileparts(fileparts(script_dir));
-workspace_root  = fileparts(fileparts(experiment_root));
+experiment_root = fileparts(fileparts(src_matlab_dir));     % 09_grid_localization/
+workspace_root  = fileparts(fileparts(experiment_root));    % CSI-Location/
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
 
 %% Shared output directory
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');

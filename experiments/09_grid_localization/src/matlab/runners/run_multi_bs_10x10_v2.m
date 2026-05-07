@@ -29,6 +29,9 @@
 % Output:
 %   results/grid_localization/grid_10x10/sim_data_voronoi_<timestamp>/
 
+src_matlab_dir = fileparts(fileparts(mfilename('fullpath')));  % runners/../ = src/matlab
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
 global OVERRIDE_CONFIG_NAME;
 OVERRIDE_CONFIG_NAME = 'multi_bs_10x10_v2_config.jsonc';
 
@@ -41,7 +44,10 @@ fprintf('  Expected SINR: +5 to +15 dB\n\n');
 
 generate_simulation_data;
 
-clear global OVERRIDE_CONFIG_NAME;
+clear src_matlab_dir = fileparts(fileparts(mfilename('fullpath')));  % runners/../ = src/matlab
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
+global OVERRIDE_CONFIG_NAME;
 
 fprintf('\n=== Multi-BS v2 Complete ===\n');
 fprintf('Compare (single-BS scope only — no triangulation):\n');

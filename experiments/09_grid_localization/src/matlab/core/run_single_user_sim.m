@@ -43,10 +43,12 @@ fprintf('  n_ant=%d  gain=%.1f dB  height=%.2f m  walk_seed=%d\n', ...
         profile(1), profile(2), profile(3), profile(4));
 
 %% Add paths needed by generate_simulation_data
-script_dir = fileparts(mfilename('fullpath'));
+script_dir     = fileparts(mfilename('fullpath'));   % core/
+src_matlab_dir = fileparts(script_dir);              % src/matlab/
 utils_path = fullfile(workspace_root, 'utils');
-addpath(script_dir);
-addpath(utils_path);
+addpath(script_dir);                                 % core/ — so generate_simulation_data is findable
+addpath(fullfile(src_matlab_dir, 'lib'));             % AreaGenerator, GeometryUtils, TrafficUtils, read_jsonc
+addpath(utils_path);                                 % CSI-Location/utils/ — QuaDRiGa
 
 %% Set override globals
 global OVERRIDE_CONFIG_NAME OVERRIDE_WALK_SEED OVERRIDE_N_RX_ANTENNAS ...

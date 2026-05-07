@@ -12,7 +12,9 @@ classdef TestReadJsonc < matlab.unittest.TestCase
 
     methods (TestMethodSetup)
         function addReadJsoncPath(tc)
-            tc.ScriptDir = fullfile(fileparts(mfilename('fullpath')), '..');
+            test_dir       = fileparts(mfilename('fullpath'));    % tests/
+            src_matlab_dir = fileparts(test_dir);                 % src/matlab/
+            tc.ScriptDir   = fullfile(src_matlab_dir, 'lib');
             addpath(tc.ScriptDir);
         end
     end

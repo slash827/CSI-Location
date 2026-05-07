@@ -23,6 +23,9 @@
 %     - simulation_data.mat  (includes rss_ibs_1, rss_ibs_2 fields)
 %     - data_generation_config.jsonc
 
+src_matlab_dir = fileparts(fileparts(mfilename('fullpath')));  % runners/../ = src/matlab
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
 global OVERRIDE_CONFIG_NAME;
 OVERRIDE_CONFIG_NAME = 'multi_bs_10x10_config.jsonc';
 
@@ -31,7 +34,10 @@ fprintf('Config: %s\n\n', OVERRIDE_CONFIG_NAME);
 
 generate_simulation_data;
 
-clear global OVERRIDE_CONFIG_NAME;
+clear src_matlab_dir = fileparts(fileparts(mfilename('fullpath')));  % runners/../ = src/matlab
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
+global OVERRIDE_CONFIG_NAME;
 
 fprintf('\n=== Multi-BS 10x10 Complete ===\n');
 fprintf('Next steps:\n');

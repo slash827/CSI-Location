@@ -36,9 +36,13 @@ function run_from_config(config_json_path)
     fprintf('  Scenario: %s\n\n', cfg.scenario);
     
     % Setup paths
-    script_dir = fileparts(mfilename('fullpath'));
-    project_root = fileparts(fileparts(script_dir));
-    utils_path = fullfile(project_root, 'utils');
+    script_dir      = fileparts(mfilename('fullpath'));          % runners/
+    src_matlab_dir  = fileparts(script_dir);                    % src/matlab/
+    project_root    = fileparts(fileparts(src_matlab_dir));     % 09_grid_localization/
+    workspace_root  = fileparts(fileparts(project_root));       % CSI-Location/
+    utils_path = fullfile(workspace_root, 'utils');
+    addpath(fullfile(src_matlab_dir, 'core'));
+    addpath(fullfile(src_matlab_dir, 'lib'));
     addpath(utils_path);
     
     fprintf('Running from: experiments/09_grid_localization\n');

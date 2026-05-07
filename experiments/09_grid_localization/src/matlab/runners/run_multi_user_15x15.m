@@ -46,9 +46,12 @@ global OVERRIDE_OUTPUT_FILENAME;
 global OVERRIDE_USER_ID;
 
 %% Setup paths and shared output directory
-script_dir     = fileparts(mfilename('fullpath'));
-experiment_root = fileparts(fileparts(script_dir));
-workspace_root  = fileparts(fileparts(experiment_root));
+script_dir      = fileparts(mfilename('fullpath'));          % runners/
+src_matlab_dir  = fileparts(script_dir);                    % src/matlab/
+experiment_root = fileparts(fileparts(src_matlab_dir));     % 09_grid_localization/
+workspace_root  = fileparts(fileparts(experiment_root));    % CSI-Location/
+addpath(fullfile(src_matlab_dir, 'core'));
+addpath(fullfile(src_matlab_dir, 'lib'));
 
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
 output_dir = fullfile(workspace_root, 'results', 'grid_localization', ...

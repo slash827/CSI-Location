@@ -10,6 +10,15 @@ classdef TestGridGeneration < matlab.unittest.TestCase
 %   results = runtests('tests/TestGridGeneration');
 %   disp(results)
 
+    methods (TestClassSetup)
+        function addPaths(~)
+            test_dir       = fileparts(mfilename('fullpath'));
+            src_matlab_dir = fileparts(test_dir);
+            addpath(fullfile(src_matlab_dir, 'core'));
+            addpath(fullfile(src_matlab_dir, 'lib'));
+        end
+    end
+
     % ── helpers (replicate grid-gen logic from generate_simulation_data.m) ────
 
     methods (Static, Access = private)
