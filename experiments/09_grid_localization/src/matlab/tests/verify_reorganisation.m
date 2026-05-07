@@ -36,7 +36,7 @@ assert(abs(d - 5.0) < 1e-10, 'GeometryUtils.euclidean_distance: expected 5.0');
 fprintf('[OK] GeometryUtils.euclidean_distance([0,0],[3,4]) = %.4f  (expected 5.0)\n', d);
 
 % ── 4. GeometryUtils.check_if_in_bounds ──────────────────────────────────────
-bounds = struct('x_min', 0, 'x_max', 10, 'y_min', 0, 'y_max', 10);
+bounds = [0, 10, 0, 10];  % [x_min, x_max, y_min, y_max]
 assert(GeometryUtils.check_if_in_bounds([5, 5], bounds), ...
     'GeometryUtils.check_if_in_bounds: [5,5] should be inside [0-10,0-10]');
 assert(~GeometryUtils.check_if_in_bounds([15, 5], bounds), ...
