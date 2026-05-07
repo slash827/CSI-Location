@@ -12,9 +12,11 @@ Usage:
 
 import argparse
 import json
+import sys
 import numpy as np
 from pathlib import Path
 from scipy.io import loadmat
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from datetime import datetime
 
 # Project root: 4 levels up from src/python/ -> experiments/09_grid_localization/ -> experiments/ -> CSI-Location/

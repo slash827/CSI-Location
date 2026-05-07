@@ -23,10 +23,12 @@ Usage:
 
 import argparse
 import json
+import sys
 import numpy as np
 from pathlib import Path
 from scipy.io import loadmat
 from scipy.stats import norm
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from datetime import datetime
 from abc import ABC, abstractmethod
 from sklearn.ensemble import RandomForestClassifier
