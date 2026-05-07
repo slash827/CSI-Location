@@ -71,7 +71,7 @@ The system consists of two decoupled layers connected by `.mat` files:
 ┌─────────────────────────────────────────────────────────────────────┐
 │  LAYER 2: Python + scikit-learn / XGBoost (ML Pipeline)             │
 │                                                                     │
-│  multi_user_pipeline.py                                             │
+│  pipelines/multi_user_pipeline.py                                   │
 │                                                                     │
 │  load_all_users()  ──►  make_split()  ──►  build_history_features() │
 │       ▼                                          ▼                  │

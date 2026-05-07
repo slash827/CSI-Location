@@ -202,7 +202,7 @@ Add new section after the current multi-user results:
 
 ---
 
-## Deferred Engineering: MATLAB Directory Reorganisation
+## Deferred Engineering: MATLAB Directory Reorganisation — ✅ done (May 2026)
 
 Planned subdirectory layout for `src/matlab/` — **do after simulation finishes**
 (moving files while `generate_simulation_data.m` is running would break it):

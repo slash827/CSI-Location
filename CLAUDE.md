@@ -15,12 +15,22 @@ Main experiment: `experiments/09_grid_localization/`
 - **Python** (`src/python/`): ML pipeline, model training, evaluation, reporting
 
 ### Python module structure
-- `localization_pipeline.py` — classification pipeline (main entry point)
-- `localization_pipeline_regression.py` — 3D regression variant
+- `pipelines/localization_pipeline.py` — classification pipeline (main entry point)
+- `pipelines/localization_pipeline_regression.py` — 3D regression variant
+- `pipelines/multi_user_pipeline.py` — multi-UE support
+- `utils/read_jsonc.py` — shared JSONC parser
+- `utils/parse_terminal_output.py` — terminal output parsing utility
 - `run_experiment_matrix.py` — sweep runner for multiple grids/algorithms
-- `multi_user_pipeline.py` — multi-UE support
-- `read_jsonc.py` — shared JSONC parser
+- `compare_placements.py` — center vs NE BS comparison plots
+- `plot_mae_heatmap.py` — per-grid-point MAE scatter map
 - `configs/` — JSONC experiment configs (not ML code)
+
+### MATLAB module structure
+- `core/generate_simulation_data.m` — main simulation engine
+- `core/run_single_user_sim.m` — parfor-compatible per-user wrapper
+- `lib/AreaGenerator.m`, `lib/GeometryUtils.m`, `lib/TrafficUtils.m`, `lib/read_jsonc.m` — reusable classes/utilities
+- `runners/run_*.m` — experiment entry points (set OVERRIDE_* globals, call core/)
+- `tests/` — MATLAB unit tests
 
 ### Model class hierarchy
 ```
@@ -143,7 +153,7 @@ parser.add_argument('--split-method', choices=['random', 'temporal'], default='t
 
 Comma-separated metric combos (`--metrics "rss,sinr"`) are parsed into lists internally.
 
-**MATLAB entry points** use wrapper scripts that set `global OVERRIDE_*` variables, then call `generate_simulation_data`.
+**MATLAB entry points** live in `src/matlab/runners/` — wrapper scripts that set `global OVERRIDE_*` variables, then call `core/generate_simulation_data`.
 
 ---
 
@@ -184,7 +194,7 @@ Accumulate timings in `self.timing` dict, print summary at end of pipeline.
 # Python — from the project root
 .venv/Scripts/python -m pytest experiments/09_grid_localization/src/python/tests/ -v
 
-# MATLAB — from src/matlab/
+# MATLAB — from src/matlab/  (tests/ is unchanged; runners are in runners/)
 results = runtests('tests/TestGridGeneration'); disp(results)
 results = runtests('tests/TestReadJsonc');      disp(results)
 ```
