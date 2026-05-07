@@ -30,7 +30,7 @@ import sys
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent))
-from read_jsonc import read_jsonc
+from utils.read_jsonc import read_jsonc
 
 
 def load_voronoi_data(data_dir):

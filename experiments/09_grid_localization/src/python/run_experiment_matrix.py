@@ -23,7 +23,7 @@ import numpy as np
 import time
 from pathlib import Path
 from datetime import datetime
-from localization_pipeline import (
+from pipelines.localization_pipeline import (
     SimulationData, DataSplitter, Pipeline,
     GaussianStaticModel, GaussianTransitionModel,
     RandomForestModel, XGBoostModel, MLPModel,

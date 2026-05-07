@@ -18,7 +18,7 @@ import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from multi_user_pipeline import (
+from pipelines.multi_user_pipeline import (
     run_one_experiment,
     make_split,
     build_history_features,
@@ -114,11 +114,11 @@ class TestCrossUserExclusion:
         grid_lookup = build_grid_lookup(df)
 
         # Monkey-patch to capture what the model sees
-        from multi_user_pipeline import get_model
+        from pipelines.multi_user_pipeline import get_model
         original_fit = None
         seen_train_users = {}
 
-        import multi_user_pipeline as mup
+        import pipelines.multi_user_pipeline as mup
         orig_get_model = mup.get_model
 
         def patched_get_model(model_name, n_classes):

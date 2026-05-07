@@ -17,7 +17,7 @@ REF_SIM_MAT  = PROJECT_ROOT / 'results' / 'grid_localization' / 'grid_15x15' \
 OUT_DIR      = PROJECT_ROOT / 'results' / 'multi_user_voronoi_15x15'
 
 sys.path.insert(0, str(SCRIPT_DIR))
-from multi_user_pipeline import (
+from pipelines.multi_user_pipeline import (
     load_all_users, make_split, build_grid_lookup,
     build_history_features, get_feature_cols, run_one_experiment,
     plot_voronoi_accuracy_map, HISTORY_PRIMARY

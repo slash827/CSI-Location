@@ -9,7 +9,7 @@ import pytest
 
 # Allow import from parent directory
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from read_jsonc import read_jsonc
+from utils.read_jsonc import read_jsonc
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────

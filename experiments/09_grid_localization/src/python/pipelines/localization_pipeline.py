@@ -39,7 +39,7 @@ try:
 except ImportError:
     HAS_XGBOOST = False
 import time
-from read_jsonc import read_jsonc
+from utils.read_jsonc import read_jsonc
 
 # Project root: 4 levels up from src/python/ -> experiments/09_grid_localization/ -> experiments/ -> CSI-Location/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent

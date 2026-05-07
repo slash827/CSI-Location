@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 from scipy.io import loadmat
-from read_jsonc import read_jsonc
+from utils.read_jsonc import read_jsonc
 
 sns.set_style('whitegrid')
 plt.rcParams['figure.max_open_warning'] = 50  # Suppress warnings for many plots

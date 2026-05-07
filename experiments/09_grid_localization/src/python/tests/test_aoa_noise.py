@@ -11,7 +11,7 @@ import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from multi_user_pipeline import _apply_aoa_noise, AOA_NOISE_STD_DEG, AOA_QUANT_STEP_DEG
+from pipelines.multi_user_pipeline import _apply_aoa_noise, AOA_NOISE_STD_DEG, AOA_QUANT_STEP_DEG
 
 
 def _make_ud(user_id: int, n: int = 500, az_val: float = 45.0, el_val: float = -10.0):

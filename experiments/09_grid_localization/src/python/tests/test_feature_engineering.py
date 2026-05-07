@@ -14,7 +14,7 @@ import pytest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from multi_user_pipeline import (
+from pipelines.multi_user_pipeline import (
     build_history_features,
     build_delta_features,
     get_feature_cols,

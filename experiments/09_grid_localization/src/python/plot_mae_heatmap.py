@@ -31,7 +31,7 @@ import pandas as pd
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from multi_user_pipeline import (
+from pipelines.multi_user_pipeline import (
     EXPERIMENTS,
     load_all_users,
     make_split,

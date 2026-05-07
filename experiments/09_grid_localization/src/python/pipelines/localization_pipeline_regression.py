@@ -25,7 +25,7 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from xgboost import XGBRegressor
 import time
-from read_jsonc import read_jsonc
+from utils.read_jsonc import read_jsonc
 
 
 class RegressionData:

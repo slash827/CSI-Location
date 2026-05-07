@@ -908,7 +908,7 @@ def _read_bs_geometry(data_dir: Path):
         p = data_dir / cfg_name
         if p.exists():
             try:
-                from read_jsonc import read_jsonc as _rjsonc
+                from utils.read_jsonc import read_jsonc as _rjsonc
                 return _parse_cfg(_rjsonc(p))
             except Exception:
                 pass
@@ -922,7 +922,7 @@ def _read_bs_geometry(data_dir: Path):
             config_name = str(ei['config_name'].flat[0])
             cfg_path = EXPERIMENT_ROOT / 'configs' / config_name
             if cfg_path.exists():
-                from read_jsonc import read_jsonc as _rjsonc
+                from utils.read_jsonc import read_jsonc as _rjsonc
                 return _parse_cfg(_rjsonc(cfg_path))
     except Exception:
         pass

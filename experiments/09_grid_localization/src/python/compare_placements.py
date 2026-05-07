@@ -49,7 +49,7 @@ def _bs_position(data_dir: Path | None):
         return None
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     try:
-        from multi_user_pipeline import _read_bs_geometry
+        from pipelines.multi_user_pipeline import _read_bs_geometry
         bs_xy, _ = _read_bs_geometry(data_dir)
         return bs_xy
     except Exception:
