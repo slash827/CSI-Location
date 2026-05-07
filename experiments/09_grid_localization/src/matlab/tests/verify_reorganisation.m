@@ -26,8 +26,8 @@ cfg = read_jsonc(config_path);
 assert(strcmp(cfg.experiment.name, 'ne_bs_voronoi_15x15'), ...
     'read_jsonc: experiment name mismatch');
 assert(cfg.grid.size == 15, 'read_jsonc: grid size mismatch');
-assert(isequal(cfg.base_station.position, [48, 48, 10]), ...
-    'read_jsonc: BS position mismatch');
+assert(isequal(cfg.base_station.position(:)', [48, 48, 10]), ...
+    'read_jsonc: BS position mismatch');  % (:)' handles column vs row vector from jsondecode
 fprintf('[OK] read_jsonc — parsed ne_bs_voronoi_15x15_config.jsonc correctly\n');
 
 % ── 3. GeometryUtils.euclidean_distance — lib/GeometryUtils.m ────────────────
