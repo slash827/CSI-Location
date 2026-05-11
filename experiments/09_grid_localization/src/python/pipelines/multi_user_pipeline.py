@@ -8,16 +8,20 @@ the naming convention:
   BASE        — RSS+SINR, h=0 (static baseline)
   BASE_dp     — RSS+SINR + device params, h=0
   BASE_uid    — RSS+SINR + user_id, h=0
-  BASE_H      — RSS+SINR, h=3 (absolute value stacking)
-  BASE_H_dp   — BASE_H + device params
-  BASE_H_uid  — BASE_H + user_id
-  BASE_A      — RSS+SINR+AoA, h=0
-  BASE_A_dp   — BASE_A + device params
-  BASE_A_uid  — BASE_A + user_id
-  BASE_A_H    — RSS+SINR+AoA, h=3
-  BASE_A_H_dp — BASE_A_H + device params
+  BASE_H1      — RSS+SINR, h=1 (absolute value stacking)
+  BASE_H2      — RSS+SINR, h=2 (absolute value stacking)
+  BASE_H3      — RSS+SINR, h=3 (absolute value stacking)
+  BASE_H3_dp   — BASE_H3 + device params
+  BASE_H3_uid  — BASE_H3 + user_id
+  BASE_A       — RSS+SINR+AoA, h=0
+  BASE_A_dp    — BASE_A + device params
+  BASE_A_uid   — BASE_A + user_id
+  BASE_A_H1    — RSS+SINR+AoA, h=1
+  BASE_A_H2    — RSS+SINR+AoA, h=2
+  BASE_A_H3    — RSS+SINR+AoA, h=3
+  BASE_A_H3_dp — BASE_A_H3 + device params
 
-  Delta variants (e.g. BASE_H_delta): same as absolute but uses
+  Delta variants (e.g. BASE_H3_delta): same as absolute but uses
   first-differences instead of stacked raw values.
 
 Legend:
@@ -36,7 +40,11 @@ Usage:
   python multi_user_pipeline.py --data-dir <path> \\
       --run-only BASE_dp BASE_uid BASE_A_dp BASE_A_uid --append-results
 
-  # Data volume sweep (BASE_H vs BASE_H_delta):
+  # Run only the new h=1 and h=2 depth experiments and append:
+  python multi_user_pipeline.py --data-dir <path> \\
+      --run-only BASE_H1 BASE_H2 BASE_A_H1 BASE_A_H2 --append-results
+
+  # Data volume sweep (BASE_H3 vs BASE_H3_delta):
   python multi_user_pipeline.py --data-dir <path> --data-volume-sweep
 
   # Environmental variability (requires 3 env-run .mat files):
@@ -44,6 +52,7 @@ Usage:
 """
 
 import argparse
+import gc
 import json
 import sys
 import time
@@ -65,6 +74,25 @@ except ImportError:
     print("Warning: XGBoost not available, skipping XGBoost models")
 
 try:
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    HAS_OPTUNA = True
+except ImportError:
+    HAS_OPTUNA = False
+
+try:
+    from tqdm.auto import tqdm as _tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
+try:
+    from tqdm.auto import tqdm as _tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
+try:
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -74,7 +102,61 @@ except ImportError:
     HAS_MATPLOTLIB = False
     print("Warning: Matplotlib not available, skipping plots")
 
+try:
+    from tqdm.auto import tqdm as _tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
+
 warnings.filterwarnings('ignore')
+
+
+def _fmt_s(seconds: float) -> str:
+    """Format seconds as '1h 2m 3s', '2m 3s', or '3s'."""
+    s = max(0, int(seconds))
+    if s >= 3600:
+        return f'{s // 3600}h {(s % 3600) // 60}m {s % 60}s'
+    if s >= 60:
+        return f'{s // 60}m {s % 60}s'
+    return f'{s}s'
+
+
+class _ETATracker:
+    """
+    Lightweight wall-clock ETA tracker.  No external dependencies.
+
+    Usage::
+        t = _ETATracker(total=n, label='experiments')
+        for item in items:
+            t.start_item(name)
+            do_work()
+            t.finish_item()   # prints progress bar + ETA
+    """
+    def __init__(self, total: int, label: str = 'items'):
+        self.total   = total
+        self.label   = label
+        self.done    = 0
+        self._wall0  = time.time()
+        self._item_t = None
+
+    def start_item(self, name: str = '') -> None:
+        self._item_t = time.time()
+        elapsed = self._item_t - self._wall0
+        print(f'  [{self.done + 1}/{self.total}] {name}  '
+              f'(total elapsed {_fmt_s(elapsed)})', flush=True)
+
+    def finish_item(self) -> None:
+        self.done  += 1
+        item_sec    = time.time() - self._item_t if self._item_t else 0
+        elapsed     = time.time() - self._wall0
+        remaining   = self.total - self.done
+        eta_s       = (elapsed / self.done) * remaining if self.done else 0
+        filled      = int(20 * self.done / self.total)
+        bar         = '█' * filled + '░' * (20 - filled)
+        print(f'     └─ done in {_fmt_s(item_sec)}  '
+              f'[{bar}] {self.done}/{self.total}  '
+              f'ETA ≈ {_fmt_s(eta_s)} remaining', flush=True)
+
 
 # ── Project layout ────────────────────────────────────────────────────────────
 SCRIPT_DIR      = Path(__file__).resolve().parent
@@ -84,6 +166,14 @@ RESULTS_ROOT    = SCRIPT_DIR.parent.parent.parent.parent / 'results'
 HISTORY_PRIMARY   = 3    # default h for history experiments
 MAX_HISTORY_CURVE = 4    # h range for learning curve (0..4)
 
+# Populated by tune_hyperparams() when --tune-hyperparams is passed;
+# get_model() merges these over the defaults.
+TUNED_PARAMS: dict = {}   # model_name → {param: value}
+
+# Set from --n-jobs CLI arg; applied to all model constructors after TUNED_PARAMS merge
+# so it always takes precedence over both defaults and tuned params.
+N_JOBS: int = 4
+
 # AoA realistic impairments
 AOA_NOISE_STD_DEG  = 4.0
 AOA_QUANT_STEP_DEG = 5.0
@@ -91,44 +181,48 @@ AOA_QUANT_STEP_DEG = 5.0
 # ── Experiment registry ───────────────────────────────────────────────────────
 DEVICE_COLS = ['n_antennas', 'antenna_gain_db', 'ue_height']
 
-# Each entry: key, h (>0 means use h_primary), extra, aoa, mode
+# Each entry: key, h (literal depth: 0=static, 1/2/3=history depth), extra, aoa, mode
 EXPERIMENTS = [
     # Static baselines (h=0)
     {'key': 'BASE',        'h': 0, 'extra': None,        'aoa': False, 'mode': 'absolute'},
     {'key': 'BASE_dp',     'h': 0, 'extra': DEVICE_COLS, 'aoa': False, 'mode': 'absolute'},
     {'key': 'BASE_uid',    'h': 0, 'extra': ['user_id'], 'aoa': False, 'mode': 'absolute'},
-    # History experiments (h=3, absolute)
-    {'key': 'BASE_H',      'h': 3, 'extra': None,        'aoa': False, 'mode': 'absolute'},
-    {'key': 'BASE_H_dp',   'h': 3, 'extra': DEVICE_COLS, 'aoa': False, 'mode': 'absolute'},
-    {'key': 'BASE_H_uid',  'h': 3, 'extra': ['user_id'], 'aoa': False, 'mode': 'absolute'},
+    # History depth sweep (h=1,2,3 absolute) — no AoA
+    {'key': 'BASE_H1',      'h': 1, 'extra': None,        'aoa': False, 'mode': 'absolute'},
+    {'key': 'BASE_H2',      'h': 2, 'extra': None,        'aoa': False, 'mode': 'absolute'},
+    {'key': 'BASE_H3',      'h': 3, 'extra': None,        'aoa': False, 'mode': 'absolute'},
+    {'key': 'BASE_H3_dp',   'h': 3, 'extra': DEVICE_COLS, 'aoa': False, 'mode': 'absolute'},
+    {'key': 'BASE_H3_uid',  'h': 3, 'extra': ['user_id'], 'aoa': False, 'mode': 'absolute'},
     # AoA static baselines (h=0)
-    {'key': 'BASE_A',      'h': 0, 'extra': None,        'aoa': True,  'mode': 'absolute'},
-    {'key': 'BASE_A_dp',   'h': 0, 'extra': DEVICE_COLS, 'aoa': True,  'mode': 'absolute'},
-    {'key': 'BASE_A_uid',  'h': 0, 'extra': ['user_id'], 'aoa': True,  'mode': 'absolute'},
-    # AoA + history (h=3, absolute)
-    {'key': 'BASE_A_H',    'h': 3, 'extra': None,        'aoa': True,  'mode': 'absolute'},
-    {'key': 'BASE_A_H_dp', 'h': 3, 'extra': DEVICE_COLS, 'aoa': True,  'mode': 'absolute'},
+    {'key': 'BASE_A',       'h': 0, 'extra': None,        'aoa': True,  'mode': 'absolute'},
+    {'key': 'BASE_A_dp',    'h': 0, 'extra': DEVICE_COLS, 'aoa': True,  'mode': 'absolute'},
+    {'key': 'BASE_A_uid',   'h': 0, 'extra': ['user_id'], 'aoa': True,  'mode': 'absolute'},
+    # AoA + history depth sweep (h=1,2,3 absolute)
+    {'key': 'BASE_A_H1',    'h': 1, 'extra': None,        'aoa': True,  'mode': 'absolute'},
+    {'key': 'BASE_A_H2',    'h': 2, 'extra': None,        'aoa': True,  'mode': 'absolute'},
+    {'key': 'BASE_A_H3',    'h': 3, 'extra': None,        'aoa': True,  'mode': 'absolute'},
+    {'key': 'BASE_A_H3_dp', 'h': 3, 'extra': DEVICE_COLS, 'aoa': True,  'mode': 'absolute'},
     # Delta variants
-    {'key': 'BASE_H_delta',      'h': 3, 'extra': None,        'aoa': False, 'mode': 'delta'},
-    {'key': 'BASE_H_dp_delta',   'h': 3, 'extra': DEVICE_COLS, 'aoa': False, 'mode': 'delta'},
-    {'key': 'BASE_A_H_delta',    'h': 3, 'extra': None,        'aoa': True,  'mode': 'delta'},
-    {'key': 'BASE_A_H_dp_delta', 'h': 3, 'extra': DEVICE_COLS, 'aoa': True,  'mode': 'delta'},
+    {'key': 'BASE_H3_delta',      'h': 3, 'extra': None,        'aoa': False, 'mode': 'delta'},
+    {'key': 'BASE_H3_dp_delta',   'h': 3, 'extra': DEVICE_COLS, 'aoa': False, 'mode': 'delta'},
+    {'key': 'BASE_A_H3_delta',    'h': 3, 'extra': None,        'aoa': True,  'mode': 'delta'},
+    {'key': 'BASE_A_H3_dp_delta', 'h': 3, 'extra': DEVICE_COLS, 'aoa': True,  'mode': 'delta'},
 ]
 
 # Cross-user experiments: cu_key -> base experiment key (reuses its feat_df)
 CROSS_USER_EXPERIMENTS = {
-    'cross_user_BASE_H':      'BASE_H',
-    'cross_user_BASE_H_dp':   'BASE_H_dp',
-    'cross_user_BASE_H_uid':  'BASE_H_uid',
-    'cross_user_BASE_A_H':    'BASE_A_H',
-    'cross_user_BASE_A_dp':   'BASE_A_dp',
-    'cross_user_BASE_A_uid':  'BASE_A_uid',
+    'cross_user_BASE_H3':      'BASE_H3',
+    'cross_user_BASE_H3_dp':   'BASE_H3_dp',
+    'cross_user_BASE_H3_uid':  'BASE_H3_uid',
+    'cross_user_BASE_A_H3':    'BASE_A_H3',
+    'cross_user_BASE_A_dp':    'BASE_A_dp',
+    'cross_user_BASE_A_uid':   'BASE_A_uid',
 }
 
-# Core 7 experiments shown in main bar chart and heatmap (original set, renamed)
+# Core experiments shown in main bar chart and heatmap
 CORE_DISPLAY_EXPERIMENTS = [
-    'BASE', 'BASE_H', 'BASE_H_dp', 'BASE_H_uid',
-    'BASE_A', 'BASE_A_H', 'BASE_A_H_dp',
+    'BASE', 'BASE_H1', 'BASE_H2', 'BASE_H3', 'BASE_H3_dp', 'BASE_H3_uid',
+    'BASE_A', 'BASE_A_H1', 'BASE_A_H2', 'BASE_A_H3', 'BASE_A_H3_dp',
 ]
 
 
@@ -422,21 +516,203 @@ def build_grid_lookup(df: pd.DataFrame) -> dict[int, tuple[float, float]]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_model(model_name: str, n_classes: int):
-    """Return a sklearn-compatible classifier."""
+    """Return a sklearn-compatible classifier.
+
+    If tune_hyperparams() has been called, TUNED_PARAMS overrides the defaults.
+    """
     if model_name == 'rf':
-        return RandomForestClassifier(
+        params = dict(
             n_estimators=50, max_features='sqrt', max_depth=15,
             min_samples_leaf=20, random_state=42, n_jobs=1)
+        params.update(TUNED_PARAMS.get('rf', {}))
+        params['n_jobs'] = N_JOBS  # CLI value always wins over defaults and tuned params
+        return RandomForestClassifier(**params)
     elif model_name == 'xgboost':
         if not HAS_XGBOOST:
             raise RuntimeError("XGBoost not installed")
-        return XGBClassifier(
+        params = dict(
             n_estimators=50, max_depth=5, learning_rate=0.15,
             subsample=0.8, colsample_bytree=0.8,
+            tree_method='hist', max_bin=128,
             use_label_encoder=False, eval_metric='mlogloss',
             random_state=42, n_jobs=2, verbosity=0)
+        params.update(TUNED_PARAMS.get('xgboost', {}))
+        params['n_jobs'] = N_JOBS  # CLI value always wins over defaults and tuned params
+        return XGBClassifier(**params)
     else:
         raise ValueError(f"Unknown model: {model_name}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5b. Hyperparameter tuning (Optuna)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def tune_hyperparams(df: pd.DataFrame,
+                    grid_lookup: dict,
+                    models: list[str],
+                    n_trials: int = 50,
+                    sample_frac: float = 0.30,
+                    out_dir: Path = None) -> None:
+    """
+    Run an Optuna TPE study for each model and store the best params in
+    the global TUNED_PARAMS dict so that subsequent get_model() calls use them.
+
+    Progress is persisted to a SQLite database in out_dir/tuning/
+    so an interrupted run can be resumed by re-running with the same command.
+    When all n_trials are done, best params are saved to tuned_params.json.
+
+    Args:
+        df:          Combined multi-user DataFrame (must already have 'split' col).
+        grid_lookup: {grid_point_id -> (x, y)} for MAE computation.
+        models:      List of model names to tune ('rf', 'xgboost').
+        n_trials:    Total number of Optuna trials per model (completed trials
+                     from a previous run count toward this total).
+        sample_frac: Fraction of each user's training rows to subsample (0..1).
+        out_dir:     Root output directory; tuning artefacts go in out_dir/tuning/.
+    """
+    if not HAS_OPTUNA:
+        print("[tune] Optuna not installed — skipping hyperparameter tuning.")
+        print("       Install with: pip install optuna")
+        return
+
+    print(f"\n=== Hyperparameter Tuning (Optuna | {n_trials} trials | "
+          f"{sample_frac:.0%} of training data) ===")
+
+    # Build BASE features (h=0) — fastest to compute, params transfer well
+    feat_df   = build_history_features(df, h=0)
+    feat_cols = get_feature_cols(h=0)
+    label_col = 'grid_point_id'
+
+    # Subsample training rows chronologically per user
+    train_rows = feat_df[feat_df['split'] == 'train'].copy()
+    kept = []
+    for uid in sorted(train_rows['user_id'].unique()):
+        u_rows = train_rows[train_rows['user_id'] == uid].sort_values('step_index')
+        n_keep = max(1, int(len(u_rows) * sample_frac))
+        kept.append(u_rows.iloc[:n_keep])
+    sub_train = pd.concat(kept, ignore_index=True)
+
+    # Inner 80/20 chronological split within the subsample
+    sub_train = sub_train.copy()
+    sub_train['inner_split'] = 'inner_train'
+    for uid in sorted(sub_train['user_id'].unique()):
+        mask = sub_train['user_id'] == uid
+        rows = sub_train.loc[mask].sort_values('step_index')
+        n_val = max(1, int(len(rows) * 0.2))
+        sub_train.loc[rows.index[-n_val:], 'inner_split'] = 'inner_val'
+
+    all_labels = sorted(feat_df[label_col].unique())
+    label2idx  = {lbl: i for i, lbl in enumerate(all_labels)}
+
+    X_tr  = sub_train.loc[sub_train['inner_split'] == 'inner_train', feat_cols].values.astype(np.float32)
+    y_tr  = sub_train.loc[sub_train['inner_split'] == 'inner_train', label_col] \
+                     .map(label2idx).values
+    X_val = sub_train.loc[sub_train['inner_split'] == 'inner_val',   feat_cols].values.astype(np.float32)
+    y_val = sub_train.loc[sub_train['inner_split'] == 'inner_val',   label_col] \
+                     .map(label2idx).values
+
+    # Free large DataFrames — numpy arrays above are all we need for Optuna
+    del feat_df, kept, sub_train
+    gc.collect()
+
+    n_classes = len(all_labels)
+    print(f"  Tuning data: {len(X_tr):,} inner-train  /  {len(X_val):,} inner-val  "
+          f"({n_classes} classes)")
+
+    tune_dir = (out_dir / 'tuning') if out_dir else Path('tuning')
+    tune_dir.mkdir(parents=True, exist_ok=True)
+    params_path = tune_dir / 'tuned_params.json'
+    print(f"  Persistence: {tune_dir}")
+
+    for model_name in models:
+        if model_name == 'xgboost' and not HAS_XGBOOST:
+            print(f"  Skipping {model_name} (not installed)")
+            continue
+
+        print(f"  Tuning {model_name} ({n_trials} trials)...")
+
+        # ── Persistent SQLite study — survives interruptions ──────────────────
+        db_path    = tune_dir / f'study_{model_name}.db'
+        storage    = f'sqlite:///{db_path}'
+        study_name = f'hparam_search_{model_name}'
+
+        study = optuna.create_study(
+            study_name=study_name,
+            storage=storage,
+            direction='maximize',
+            sampler=optuna.samplers.TPESampler(seed=42),
+            load_if_exists=True,   # resume if DB already has completed trials
+        )
+
+        already_done = len([t for t in study.trials
+                            if t.state == optuna.trial.TrialState.COMPLETE])
+        remaining    = max(0, n_trials - already_done)
+        if already_done:
+            print(f"    Resuming: {already_done} trials already saved, "
+                  f"{remaining} remaining.")
+        if remaining == 0:
+            print(f"    All {n_trials} trials already completed — loading saved result.")
+            TUNED_PARAMS[model_name] = study.best_params
+            print(f"    Best inner-val accuracy: {study.best_value:.4f}")
+            print(f"    Best params: {study.best_params}")
+            continue
+
+        _tune_wall0  = time.time()
+        _trial_times: list = []
+
+        def _trial_callback(study, trial, _mn=model_name):
+            """Print per-trial progress + ETA (used when tqdm is unavailable)."""
+            if trial.state != optuna.trial.TrialState.COMPLETE:
+                return
+            _trial_times.append(time.time())
+            done    = already_done + len(_trial_times)
+            elapsed = _trial_times[-1] - _tune_wall0
+            avg_s   = elapsed / len(_trial_times)
+            eta_s   = avg_s * (n_trials - done)
+            best    = study.best_value
+            cur     = trial.value if trial.value is not None else float('nan')
+            filled  = int(20 * done / n_trials)
+            bar     = '█' * filled + '░' * (20 - filled)
+            print(f'    trial {done:>3}/{n_trials}  '
+                  f'acc={cur:.4f}  best={best:.4f}  '
+                  f'[{bar}]  ETA ≈ {_fmt_s(eta_s)}', flush=True)
+
+        callbacks = [] if HAS_TQDM else [_trial_callback]
+
+        def objective(trial, _mn=model_name):
+            if _mn == 'rf':
+                clf = RandomForestClassifier(
+                    n_estimators=trial.suggest_int('n_estimators', 50, 200, step=50),
+                    max_depth=trial.suggest_int('max_depth', 8, 16),
+                    min_samples_leaf=trial.suggest_int('min_samples_leaf', 5, 20),
+                    max_features='sqrt',
+                    random_state=42, n_jobs=N_JOBS)
+            else:  # xgboost
+                clf = XGBClassifier(
+                    n_estimators=trial.suggest_int('n_estimators', 50, 250, step=50),
+                    max_depth=trial.suggest_int('max_depth', 3, 7),
+                    learning_rate=trial.suggest_float('learning_rate', 0.02, 0.30, log=True),
+                    subsample=trial.suggest_float('subsample', 0.6, 1.0),
+                    colsample_bytree=trial.suggest_float('colsample_bytree', 0.5, 1.0),
+                    tree_method='hist',   # histogram splits: O(bins×features) not O(N×features)
+                    max_bin=128,          # half the default 256 — less memory, negligible accuracy cost
+                    use_label_encoder=False, eval_metric='mlogloss',
+                    random_state=42, n_jobs=N_JOBS, verbosity=0)
+            clf.fit(X_tr, y_tr)
+            return accuracy_score(y_val, clf.predict(X_val))
+
+        study.optimize(objective, n_trials=remaining,
+                       show_progress_bar=HAS_TQDM,
+                       callbacks=callbacks)
+
+        TUNED_PARAMS[model_name] = study.best_params
+        print(f"    Best inner-val accuracy: {study.best_value:.4f}")
+        print(f"    Best params: {study.best_params}")
+
+    # ── Persist tuned params so they can be loaded without re-tuning ──────────
+    with open(params_path, 'w') as f:
+        json.dump(TUNED_PARAMS, f, indent=2)
+    print(f"  [OK] Tuned params saved to: {params_path}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -489,9 +765,9 @@ def run_one_experiment(feat_df: pd.DataFrame,
     if exclude_user is not None:
         train_mask = train_mask & (feat_df['user_id'] != exclude_user)
 
-    X_train = feat_df.loc[train_mask, feature_cols].values
+    X_train = feat_df.loc[train_mask, feature_cols].values.astype(np.float32)
     y_train = feat_df.loc[train_mask, label_col].map(label2idx).values
-    X_test  = feat_df.loc[test_mask,  feature_cols].values
+    X_test  = feat_df.loc[test_mask,  feature_cols].values.astype(np.float32)
     y_test  = feat_df.loc[test_mask,  label_col].map(label2idx).values
     y_test_orig = feat_df.loc[test_mask, label_col].values
 
@@ -530,13 +806,14 @@ def run_one_experiment(feat_df: pd.DataFrame,
 
     cm_matrix = confusion_matrix(y_test_orig, y_pred_orig, labels=all_labels)
 
+    # Note: model object is NOT stored — fitted models can be large (50-200 MB each)
+    # and are not needed after prediction. All metrics are already in 'overall'/'per_user'/'per_cell'.
     return {
         'overall':      overall,
         'per_user':     per_user,
         'per_cell':     per_cell,
         'cm':           cm_matrix,
         'cm_labels':    all_labels,
-        'model':        model,
         'feature_cols': feature_cols,
     }
 
@@ -554,8 +831,9 @@ def run_all_experiments(df: pd.DataFrame,
     Run experiments from EXPERIMENTS registry + CROSS_USER_EXPERIMENTS.
     If run_only is given (list of keys), only those experiments run.
     """
-    # Resolve h for each experiment (h>0 means use h_primary)
-    def resolve_h(h): return h_primary if h > 0 else 0
+    # resolve_h: use the literal h value from the registry
+    # h=0 → static baseline; h=1,2,3,... → exact history depth
+    def resolve_h(h): return h
 
     print("\n=== Data Summary ===")
     for uid, grp in df.groupby('user_id'):
@@ -588,9 +866,30 @@ def run_all_experiments(df: pd.DataFrame,
             feat_cache[ck] = (feat_df, feat_cols)
         return feat_cache[ck]
 
-    for model_name in models:
-        if model_name == 'xgboost' and not HAS_XGBOOST:
-            continue
+    active_models = [m for m in models
+                     if not (m == 'xgboost' and not HAS_XGBOOST)]
+
+    # ── Count total fit calls for accurate ETA ────────────────────────────────
+    _core_count = sum(
+        1 for m in active_models
+        for e in EXPERIMENTS
+        if run_only is None or e['key'] in run_only
+    )
+    _cu_count = sum(
+        1 for m in active_models
+        for ck in CROSS_USER_EXPERIMENTS
+        if run_only is None or ck in run_only
+    )
+    _lc_count = (MAX_HISTORY_CURVE + 1) * len(active_models) if run_only is None else 0
+    _total_jobs = _core_count + _cu_count + _lc_count
+    _lc_str = f" + {_lc_count} learning-curve)" if _lc_count else ")"
+    print(f"\n  Total fit+predict calls planned: {_total_jobs} "
+          f"({_core_count} core + {_cu_count} cross-user{_lc_str}")
+
+
+    eta = _ETATracker(total=_total_jobs, label='fit calls')
+
+    for model_name in active_models:
         print(f"\n{'='*60}")
         print(f"Model: {model_name}")
         print(f"{'='*60}")
@@ -607,9 +906,10 @@ def run_all_experiments(df: pd.DataFrame,
             mode  = exp_def.get('mode', 'absolute')
 
             feat_df, feat_cols = _get_feat(h, extra, aoa, mode)
-            print(f"\n--- {key} ---")
+            eta.start_item(f'{key}  [{model_name}]')
             results[model_name][key] = run_one_experiment(
-                feat_df, feat_cols, grid_lookup, model_name, f"{key} {model_name}")
+                feat_df, feat_cols, grid_lookup, model_name, f"  {key} {model_name}")
+            eta.finish_item()
 
         # ── Cross-user experiments ────────────────────────────────────────────
         for cu_key, base_key in CROSS_USER_EXPERIMENTS.items():
@@ -624,23 +924,33 @@ def run_all_experiments(df: pd.DataFrame,
             mode  = base_def.get('mode', 'absolute')
 
             feat_df, feat_cols = _get_feat(h, extra, aoa, mode)
-            print(f"\n--- {cu_key} (train U1–U4, test U5) ---")
+            eta.start_item(f'{cu_key}  [{model_name}]  (train U1–U4, test U5)')
             results[model_name][cu_key] = run_one_experiment(
                 feat_df, feat_cols, grid_lookup, model_name,
-                f"{cu_key} {model_name}", exclude_user=5)
+                f"  {cu_key} {model_name}", exclude_user=5)
+            eta.finish_item()
 
         # ── Learning curve h=0..MAX_HISTORY_CURVE (full run only) ────────────
         if run_only is None:
-            print(f"\n--- Learning curve h=0..{MAX_HISTORY_CURVE} ---")
+            print(f"\n--- Learning curve h=0..{MAX_HISTORY_CURVE} [{model_name}] ---")
             lc = []
             for h_val in range(MAX_HISTORY_CURVE + 1):
                 fdf, fc = _get_feat(h_val, None, False, 'absolute')
+                eta.start_item(f'learning_curve h={h_val}  [{model_name}]')
                 res = run_one_experiment(fdf, fc, grid_lookup, model_name,
                                          f"  h={h_val} {model_name}")
+                eta.finish_item()
                 lc.append({'h': h_val,
                            'accuracy': res['overall']['accuracy'],
                            'mae':      res['overall']['mae']})
             results[model_name]['learning_curve'] = lc
+
+        # ── Evict feature cache after each model to free RAM ─────────────────
+        # The next model will re-use cached entries if still present, but if
+        # this was the last model they can be freed now.
+        if model_name == active_models[-1]:
+            feat_cache.clear()
+            gc.collect()
 
     return results
 
@@ -713,13 +1023,17 @@ def save_results(results: dict, df: pd.DataFrame, out_dir: Path,
         'models': models,
         'train_test_split': '80/20 chronological per user',
         'naming_convention': {
-            'BASE': 'RSS+SINR, h=0',
-            'BASE_H': f'RSS+SINR absolute stacking h={h_primary}',
-            'BASE_H_dp': f'BASE_H + device params',
-            'BASE_H_uid': f'BASE_H + user_id',
-            'BASE_A': 'RSS+SINR+AoA (4°/5° noise), h=0',
-            'BASE_A_H': f'BASE_A absolute stacking h={h_primary}',
-            'BASE_A_H_dp': 'BASE_A_H + device params',
+            'BASE':       'RSS+SINR, h=0',
+            'BASE_H1':     'RSS+SINR absolute stacking h=1',
+            'BASE_H2':     'RSS+SINR absolute stacking h=2',
+            'BASE_H3':     f'RSS+SINR absolute stacking h={h_primary}',
+            'BASE_H3_dp':  'BASE_H3 + device params',
+            'BASE_H3_uid': 'BASE_H3 + user_id',
+            'BASE_A':      'RSS+SINR+AoA (4°/5° noise), h=0',
+            'BASE_A_H1':   'BASE_A absolute stacking h=1',
+            'BASE_A_H2':   'BASE_A absolute stacking h=2',
+            'BASE_A_H3':   f'BASE_A absolute stacking h={h_primary}',
+            'BASE_A_H3_dp':'BASE_A_H3 + device params',
         },
         'device_profiles': {
             'U1': {'n_antennas': 4, 'antenna_gain_db': 0.0,  'ue_height_m': 1.5, 'seed': 100},
@@ -737,7 +1051,7 @@ def save_results(results: dict, df: pd.DataFrame, out_dir: Path,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 10.  Data volume sweep  (BASE_H absolute vs BASE_H_delta)
+# 10.  Data volume sweep  (BASE_H3 absolute vs BASE_H3_delta)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_data_volume_sweep(df: pd.DataFrame, grid_lookup: dict,
@@ -745,7 +1059,7 @@ def run_data_volume_sweep(df: pd.DataFrame, grid_lookup: dict,
                            h: int = 3,
                            fractions: tuple = (0.10, 0.25, 0.50, 1.00)) -> pd.DataFrame:
     """
-    Compare BASE_H (absolute) vs BASE_H_delta at varying training fractions.
+    Compare BASE_H3 (absolute) vs BASE_H3_delta at varying training fractions.
     Subsamples the training set AFTER the chronological split (first X% of
     training rows per user, preserving chronological order).
     The test set is always 100%.
@@ -756,7 +1070,7 @@ def run_data_volume_sweep(df: pd.DataFrame, grid_lookup: dict,
         if model_name == 'xgboost' and not HAS_XGBOOST:
             continue
 
-        for mode, exp_key in [('absolute', 'BASE_H'), ('delta', 'BASE_H_delta')]:
+        for mode, exp_key in [('absolute', 'BASE_H3'), ('delta', 'BASE_H3_delta')]:
             if mode == 'delta':
                 feat_df = build_delta_features(df, h=h)
             else:
@@ -813,7 +1127,7 @@ def run_env_variability(env_dir: Path, grid_lookup: dict,
       - cross_env split: train on run1+run2, test on run3
       - single_run split: 80/20 chronological on run1 only
 
-    Experiments: BASE (h=0), BASE_H (h=3, absolute), BASE_H_delta (h=3, delta).
+    Experiments: BASE (h=0), BASE_H3 (h=3, absolute), BASE_H3_delta (h=3, delta).
     """
     records = []
 
@@ -860,8 +1174,8 @@ def run_env_variability(env_dir: Path, grid_lookup: dict,
         for split_type, split_df in splits_map.items():
             for exp_key, h_val, mode in [
                 ('BASE',         0, 'absolute'),
-                ('BASE_H',       h, 'absolute'),
-                ('BASE_H_delta', h, 'delta'),
+                ('BASE_H3',        h, 'absolute'),
+                ('BASE_H3_delta',   h, 'delta'),
             ]:
                 if mode == 'delta':
                     feat_df = build_delta_features(split_df, h=h_val)
@@ -952,13 +1266,17 @@ def plot_accuracy_bar(results: dict, models: list[str], out_dir: Path, h_primary
         return
     exps   = CORE_DISPLAY_EXPERIMENTS
     labels = [
-        f'BASE\n(h=0)',
-        f'BASE_H\n(h={h_primary})',
-        f'BASE_H_dp\n(h+dev)',
-        f'BASE_H_uid\n(h+uid)',
-        f'BASE_A\n(h=0+AoA)',
-        f'BASE_A_H\n(h+AoA)',
-        f'BASE_A_H_dp\n(h+AoA+dev)',
+        'BASE\n(h=0)',
+        'BASE_H1\n(h=1)',
+        'BASE_H2\n(h=2)',
+        'BASE_H3\n(h=3)',
+        'BASE_H3_dp\n(h+dev)',
+        'BASE_H3_uid\n(h+uid)',
+        'BASE_A\n(h=0)',
+        'BASE_A_H1\n(h=1)',
+        'BASE_A_H2\n(h=2)',
+        'BASE_A_H3\n(h=3)',
+        'BASE_A_H3_dp\n(h+AoA+dev)',
     ]
     x     = np.arange(len(exps))
     width = 0.35
@@ -982,8 +1300,8 @@ def plot_accuracy_bar(results: dict, models: list[str], out_dir: Path, h_primary
                         f'{v:.1f}%', ha='center', va='bottom', fontsize=7)
 
     # Vertical divider between non-AoA and AoA experiments
-    ax.axvline(x=3.5, color='gray', linestyle='--', linewidth=1, alpha=0.6)
-    ax.text(3.6, 95, 'AoA added →', fontsize=8, color='gray', va='top')
+    ax.axvline(x=5.5, color='gray', linestyle='--', linewidth=1, alpha=0.6)
+    ax.text(5.6, 95, 'AoA added →', fontsize=8, color='gray', va='top')
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=8)
@@ -1010,9 +1328,10 @@ def plot_per_user_heatmap(results: dict, models: list[str], out_dir: Path, h_pri
                        for uid in results[m][exp]['per_user']})
 
     xlabels = [
-        f'BASE\nh=0', f'BASE_H\nh={h_primary}', f'BASE_H_dp\n+dev',
-        f'BASE_H_uid\n+uid', f'BASE_A\nh=0\n+AoA', f'BASE_A_H\nh+AoA',
-        f'BASE_A_H_dp\nh+AoA\n+dev',
+        'BASE\nh=0', 'BASE_H1\nh=1', 'BASE_H2\nh=2',
+        'BASE_H3\nh=3', 'BASE_H3_dp\n+dev', 'BASE_H3_uid\n+uid',
+        'BASE_A\nh=0', 'BASE_A_H1\nh=1', 'BASE_A_H2\nh=2',
+        'BASE_A_H3\nh=3', 'BASE_A_H3_dp\n+dev',
     ]
 
     for model_name in models:
@@ -1057,13 +1376,17 @@ def plot_mae_bar(mae_df: pd.DataFrame, models: list[str], out_dir: Path, h_prima
         return
     exps   = CORE_DISPLAY_EXPERIMENTS
     labels = [
-        f'BASE\n(h=0)',
-        f'BASE_H\n(h={h_primary})',
-        f'BASE_H_dp\n(h+dev)',
-        f'BASE_H_uid\n(h+uid)',
-        f'BASE_A\n(h=0+AoA)',
-        f'BASE_A_H\n(h+AoA)',
-        f'BASE_A_H_dp\n(h+AoA+dev)',
+        'BASE\n(h=0)',
+        'BASE_H1\n(h=1)',
+        'BASE_H2\n(h=2)',
+        'BASE_H3\n(h=3)',
+        'BASE_H3_dp\n(h+dev)',
+        'BASE_H3_uid\n(h+uid)',
+        'BASE_A\n(h=0)',
+        'BASE_A_H1\n(h=1)',
+        'BASE_A_H2\n(h=2)',
+        'BASE_A_H3\n(h=3)',
+        'BASE_A_H3_dp\n(h+AoA+dev)',
     ]
     x      = np.arange(len(exps))
     width  = 0.35
@@ -1086,8 +1409,8 @@ def plot_mae_bar(mae_df: pd.DataFrame, models: list[str], out_dir: Path, h_prima
                 ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
                         f'{v:.2f}', ha='center', va='bottom', fontsize=7)
 
-    ax.axvline(x=3.5, color='gray', linestyle='--', linewidth=1, alpha=0.6)
-    ax.text(3.6, ax.get_ylim()[1] * 0.95 if ax.get_ylim()[1] > 0 else 1,
+    ax.axvline(x=5.5, color='gray', linestyle='--', linewidth=1, alpha=0.6)
+    ax.text(5.6, ax.get_ylim()[1] * 0.95 if ax.get_ylim()[1] > 0 else 1,
             'AoA added →', fontsize=8, color='gray', va='top')
 
     ax.set_xticks(x)
@@ -1118,9 +1441,10 @@ def plot_per_user_mae_heatmap(pu_df: pd.DataFrame, models: list[str],
     user_ids = sorted(pu_df['user_id'].unique())
 
     xlabels = [
-        f'BASE\nh=0', f'BASE_H\nh={h_primary}', f'BASE_H_dp\n+dev',
-        f'BASE_H_uid\n+uid', f'BASE_A\nh=0\n+AoA', f'BASE_A_H\nh+AoA',
-        f'BASE_A_H_dp\nh+AoA\n+dev',
+        'BASE\nh=0', 'BASE_H1\nh=1', 'BASE_H2\nh=2',
+        'BASE_H3\nh=3', 'BASE_H3_dp\n+dev', 'BASE_H3_uid\n+uid',
+        'BASE_A\nh=0', 'BASE_A_H1\nh=1', 'BASE_A_H2\nh=2',
+        'BASE_A_H3\nh=3', 'BASE_A_H3_dp\n+dev',
     ]
 
     for model_name in models:
@@ -1158,7 +1482,7 @@ def plot_voronoi_mae_map(results: dict, df: pd.DataFrame,
                          models: list[str], out_dir: Path, h_primary: int,
                          grid_lookup: dict = None,
                          data_dir: Path = None,
-                         exp_key: str = 'BASE_H',
+                         exp_key: str = 'BASE_H3',
                          out_filename: str = None):
     """Per-grid-point MAE scatter map, derived from in-memory confusion matrix.
 
@@ -1324,15 +1648,15 @@ def plot_learning_curve(results: dict, models: list[str], out_dir: Path):
 
 
 def plot_confusion_matrix(results: dict, models: list[str], out_dir: Path, n_classes: int):
-    """Confusion matrix for BASE_H of the first model."""
+    """Confusion matrix for BASE_H3 of the first model."""
     if not HAS_MATPLOTLIB:
         return
     best_model = models[0] if models else None
-    if best_model not in results or 'BASE_H' not in results[best_model]:
+    if best_model not in results or 'BASE_H3' not in results[best_model]:
         return
 
-    cm     = results[best_model]['BASE_H']['cm']
-    labels = results[best_model]['BASE_H']['cm_labels']
+    cm     = results[best_model]['BASE_H3']['cm']
+    labels = results[best_model]['BASE_H3']['cm_labels']
 
     cm_norm = cm.astype(float)
     row_sums = cm_norm.sum(axis=1, keepdims=True)
@@ -1342,17 +1666,17 @@ def plot_confusion_matrix(results: dict, models: list[str], out_dir: Path, n_cla
     fig, ax = plt.subplots(figsize=(10, 8))
     im = ax.imshow(cm_norm, cmap='Blues', vmin=0, vmax=100, aspect='auto')
     plt.colorbar(im, ax=ax, label='Recall (%)')
-    ax.set_title(f'Confusion Matrix — {best_model.upper()} BASE_H\n'
-                 f'(row-normalised, {n_classes} classes)')
+    ax.set_title(f'Confusion Matrix — {best_model.upper()} BASE_H3\n'
+                 f'Multi-user 15×15 — {n_classes} classes (row-normalised)')
     ax.set_xlabel('Predicted grid point')
     ax.set_ylabel('True grid point')
     ax.set_xticks([])
     ax.set_yticks([])
     fig.tight_layout()
-    path = out_dir / 'confusion_matrix_BASE_H.png'
+    path = out_dir / 'confusion_matrix_BASE_H3.png'
     fig.savefig(path, dpi=150)
     plt.close(fig)
-    print(f"  Saved: confusion_matrix_BASE_H.png")
+    print(f"  Saved: confusion_matrix_BASE_H3.png")
 
 
 def plot_voronoi_accuracy_map(results: dict, df: pd.DataFrame,
@@ -1360,7 +1684,7 @@ def plot_voronoi_accuracy_map(results: dict, df: pd.DataFrame,
                                data_dir: Path = None,
                                voronoi_names: list = None,
                                voronoi_centers_override: np.ndarray = None,
-                               exp_key: str = 'BASE_H',
+                               exp_key: str = 'BASE_H3',
                                out_filename: str = 'voronoi_accuracy_map.png'):
     """Per-grid-point accuracy with Voronoi cell segmentation and labels."""
     if not HAS_MATPLOTLIB:
@@ -1487,7 +1811,151 @@ def plot_voronoi_accuracy_map(results: dict, df: pd.DataFrame,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 13.  Main
+# 13.  Pipeline report
+# ─────────────────────────────────────────────────────────────────────────────
+
+def save_pipeline_report(results: dict, df: pd.DataFrame,
+                         out_dir: Path, args, tuned_params: dict) -> None:
+    """Write PIPELINE_REPORT.md to out_dir with the command, params, and results."""
+    import datetime
+    import platform
+
+    report_path = out_dir / 'PIPELINE_REPORT.md'
+
+    # Reconstruct the full command used to invoke this run
+    cmd = 'python ' + ' '.join(sys.argv)
+
+    lines = []
+    lines += [
+        f'# Pipeline Report — {Path(out_dir).name}',
+        f'',
+        f'**Generated:** {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  ',
+        f'**Python:**    {platform.python_version()}  ',
+        f'**Platform:**  {platform.system()} {platform.release()}  ',
+        f'',
+        f'---',
+        f'',
+        f'## Reproduce This Run',
+        f'',
+        f'```bash',
+        f'{cmd}',
+        f'```',
+        f'',
+        f'---',
+        f'',
+        f'## Run Configuration',
+        f'',
+        f'| Parameter | Value |',
+        f'|---|---|',
+        f'| Data directory | `{args.data_dir}` |',
+        f'| Output directory | `{out_dir}` |',
+        f'| Models | {", ".join(args.models)} |',
+        f'| Primary history depth | {args.history} |',
+        f'| Train/test split | 80 / 20 chronological per user |',
+        f'| Hyperparameter tuning | {"Yes (Optuna)" if args.tune_hyperparams else "No (defaults)"} |',
+    ]
+    if args.tune_hyperparams:
+        lines += [
+            f'| Tune trials | {args.tune_trials} |',
+            f'| Tune training fraction | {args.tune_fraction:.0%} |',
+        ]
+    if args.run_only:
+        lines += [f'| Run-only filter | {", ".join(args.run_only)} |']
+    if args.append_results:
+        lines += [f'| Append mode | Yes (rows merged into existing CSVs) |']
+
+    lines += [
+        f'| Total samples | {len(df):,} |',
+        f'| Users | {df["user_id"].nunique()} |',
+        f'| Grid classes | {df["grid_point_id"].nunique()} |',
+        f'',
+    ]
+
+    # Tuned hyperparameters section
+    if tuned_params:
+        lines += [
+            f'---',
+            f'',
+            f'## Tuned Hyperparameters',
+            f'',
+        ]
+        for model_name, params in tuned_params.items():
+            lines += [f'### {model_name.upper()}', f'', f'| Parameter | Value |', f'|---|---|']
+            for k, v in sorted(params.items()):
+                lines += [f'| `{k}` | {v} |']
+            lines += [f'']
+    else:
+        lines += [
+            f'---',
+            f'',
+            f'## Hyperparameters (defaults — no tuning)',
+            f'',
+            f'### RF',
+            f'',
+            f'| Parameter | Value |',
+            f'|---|---|',
+            f'| `n_estimators` | 50 |',
+            f'| `max_depth` | 15 |',
+            f'| `min_samples_leaf` | 20 |',
+            f'| `max_features` | sqrt |',
+            f'',
+            f'### XGBoost',
+            f'',
+            f'| Parameter | Value |',
+            f'|---|---|',
+            f'| `n_estimators` | 50 |',
+            f'| `max_depth` | 5 |',
+            f'| `learning_rate` | 0.15 |',
+            f'| `subsample` | 0.8 |',
+            f'| `colsample_bytree` | 0.8 |',
+            f'',
+        ]
+
+    # Results table
+    if results:
+        lines += [
+            f'---',
+            f'',
+            f'## Results Summary',
+            f'',
+            f'| Model | Experiment | Accuracy (%) | MAE (m) | Train time (s) |',
+            f'|---|---|---|---|---|',
+        ]
+        for model_name in args.models:
+            if model_name not in results:
+                continue
+            for exp in sorted(results[model_name].keys()):
+                if exp == 'learning_curve':
+                    continue
+                o = results[model_name][exp]['overall']
+                lines.append(
+                    f'| {model_name} | {exp} | {o["accuracy"]:.2f} | '
+                    f'{o["mae"]:.4f} | {o.get("train_time_s", "—")} |'
+                )
+        lines += [f'']
+
+        # Learning curve sub-table if present
+        for model_name in args.models:
+            if model_name not in results:
+                continue
+            lc = results[model_name].get('learning_curve')
+            if lc:
+                lines += [
+                    f'### Learning Curve — {model_name.upper()} (h = 0 … {MAX_HISTORY_CURVE})',
+                    f'',
+                    f'| h | Accuracy (%) | MAE (m) |',
+                    f'|---|---|---|',
+                ]
+                for row in lc:
+                    lines.append(f'| {row["h"]} | {row["accuracy"]:.2f} | {row["mae"]:.4f} |')
+                lines += [f'']
+
+    report_path.write_text('\n'.join(lines), encoding='utf-8')
+    print(f'[OK] Report saved to: {report_path}')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14.  Main
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1522,9 +1990,24 @@ def main():
     parser.add_argument('--append-results', action='store_true',
                         help='Append new rows to existing CSVs instead of overwriting')
     parser.add_argument('--data-volume-sweep', action='store_true',
-                        help='Run BASE_H vs BASE_H_delta data volume sweep')
+                        help='Run BASE_H3 vs BASE_H3_delta data volume sweep')
     parser.add_argument('--env-dir', default=None,
                         help='Path to env variability .mat files (run1..3_voronoi_15x15.mat)')
+    parser.add_argument('--n-jobs', type=int, default=4,
+                        help='Parallel threads for RF and XGBoost. Use -1 for all cores. '
+                             'Default 4 is conservative; increase on machines with many cores. '
+                             'Always overrides tuned-params and model defaults.')
+    parser.add_argument('--tune-hyperparams', action='store_true',
+                        help='Run Optuna hyperparameter search before the main experiments '
+                             '(requires: pip install optuna)')
+    parser.add_argument('--tune-trials', type=int, default=50,
+                        help='Number of Optuna trials per model (default: 50)')
+    parser.add_argument('--tune-fraction', type=float, default=0.30,
+                        help='Fraction of training data to use for tuning (default: 0.30)')
+    parser.add_argument('--load-tuned-params', default=None,
+                        metavar='PATH',
+                        help='Load tuned hyperparameters from a saved tuned_params.json '
+                             'instead of running Optuna (e.g. results/.../tuning/tuned_params.json)')
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir)
@@ -1555,9 +2038,32 @@ def main():
 
     grid_lookup = build_grid_lookup(df)
 
+    # ── Apply n_jobs from CLI ──────────────────────────────────────────────────
+    global N_JOBS
+    N_JOBS = args.n_jobs
+    print(f"[config] n_jobs={N_JOBS} (RF and XGBoost thread count)")
+
+    # ── Hyperparameter tuning (optional, runs before experiments) ─────────────
+    if args.load_tuned_params:
+        params_file = Path(args.load_tuned_params)
+        if not params_file.exists():
+            print(f"Error: --load-tuned-params file not found: {params_file}")
+            sys.exit(1)
+        with open(params_file) as f:
+            loaded = json.load(f)
+        TUNED_PARAMS.update(loaded)
+        print(f"[OK] Loaded tuned params from {params_file}")
+        for mn, p in TUNED_PARAMS.items():
+            print(f"  {mn}: {p}")
+    elif args.tune_hyperparams:
+        tune_hyperparams(df, grid_lookup, args.models,
+                         n_trials=args.tune_trials,
+                         sample_frac=args.tune_fraction,
+                         out_dir=out_dir)
+
     # ── Data volume sweep (separate mode) ─────────────────────────────────────
     if args.data_volume_sweep:
-        print("\n=== Data Volume Sweep: BASE_H vs BASE_H_delta ===")
+        print("\n=== Data Volume Sweep: BASE_H3 vs BASE_H3_delta ===")
         sweep_df = run_data_volume_sweep(df, grid_lookup, args.models,
                                           h=args.history)
         sweep_path = csv_dir / 'data_volume_sweep.csv'
@@ -1616,8 +2122,8 @@ def main():
         plot_accuracy_bar(results, args.models, acc_dir, args.history)
         plot_per_user_heatmap(results, args.models, acc_dir, args.history)
         plot_voronoi_accuracy_map(results, df, args.models, acc_dir, args.history,
-                                   data_dir=data_dir, exp_key='BASE_H',
-                                   out_filename='voronoi_accuracy_map_BASE_H.png')
+                                   data_dir=data_dir, exp_key='BASE_H3',
+                                   out_filename='voronoi_accuracy_map_BASE_H3.png')
         plot_voronoi_accuracy_map(results, df, args.models, acc_dir, args.history,
                                    data_dir=data_dir, exp_key='BASE_A',
                                    out_filename='voronoi_accuracy_map_BASE_A.png')
@@ -1642,8 +2148,8 @@ def main():
                                       mae_dir, args.history)
         plot_voronoi_mae_map(results, df, args.models, mae_dir, args.history,
                              grid_lookup=grid_lookup, data_dir=data_dir,
-                             exp_key='BASE_H',
-                             out_filename='voronoi_mae_map_BASE_H.png')
+                             exp_key='BASE_H3',
+                             out_filename='voronoi_mae_map_BASE_H3.png')
         plot_voronoi_mae_map(results, df, args.models, mae_dir, args.history,
                              grid_lookup=grid_lookup, data_dir=data_dir,
                              exp_key='BASE_A',
@@ -1655,6 +2161,9 @@ def main():
                               df['grid_point_id'].nunique())
 
     print("\n=== Multi-user pipeline complete ===")
+
+    # ── Pipeline report ────────────────────────────────────────────────────────
+    save_pipeline_report(results, df, out_dir, args, TUNED_PARAMS)
 
 
 if __name__ == '__main__':
