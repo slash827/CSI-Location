@@ -157,6 +157,10 @@ class _ETATracker:
               f'[{bar}] {self.done}/{self.total}  '
               f'ETA ≈ {_fmt_s(eta_s)} remaining', flush=True)
 
+    def skip_item(self) -> None:
+        """Advance counter without recording time (for checkpointed experiments)."""
+        self.done += 1
+
 
 # ── Project layout ────────────────────────────────────────────────────────────
 SCRIPT_DIR      = Path(__file__).resolve().parent
@@ -819,17 +823,58 @@ def run_one_experiment(feat_df: pd.DataFrame,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8.  Registry-driven experiment runner
+# 8.  Checkpoint helpers + registry-driven experiment runner
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _write_checkpoint(ckpt_dir: Path, model: str, exp: str, result: dict) -> None:
+    """Persist one experiment result to <ckpt_dir>/<model>__<exp>.json."""
+    import json as _json
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    ser = {
+        'model': model, 'experiment': exp,
+        'overall': result['overall'],
+        'per_user': {str(k): v for k, v in result.get('per_user', {}).items()},
+        'per_cell': {str(k): v for k, v in result.get('per_cell', {}).items()},
+    }
+    (ckpt_dir / f'{model}__{exp}.json').write_text(_json.dumps(ser))
+
+
+def _load_checkpoints(ckpt_dir: Path) -> dict:
+    """Load all checkpoint files → {model: {exp: result_dict}}.
+
+    Loaded results contain overall/per_user/per_cell so save_results()
+    can write them out normally without re-running the experiment.
+    """
+    import json as _json
+    loaded: dict = {}
+    if not ckpt_dir.exists():
+        return loaded
+    for f in sorted(ckpt_dir.glob('*.json')):
+        try:
+            data = _json.loads(f.read_text())
+            m, e = data['model'], data['experiment']
+            loaded.setdefault(m, {})[e] = {
+                'overall':   data['overall'],
+                'per_user':  {int(k): v for k, v in data['per_user'].items()},
+                'per_cell':  {int(k): v for k, v in data['per_cell'].items()},
+                'cm': None, 'cm_labels': [],
+            }
+        except Exception:
+            pass
+    return loaded
+
 
 def run_all_experiments(df: pd.DataFrame,
                         grid_lookup: dict,
                         models: list[str],
                         h_primary: int = 3,
-                        run_only: list[str] = None) -> dict:
+                        run_only: list[str] = None,
+                        checkpoint_dir: Path | None = None) -> dict:
     """
     Run experiments from EXPERIMENTS registry + CROSS_USER_EXPERIMENTS.
     If run_only is given (list of keys), only those experiments run.
+    If checkpoint_dir is given, completed experiments are saved there
+    immediately and reloaded on the next run so they are not re-run.
     """
     # resolve_h: use the literal h value from the registry
     # h=0 → static baseline; h=1,2,3,... → exact history depth
@@ -848,7 +893,13 @@ def run_all_experiments(df: pd.DataFrame,
     print(f"  Voronoi cells: {cells.to_dict()}")
     print(f"  Grid classes: {df['grid_point_id'].nunique()}")
 
-    results = {}
+    # ── Load any checkpointed experiments from a previous interrupted run ────
+    results = _load_checkpoints(checkpoint_dir) if checkpoint_dir else {}
+    if results:
+        total_ckpt = sum(len(v) for v in results.values())
+        print(f"\n  [checkpoint] Resuming: {total_ckpt} experiments already done, "
+              f"loaded from {checkpoint_dir}")
+
     # Cache (h, include_aoa, mode, extra_key) → (feat_df, feature_cols)
     feat_cache = {}
 
@@ -906,9 +957,15 @@ def run_all_experiments(df: pd.DataFrame,
             mode  = exp_def.get('mode', 'absolute')
 
             feat_df, feat_cols = _get_feat(h, extra, aoa, mode)
+            if key in results.get(model_name, {}):
+                print(f"  [checkpoint] Skipping {key} [{model_name}] — already done")
+                eta.skip_item()
+                continue
             eta.start_item(f'{key}  [{model_name}]')
             results[model_name][key] = run_one_experiment(
                 feat_df, feat_cols, grid_lookup, model_name, f"  {key} {model_name}")
+            if checkpoint_dir:
+                _write_checkpoint(checkpoint_dir, model_name, key, results[model_name][key])
             eta.finish_item()
 
         # ── Cross-user experiments ────────────────────────────────────────────
@@ -924,10 +981,16 @@ def run_all_experiments(df: pd.DataFrame,
             mode  = base_def.get('mode', 'absolute')
 
             feat_df, feat_cols = _get_feat(h, extra, aoa, mode)
+            if cu_key in results.get(model_name, {}):
+                print(f"  [checkpoint] Skipping {cu_key} [{model_name}] — already done")
+                eta.skip_item()
+                continue
             eta.start_item(f'{cu_key}  [{model_name}]  (train U1–U4, test U5)')
             results[model_name][cu_key] = run_one_experiment(
                 feat_df, feat_cols, grid_lookup, model_name,
                 f"  {cu_key} {model_name}", exclude_user=5)
+            if checkpoint_dir:
+                _write_checkpoint(checkpoint_dir, model_name, cu_key, results[model_name][cu_key])
             eta.finish_item()
 
         # ── Learning curve h=0..MAX_HISTORY_CURVE (full run only) ────────────
@@ -2090,7 +2153,8 @@ def main():
     results = run_all_experiments(df, grid_lookup,
                                   models=args.models,
                                   h_primary=args.history,
-                                  run_only=args.run_only)
+                                  run_only=args.run_only,
+                                  checkpoint_dir=csv_dir / 'checkpoint')
 
     # ── Print summary table ────────────────────────────────────────────────────
     if results:
