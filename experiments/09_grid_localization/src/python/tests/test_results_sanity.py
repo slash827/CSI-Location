@@ -55,13 +55,13 @@ class TestCenterBSResultsPlausibility:
             f"MAE exceeds grid diagonal ({grid_diagonal:.1f} m):\n{df[df['mae_m'] > grid_diagonal]}"
 
     def test_base_h_beats_base(self):
-        """BASE_H must outperform BASE for both models — this is the core thesis."""
+        """BASE_H3 must outperform BASE for both models — this is the core thesis."""
         df = _load(CENTER_CSV)
         for model in ['xgboost', 'rf']:
-            base_acc   = df[(df['model'] == model) & (df['experiment'] == 'BASE')  ]['accuracy_%'].iloc[0]
-            base_h_acc = df[(df['model'] == model) & (df['experiment'] == 'BASE_H')]['accuracy_%'].iloc[0]
+            base_acc   = df[(df['model'] == model) & (df['experiment'] == 'BASE')   ]['accuracy_%'].iloc[0]
+            base_h_acc = df[(df['model'] == model) & (df['experiment'] == 'BASE_H3')]['accuracy_%'].iloc[0]
             assert base_h_acc > base_acc, \
-                f"{model}: BASE_H ({base_h_acc:.1f}%) did not beat BASE ({base_acc:.1f}%)"
+                f"{model}: BASE_H3 ({base_h_acc:.1f}%) did not beat BASE ({base_acc:.1f}%)"
 
     def test_aoa_experiments_beat_non_aoa(self):
         """BASE_A must beat BASE for both models."""
@@ -73,23 +73,23 @@ class TestCenterBSResultsPlausibility:
                 f"{model}: BASE_A ({base_a_acc:.1f}%) did not beat BASE ({base_acc:.1f}%)"
 
     def test_device_params_add_value(self):
-        """BASE_H_dp must beat BASE_H."""
+        """BASE_H3_dp must beat BASE_H3."""
         df = _load(CENTER_CSV)
         for model in ['xgboost', 'rf']:
-            h_acc    = df[(df['model'] == model) & (df['experiment'] == 'BASE_H')   ]['accuracy_%'].iloc[0]
-            h_dp_acc = df[(df['model'] == model) & (df['experiment'] == 'BASE_H_dp')]['accuracy_%'].iloc[0]
+            h_acc    = df[(df['model'] == model) & (df['experiment'] == 'BASE_H3')   ]['accuracy_%'].iloc[0]
+            h_dp_acc = df[(df['model'] == model) & (df['experiment'] == 'BASE_H3_dp')]['accuracy_%'].iloc[0]
             assert h_dp_acc > h_acc, \
-                f"{model}: BASE_H_dp ({h_dp_acc:.1f}%) did not beat BASE_H ({h_acc:.1f}%)"
+                f"{model}: BASE_H3_dp ({h_dp_acc:.1f}%) did not beat BASE_H3 ({h_acc:.1f}%)"
 
     def test_aoa_gain_is_large_at_center_bs(self):
-        """AoA gain (BASE_A_H - BASE_H) at center BS must be > 20 pp for XGBoost.
-        The known result is +33 pp. Anything below 20 pp would suggest AoA is broken."""
+        """AoA gain (BASE_A_H3 - BASE_H3) at center BS must be > 20 pp for XGBoost.
+        The known result is +34 pp. Anything below 20 pp would suggest AoA is broken."""
         df = _load(CENTER_CSV)
-        base_h   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H')  ]['accuracy_%'].iloc[0]
-        base_a_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_A_H')]['accuracy_%'].iloc[0]
+        base_h   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H3')  ]['accuracy_%'].iloc[0]
+        base_a_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_A_H3')]['accuracy_%'].iloc[0]
         aoa_gain = base_a_h - base_h
         assert aoa_gain > 20.0, \
-            f"AoA gain at center BS is only {aoa_gain:.1f} pp — expected >20 pp (known: ~33 pp)"
+            f"AoA gain at center BS is only {aoa_gain:.1f} pp — expected >20 pp (known: ~34 pp)"
 
 
 # ── plausibility checks on NE-BS results ──────────────────────────────────────
@@ -110,10 +110,10 @@ class TestNEBSResultsPlausibility:
     def test_base_h_beats_base(self):
         df = _load(NE_CSV)
         for model in ['xgboost', 'rf']:
-            base_acc   = df[(df['model'] == model) & (df['experiment'] == 'BASE')  ]['accuracy_%'].iloc[0]
-            base_h_acc = df[(df['model'] == model) & (df['experiment'] == 'BASE_H')]['accuracy_%'].iloc[0]
+            base_acc   = df[(df['model'] == model) & (df['experiment'] == 'BASE')   ]['accuracy_%'].iloc[0]
+            base_h_acc = df[(df['model'] == model) & (df['experiment'] == 'BASE_H3')]['accuracy_%'].iloc[0]
             assert base_h_acc > base_acc, \
-                f"NE BS — {model}: BASE_H ({base_h_acc:.1f}%) did not beat BASE ({base_acc:.1f}%)"
+                f"NE BS — {model}: BASE_H3 ({base_h_acc:.1f}%) did not beat BASE ({base_acc:.1f}%)"
 
 
 # ── key comparative claim: AoA gain shrinks at NE BS ─────────────────────────
@@ -127,8 +127,8 @@ class TestCenterVsNEBSComparison:
         ne     = _load(NE_CSV)
 
         def aoa_gain(df):
-            base_h   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H')  ]['accuracy_%'].iloc[0]
-            base_a_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_A_H')]['accuracy_%'].iloc[0]
+            base_h   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H3')  ]['accuracy_%'].iloc[0]
+            base_a_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_A_H3')]['accuracy_%'].iloc[0]
             return base_a_h - base_h
 
         gain_center = aoa_gain(center)
@@ -146,8 +146,8 @@ class TestCenterVsNEBSComparison:
         ne     = _load(NE_CSV)
 
         def hist_gain(df):
-            base   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE')  ]['accuracy_%'].iloc[0]
-            base_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H')]['accuracy_%'].iloc[0]
+            base   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE')   ]['accuracy_%'].iloc[0]
+            base_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H3')]['accuracy_%'].iloc[0]
             return base_h - base
 
         gain_center = hist_gain(center)
