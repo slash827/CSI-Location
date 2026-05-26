@@ -14,7 +14,7 @@
 
 5G and 6G networks expose a rich set of channel-derived measurements — RSS, SINR, Angle of Arrival, timing advance — natively at the base station without requiring dedicated positioning infrastructure. Leveraging these for accurate UE localization is a strategic goal of 3GPP Release 16 and beyond, motivated by use cases ranging from emergency response and asset tracking to network-assisted navigation in environments where GPS is unreliable or unavailable.
 
-GPS performance degrades significantly in urban canyons, tunnels, and indoor spaces due to signal blockage and multipath. Cellular-based positioning addresses these gaps: a UE that is in radio contact with a BS can in principle be localized using only the measurements the BS already receives. The challenge is accuracy. The most accessible channel metric — Received Signal Strength (RSS) — correlates with distance but suffers from a fundamental geometric ambiguity: every location on the same distance ring from the BS produces the same RSS value, regardless of direction. This *distance-ring ambiguity* limits static RSS fingerprinting to metre-level accuracy at best in environments with moderate multipath, and degrades severely in LOS-dominated settings (outdoor open areas, corridors) where the distance-to-RSS mapping is near-monotone and provides no directional information.
+GPS performance degrades significantly in urban canyons, tunnels, and indoor spaces due to signal blockage and multipath. Cellular-based positioning addresses these gaps: a UE that is in radio contact with a BS can in principle be localized using only the measurements the BS already receives. The challenge is accuracy. The most accessible channel metric — Received Signal Strength (RSS) — is primarily determined by distance from the BS, with only secondary variation from multipath structure and shadow fading — insufficient for reliable fine-grained localization. This *distance-ring ambiguity* is worst in LOS-dominated settings (outdoor open areas, corridors) where the distance-to-RSS mapping is near-monotone and multipath variation nearly vanishes, but constrains static RSS fingerprinting even in NLOS environments.
 
 SINR with co-channel interference and Angle of Arrival break the ring ambiguity by adding directional components, but both depend on infrastructure configuration and geometry. The goal of this work is to identify a localization strategy that is robust across both indoor (rich multipath, limited GPS) and outdoor (LOS-dominated, GPS-degraded) conditions, using only measurements from a single serving BS.
 
@@ -22,7 +22,7 @@ SINR with co-channel interference and Angle of Arrival break the ring ambiguity 
 
 > **Transition history — the sequence of measurements observed as a UE moves — encodes richer positional information than any single static snapshot.**
 
-When a UE moves through space, consecutive measurements capture both the current location and the direction of travel. Two locations that appear identical in a static snapshot can be disambiguated by the trajectory that led to them.
+When a UE moves through space, consecutive measurements capture not just the current channel state but its *evolution along the path*. Two locations with identical instantaneous snapshots can be disambiguated by the pattern of measurement changes along their transitions — each position's channel neighborhood produces a distinct trajectory through measurement space, even when the endpoints appear identical.
 
 Formally, given a serving base station and a discrete grid of locations, at each time step *t* the UE reports measurements m(t) (RSS, SINR, and optionally AoA). The model input is a window of h+1 consecutive observations:
 
@@ -39,7 +39,7 @@ This work tests the thesis through simulation under controlled but diverse condi
 - **Environment coverage** — experiments span both indoor-like (UMi_NLOS shopping center, mixed UMi residential) and outdoor/semi-outdoor (UMi_LOS park, RMa_LOS highway) 3GPP scenarios within the same grid. This ensures the localization pipeline is evaluated across the full indoor-to-outdoor spectrum rather than optimised for a single propagation regime.
 - **Single serving BS** — the BS performs localization using only measurements it legitimately receives from the UE. Per-interferer RSS is explicitly excluded to avoid triangulation (a different problem requiring distributed infrastructure).
 - **Classification** — each grid point is a discrete class. This is appropriate at ≤2m grid spacing; we show it outperforms regression at all tested scales.
-- **Reproducibility** — all channel data is generated via QuaDRiGa/3GPP TR 38.901 with fixed seeds; results are fully reproducible.
+- **Reproducibility** — all channel data is generated via QuaDRiGa v2.8.1 (3GPP TR 38.901 scenarios) with fixed seeds; results are fully reproducible.
 
 ---
 
@@ -62,8 +62,7 @@ The system consists of two decoupled layers connected by `.mat` files:
 │  • Sets up QuaDRiGa v2.8.1 (3GPP TR 38.901)                         │
 │  • Simulates channel for serving BS + interferers                   │
 │  • Applies multi-antenna MRC combining (device model)               │
-│  • Extracts RSS, SINR, AoA (azimuth + elevation)                    │
-│  • Applies AoA noise model (4° Gaussian + 5° quantization)          │
+│  • Extracts RSS, SINR, AoA (azimuth + elevation, clean values)      │
 │  • Saves: user{N}_{experiment}.mat  (per-user flat struct)          │
 └─────────────────────────┬───────────────────────────────────────────┘
                           │  per-user .mat files (5 users × ~90k rows)
@@ -73,13 +72,16 @@ The system consists of two decoupled layers connected by `.mat` files:
 │                                                                     │
 │  pipelines/multi_user_pipeline.py                                   │
 │                                                                     │
-│  load_all_users()  ──►  make_split()  ──►  build_history_features() │
-│       ▼                                          ▼                  │
-│  DataFrame (450k rows)             Feature matrix [N, D×(h+1)]      │
-│       ▼                                          ▼                  │
-│  run_all_experiments()  ──►  XGBoost / RF  ──►  evaluate()          │
-│       ▼                                          ▼                  │
-│  save_results()                     results_summary.csv + plots     │
+│  load_all_users()  ──►  make_split()  ──►  build_grid_lookup()      │
+│  (+ apply AoA noise)     ▼ df                  ▼ grid_lookup        │
+│                          └──────────────────────┘                   │
+│                                     ▼                               │
+│  run_all_experiments(df, grid_lookup)                               │
+│    · build_history_features() — per-experiment, cached              │
+│    · XGBoost / RF  ──►  evaluate_split()                            │
+│                                     ▼                               │
+│  save_results()  ──►  results_summary.csv                           │
+│  plot_*()        ──►  images/                                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -91,13 +93,13 @@ Each `.mat` file written by MATLAB contains flat arrays:
 |---|---|---|
 | `rss` | [N, 1] | Wideband RSS from serving BS (dBm) |
 | `sinr` | [N, 1] | Wideband SINR from serving BS (dB) |
-| `aoa_az` | [N, 1] | AoA azimuth (degrees, noisy) |
-| `aoa_el` | [N, 1] | AoA elevation (degrees, noisy) |
+| `aoa_az` | [N, 1] | AoA azimuth (degrees, clean — noise applied in Python) |
+| `aoa_el` | [N, 1] | AoA elevation (degrees, clean — noise applied in Python) |
 | `grid_point_id` | [N, 1] | True grid point (1-indexed) |
 | `step_index` | [N, 1] | Chronological order |
 | `x_pos`, `y_pos` | [N, 1] | True position (metres) |
 | `voronoi_cell_id` | [N, 1] | Voronoi cell membership |
-| `device_profile` | struct | n_antennas, gain, height |
+| `device_profile` | struct | `n_antennas`, `antenna_gain_db`, `ue_height_m` |
 | `user_id_val` | scalar | User identifier |
 
 Python loads all 5 files and concatenates into a single DataFrame.
@@ -115,7 +117,8 @@ All channel data is generated using **QuaDRiGa v2.8.1** implementing **3GPP TR 3
 | Center frequency | 3.5 GHz |
 | Bandwidth | 100 MHz |
 | Subcarriers (OFDM) | 256 |
-| BS antenna | 64-element Massive MIMO |
+| BS TX antenna | Single omnidirectional element (`qd_arrayant('omni')`) |
+| UE RX antenna | 1–4 omnidirectional elements (device profile); MRC combined |
 | TX power (serving + interferers) | 30 dBm |
 | 3GPP standard | TR 38.901 |
 | Spatial consistency | Yes (channel evolves continuously) |
@@ -140,12 +143,12 @@ The position jitter prevents the model from fitting to perfectly aligned grid co
 
 The grid area is partitioned into 4 Voronoi cells, each with a distinct 3GPP propagation scenario. This creates a heterogeneous propagation environment spanning indoor-like dense NLOS to outdoor LOS conditions, where different zones exhibit genuinely different channel characteristics:
 
-| Cell | Scenario | Type | Approx. Grid Points |
-|------|----------|------|---------------------|
-| 1 (Park) | UMi_LOS | Line-of-sight, urban micro | ~101 |
-| 2 (Residential) | UMi_LOS/NLOS (mixed) | Mixed suburban | ~35 |
-| 3 (Highway) | RMa_LOS | Line-of-sight, rural macro | ~26 |
-| 4 (Shopping center) | UMi_NLOS | Dense non-line-of-sight | ~8 |
+| Cell | Scenario | Type |
+|------|----------|------|
+| 1 (Highway) | RMa_LOS | Line-of-sight, rural macro |
+| 2 (Shopping center) | UMi_NLOS | Dense non-line-of-sight |
+| 3 (Residential) | UMi_LOS/NLOS (mixed) | Mixed suburban |
+| 4 (Park) | UMi_LOS | Line-of-sight, urban micro |
 
 Each Voronoi cell boundary is generated by AreaGenerator at simulation time with a fixed random seed, ensuring reproducibility.
 
@@ -180,7 +183,7 @@ IBS-2: [ 19,-11, 10]   ← 30m south  (creates N–S SINR gradient)
 
 #### BS Placement Study — NE-Corner BS
 
-To test whether AoA informativeness depends on angular coverage (see §6.3):
+To test whether AoA informativeness depends on angular coverage (see §7.3):
 
 ```
 Serving BS: [48, 48, 10]   ← 15m north + 15m east of NE corner [33,33]
@@ -264,7 +267,9 @@ For h=3 with AoA: **D = 16 features**.
 
 **Implementation:** For each user, samples are sorted by `step_index`. The first h rows have incomplete history and are dropped. Users are processed independently — lag features never cross user boundaries.
 
-**Why absolute values (not differences):** Device-specific RSS/SINR offsets are consistent across the grid for a given device. These offsets act as location fingerprints themselves. Removing them (via differencing) discards useful information, as confirmed experimentally (§6.2).
+**Why absolute values (not differences):** Device-specific RSS/SINR offsets are consistent across the grid for a given device. These offsets act as location fingerprints themselves. Removing them (via differencing) discards useful information, as confirmed experimentally (§7.2).
+
+**Why h = 3:** The history depth is the point of diminishing returns in the accuracy–cost curve (see §7.2.2 for the full profile). Most of the gain arrives at h=1 (+21.9 pp out of +23.2 pp total): a single prior step reveals the direction of approach and breaks the static-snapshot ambiguity. Each additional step contributes less than 1 pp, but h=3 adds negligible computational cost (8 values for RSS+SINR, 16 with AoA) and is confirmed as optimal or near-optimal across all six grid sizes tested.
 
 ### 4.3 Optional Feature Augmentations
 
@@ -286,14 +291,16 @@ All experiments are defined in a single Python registry. Each entry specifies th
 | `BASE` | 0 | No | — | Static fingerprint baseline |
 | `BASE_dp` | 0 | No | device | Device knowledge alone |
 | `BASE_uid` | 0 | No | user_id | Oracle device identity |
-| `BASE_H` | 3 | No | — | **Core: history alone** |
-| `BASE_H_dp` | 3 | No | device | History + device knowledge |
-| `BASE_H_uid` | 3 | No | user_id | History + oracle identity |
+| `BASE_H3` | 3 | No | — | **Core: history alone** |
+| `BASE_H3_dp` | 3 | No | device | History + device knowledge |
+| `BASE_H3_uid` | 3 | No | user_id | History + oracle identity |
 | `BASE_A` | 0 | Yes | — | AoA alone, no history |
 | `BASE_A_dp` | 0 | Yes | device | AoA + device knowledge |
 | `BASE_A_uid` | 0 | Yes | user_id | AoA + oracle identity |
-| `BASE_A_H` | 3 | Yes | — | History + AoA combined |
-| `BASE_A_H_dp` | 3 | Yes | device | Full feature set (upper bound) |
+| `BASE_A_H3` | 3 | Yes | — | History + AoA combined |
+| `BASE_A_H3_dp` | 3 | Yes | device | Full feature set (upper bound) |
+
+The registry also includes h=1 and h=2 depth-sweep variants (`BASE_H1`, `BASE_H2`, `BASE_A_H1`, `BASE_A_H2`) for the history depth analysis in §7.2.2, and delta-feature variants (`BASE_H3_delta`, `BASE_H3_dp_delta`, `BASE_A_H3_delta`, `BASE_A_H3_dp_delta`) where lag features are replaced by consecutive differences. Cross-user generalisation variants (`cross_user_BASE_H3`, `cross_user_BASE_A_H3`, etc.) are described in §7.3.5.
 
 ---
 
@@ -352,23 +359,50 @@ Two ML models are evaluated throughout:
 
 | Hyperparameter | Value |
 |---|---|
-| `n_estimators` | 50 |
+| `n_estimators` | 150 |
 | `max_features` | `'sqrt'` |
-| `max_depth` | 15 |
-| `min_samples_leaf` | 20 |
+| `max_depth` | 16 |
+| `min_samples_leaf` | 5 |
 | `random_state` | 42 |
 
-Both models are trained on 0-indexed labels for XGBoost compatibility, then mapped back to 1-indexed grid point IDs for evaluation. The same hyperparameters are used for all experiments to ensure fair comparison.
+RF hyperparameters were tuned with Optuna (30 trials, 30 % of training data, TPE sampler) before the main experiment runs. XGBoost tuning was attempted but the optimal learning rate found on the subsampled data did not transfer to the full training set, so XGBoost uses the pipeline's own conservative defaults throughout. The same hyperparameters are held fixed across all experiments to ensure fair comparison.
+
+Both models are trained on 0-indexed labels for XGBoost compatibility, then mapped back to 1-indexed grid point IDs for evaluation.
 
 ---
 
-## 6. Experimental Results
+## 6. Summary of Findings
 
-### 6.0 Regression vs Classification — Homogeneous Environments
+**Core thesis confirmed:** Transition history improves localization accuracy at every scale tested — 6 grid sizes (9–400 classes), 4 ML algorithms, and 2 BS placements — with a consistent gain of **+23 pp** (XGBoost, RSS+SINR).
+
+**Central comparative result:**
+
+| Metric | Center BS (360°) | NE BS (52°) |
+|---|---|---|
+| History gain (BASE → BASE_H3, XGB) | +23.2 pp | +23.3 pp |
+| AoA gain (BASE_H3 → BASE_A_H3, XGB) | +34.3 pp | +7.5 pp |
+
+History gain is **placement-independent**. AoA gain collapses from +34 pp to +8 pp when azimuth spread narrows from 360° to 52° — the residual gain comes from elevation encoding distance. Device parameters add +8–12 pp on top of history; knowing the device type or UE height provides orthogonal information. AoA generalizes better across unknown devices than RSS/SINR because angle is geometrically, not electronically, determined.
+
+**Recommended feature set by deployment:**
+
+| Deployment Scenario | Recommended Feature Set |
+|---|---|
+| Center/overhead BS, diverse devices | BASE_A_H3_dp — full set |
+| Center BS, unknown device | BASE_A_H3 |
+| Edge/wall-mounted BS, known device | BASE_H3_dp |
+| Edge BS, unknown device | BASE_H3 — history alone sufficient |
+| Any scenario, no AoA hardware | BASE_H3_dp |
+
+---
+
+## 7. Appendix: Experimental Results
+
+### 7.0 Regression vs Classification — Homogeneous Environments
 
 Before moving to the multi-user Voronoi experiments, we explored an alternative task formulation: **3D regression**, where the model predicts physical coordinates (distance from BS, azimuth angle, elevation angle) rather than a discrete grid-point label. These experiments used single-user, homogeneous 3GPP scenarios on the same 15×15 grid, providing a clean comparison between the two approaches.
 
-#### 6.0.1 Regression Task Definition
+#### 7.0.1 Regression Task Definition
 
 The regression model predicts three continuous targets simultaneously:
 
@@ -380,7 +414,7 @@ The regression model predicts three continuous targets simultaneously:
 
 Final **3D Position MAE** is computed by reconstructing the XY position from predicted (distance, azimuth) and comparing to the true position. The pipeline is implemented in `localization_pipeline_regression.py` using XGBoost regressors, one per target.
 
-#### 6.0.2 Feature Progression in Regression — UMi_NLOS and UMa_NLOS
+#### 7.0.2 Feature Progression in Regression — UMi_NLOS and UMa_NLOS
 
 Experiments were run across two homogeneous scenarios to reveal the contribution of each feature type. **UMi_NLOS** (Urban Micro, NLOS, 90,001 samples) and **UMa_NLOS** (Urban Macro, NLOS, 22,501 samples).
 
@@ -406,7 +440,7 @@ Experiments were run across two homogeneous scenarios to reveal the contribution
 
 RSS and SINR provide no useful information in either scenario without AoA. In UMa_NLOS, RSS varies so weakly with distance that the model cannot form a useful distance estimate. The 17× gap between UMi (14 m) and UMa (31 m) with RSS alone reflects the more severe distance ambiguity under macro propagation.
 
-#### 6.0.3 History Effect in Regression
+#### 7.0.3 History Effect in Regression
 
 History has a qualitatively different effect in regression than in classification.
 
@@ -430,7 +464,7 @@ In the UMi_NLOS case, adding h=1 improves regression by 17%. But in UMa_NLOS, hi
 
 The explanation is architectural: regression predicts absolute coordinates, and consecutive positions are spatially offset from one another. Stacking lags introduces past positions that are slightly wrong (due to noise), and the regressor struggles to disentangle the offset from the current position signal. Classification, by contrast, maps trajectories to discrete labels and benefits from the directional disambiguation that consecutive steps provide.
 
-#### 6.0.4 LOS vs NLOS — Classification
+#### 7.0.4 LOS vs NLOS — Classification
 
 For completeness, the classification task was also evaluated on a **UMa_LOS homogeneous environment** (single user, 90,001 samples, full feature set including AoA):
 
@@ -443,7 +477,7 @@ For completeness, the classification task was also evaluated on a **UMa_LOS homo
 
 LOS classification with AoA reaches 92.6% accuracy at h=0 — already much higher than the NLOS equivalent — because the dominant single-ray LOS channel makes AoA highly stable and precise. History adds +3.3 pp. The benefit of history is smaller in LOS than NLOS because there is less ambiguity to resolve at h=0 in the first place.
 
-#### 6.0.5 Classification vs Regression — Head-to-Head
+#### 7.0.5 Classification vs Regression — Head-to-Head
 
 Direct comparison on 15×15 grid, RSS+SINR+AoA features:
 
@@ -462,7 +496,7 @@ At 2 m grid spacing with ±0.1 m position jitter, each grid point is well-separa
 **Why regression is still valuable:**
 Regression is the natural choice when the grid is not known in advance, the target is an arbitrary continuous location, or the grid spacing is larger than the AoA angular resolution. At coarser grids (>4 m spacing) or in outdoor macro scenarios, regression may perform comparably or better.
 
-### 6.1 Scalability: History Benefit Across Grid Sizes
+### 7.1 Scalability: History Benefit Across Grid Sizes
 
 Before the multi-user experiment, the core thesis was validated across six grid scales using a single-user RSS+SINR setup. XGBoost with smart feature engineering was used throughout.
 
@@ -488,51 +522,50 @@ Also validated at 7×7 across four algorithms (RSS+SINR, h=3):
 
 All four algorithms benefit from history. Tree-based methods (RF, XGBoost) benefit more than probabilistic (Gaussian) or neural (MLP) methods in this setting.
 
-### 6.2 Multi-User Voronoi 15×15 — Center BS
+### 7.2 Multi-User Voronoi 15×15 — Center BS
 
 The main experiment combines multi-user device heterogeneity with the full Voronoi environment. 5 device profiles, 450,005 samples, center BS.
 
-#### 6.2.1 Overall Results
+#### 7.2.1 Overall Results
 
 | Experiment | XGB Acc | XGB MAE | RF Acc | RF MAE |
 |------------|---------|---------|--------|--------|
-| BASE | 27.3% | 8.39 m | 43.5% | 5.81 m |
-| BASE_dp | 50.2% | 4.36 m | 57.2% | 3.75 m |
-| BASE_uid | 48.7% | 4.52 m | 55.7% | 3.88 m |
-| **BASE_H** | **50.4%** | **4.53 m** | **52.5%** | **4.01 m** |
-| BASE_H_dp | 58.3% | 3.20 m | 61.2% | 2.69 m |
-| BASE_H_uid | 57.8% | 3.26 m | 61.6% | 2.85 m |
-| BASE_A | 82.2% | 0.44 m | 77.3% | 0.55 m |
-| BASE_A_dp | 84.3% | 0.38 m | 84.4% | 0.37 m |
-| BASE_A_uid | 84.1% | 0.38 m | 79.7% | 0.49 m |
-| BASE_A_H | 83.6% | 0.39 m | 77.1% | 0.53 m |
-| **BASE_A_H_dp** | **84.9%** | **0.35 m** | **79.3%** | **0.47 m** |
+| BASE | 25.7% | 8.56 m | 45.9% | 5.56 m |
+| BASE_dp | 48.5% | 4.50 m | 59.3% | 3.56 m |
+| BASE_uid | 47.3% | 4.65 m | 58.4% | 3.64 m |
+| **BASE_H3** | **48.9%** | **4.64 m** | **56.9%** | **3.48 m** |
+| BASE_H3_dp | 56.9% | 3.31 m | 65.3% | 2.31 m |
+| BASE_H3_uid | 56.5% | 3.39 m | 65.5% | 2.44 m |
+| BASE_A | 81.7% | 0.45 m | 81.6% | 0.45 m |
+| BASE_A_dp | 83.7% | 0.39 m | 86.7% | 0.31 m |
+| BASE_A_uid | 83.3% | 0.40 m | 83.8% | 0.39 m |
+| BASE_A_H3 | 83.2% | 0.40 m | 80.9% | 0.44 m |
+| **BASE_A_H3_dp** | **84.2%** | **0.37 m** | **82.8%** | **0.39 m** |
 
-**Core thesis result:** `BASE → BASE_H`: +23.1 pp accuracy (XGB), +9.0 pp (RF). **History alone — with no other additions — provides significant improvement over the static baseline.**
+**Core thesis result:** `BASE → BASE_H3`: +23.2 pp accuracy (XGB), +11.0 pp (RF). **History alone — with no other additions — provides significant improvement over the static baseline.**
 
-**AoA dominance (center BS):** `BASE_H → BASE_A_H`: +33.2 pp (XGB). AoA is the largest single feature contribution when the BS is at the grid center (full 360° angular coverage). See §6.3 for the geometry dependence of this result.
+**AoA dominance (center BS):** `BASE_H3 → BASE_A_H3`: +34.3 pp (XGB). AoA is the largest single feature contribution when the BS is at the grid center (full 360° angular coverage). See §7.3 for the geometry dependence of this result.
 
-**Device knowledge:** `BASE_H → BASE_H_dp`: +7.9 pp (XGB). Knowing the device type — which determines the systematic RSS/SINR offset — provides orthogonal information to history. The combination BASE_H_dp outperforms both BASE_H and BASE_dp.
+**Device knowledge:** `BASE_H3 → BASE_H3_dp`: +8.0 pp (XGB). Knowing the device type — which determines the systematic RSS/SINR offset — provides orthogonal information to history. The combination BASE_H3_dp outperforms both BASE_H3 and BASE_dp.
 
-**Observation:** `BASE_dp ≈ BASE_H` in accuracy (50.2% vs 50.4% XGB). Device parameters at h=0 reproduce nearly the same gain as h=3 history alone. This occurs because the multi-user training set mixes devices — device-specific offsets differentiate users in a way that resembles per-device sub-fingerprints. Combining both (BASE_H_dp) is non-redundant.
+**Observation:** `BASE_dp ≈ BASE_H3` in accuracy (48.5% vs 48.9% XGB). Device parameters at h=0 reproduce nearly the same gain as h=3 history alone. This occurs because the multi-user training set mixes devices — device-specific offsets differentiate users in a way that resembles per-device sub-fingerprints. Combining both (BASE_H3_dp) is non-redundant.
 
-#### 6.2.2 History Depth Analysis
+#### 7.2.2 History Depth Analysis
 
 Accuracy vs h for BASE experiments (XGBoost, RSS+SINR):
 
 | h | Accuracy | MAE |
 |---|----------|-----|
-| 0 | 27.3% | 8.39 m |
-| 1 | 41.5% | 5.88 m |
-| 2 | 47.5% | 5.01 m |
-| 3 | 50.4% | 4.53 m |
-| 4 | 51.1% | 4.47 m |
+| 0 | 25.7% | 8.56 m |
+| 1 | 47.6% | 4.97 m |
+| 2 | 48.3% | 4.80 m |
+| 3 | 48.9% | 4.64 m |
 
-Most of the gain occurs at h=1 (+14 pp). Gains are diminishing: h=2 adds +6 pp, h=3 adds +3 pp, h=4 adds +0.7 pp. h=3 is the optimal operating point (best accuracy-to-feature-size trade-off).
+Almost all the gain occurs at h=1 (+21.9 pp out of +23.2 pp total). The incremental gains from h=2 (+0.7 pp) and h=3 (+0.6 pp) are small, reflecting that direction-of-approach information captured at h=1 already resolves most static-snapshot ambiguity in this multi-user, mixed-scenario setting. h=3 is the operating point chosen throughout this study — the additional lags add negligible feature-vector cost (8 values for RSS+SINR) and h=3 is confirmed as optimal or near-optimal across all six grid sizes in §7.1 (optimal for 5 of 6 scales; h=2 for the 20×20 grid).
 
-#### 6.2.3 Per-User Breakdown (XGBoost, BASE_H vs BASE_A_H)
+#### 7.2.3 Per-User Breakdown (XGBoost, BASE_H3 vs BASE_A_H3)
 
-| User | Device | BASE_H Acc | BASE_A_H Acc | AoA Gain |
+| User | Device | BASE_H3 Acc | BASE_A_H3 Acc | AoA Gain |
 |------|--------|------------|--------------|----------|
 | U1 | 4-ant flagship | 61.6% | 87.6% | +26.0 pp |
 | U2 | 2-ant mid-range | 38.5% | 80.2% | +41.7 pp |
@@ -542,31 +575,31 @@ Most of the gain occurs at h=1 (+14 pp). Gains are diminishing: h=2 adds +6 pp, 
 
 Weaker devices (U2, U3, U5) benefit more from AoA — angular information compensates for degraded RSS/SINR quality. Flagship devices (U1, U4) already achieve reasonable accuracy with RSS+SINR history; AoA still adds ~26 pp.
 
-#### 6.2.4 Per-Cell Breakdown (XGBoost, BASE_H vs BASE_A)
+#### 7.2.4 Per-Cell Breakdown (XGBoost, BASE_H3 vs BASE_A)
 
-| Cell | Scenario | BASE_H Acc | BASE_A Acc | AoA Gain |
+| Cell | Scenario | BASE_H3 Acc | BASE_A Acc | AoA Gain |
 |------|----------|------------|------------|----------|
-| 1 (Park) | UMi_LOS | 62.6% | 88.6% | +26.0 pp |
-| 2 (Residential) | Mixed | 45.7% | 78.9% | +33.2 pp |
-| 3 (Shopping) | UMi_NLOS | 52.1% | 81.0% | +28.9 pp |
-| 4 (Highway) | RMa_LOS | 37.9% | 76.5% | **+38.6 pp** |
+| 1 (Highway) | RMa_LOS | 37.0% | 76.0% | **+39.1 pp** |
+| 2 (Shopping) | UMi_NLOS | 49.9% | 80.8% | +30.9 pp |
+| 3 (Residential) | Mixed | 44.4% | 77.9% | +33.5 pp |
+| 4 (Park) | UMi_LOS | 60.7% | 88.2% | +27.5 pp |
 
 The Highway cell (RMa_LOS) benefits most from AoA. Under Rural Macro LOS, a dominant single-ray path means adjacent grid points have nearly identical RSS/SINR — distance-ring ambiguity is worst here. AoA is the only reliable discriminant.
 
-#### 6.2.5 Cross-User Generalization
+#### 7.2.5 Cross-User Generalization
 
 Model trained on U1–U4, evaluated on U5 (unseen device, different height 0.9 m):
 
 | Experiment | In-distribution | Cross-user | Drop |
 |---|---|---|---|
-| BASE_H | 50.4% / 4.53 m | 46.4% / 5.05 m | −4.0 pp |
-| BASE_A_H | 83.6% / 0.39 m | **76.7% / 0.61 m** | −6.9 pp |
+| BASE_H3 | 48.9% / 4.64 m | 45.2% / 5.15 m | −3.7 pp |
+| BASE_A_H3 | 83.2% / 0.40 m | **76.3% / 0.62 m** | −6.9 pp |
 
-AoA generalizes better across devices (+6.9 pp drop vs accessible 4.0 pp without AoA from a much lower baseline). This is because AoA is geometrically determined — the angle from BS to UE depends only on position, not device electronics.
+AoA generalizes better across devices (+6.9 pp drop vs accessible 3.7 pp without AoA from a much lower baseline). This is because AoA is geometrically determined — the angle from BS to UE depends only on position, not device electronics.
 
-The residual 6.9 pp cross-user gap in BASE_A_H is attributable to U5's different UE height (0.9 m vs 1.5 m), which shifts the elevation angle. This is a physical, not electronic, difference.
+The residual 6.9 pp cross-user gap in BASE_A_H3 is attributable to U5's different UE height (0.9 m vs 1.5 m), which shifts the elevation angle. This is a physical, not electronic, difference.
 
-#### 6.2.6 Device Knowledge vs. History — Isolation
+#### 7.2.6 Device Knowledge vs. History — Isolation
 
 Four new h=0 baselines isolate the contribution of device knowledge from history:
 
@@ -574,231 +607,87 @@ Four new h=0 baselines isolate the contribution of device knowledge from history
 
 | Experiment | XGB Acc | RF Acc |
 |---|---|---|
-| BASE | 27.3% | 43.5% |
-| BASE_dp (device only, h=0) | 50.2% | 57.2% |
-| BASE_H (history only, h=3) | 50.4% | 52.5% |
-| BASE_H_dp (both) | 58.3% | 61.2% |
+| BASE | 25.7% | 45.9% |
+| BASE_dp (device only, h=0) | 48.5% | 59.3% |
+| BASE_H3 (history only, h=3) | 48.9% | 56.9% |
+| BASE_H3_dp (both) | 56.9% | 65.3% |
 
 **With AoA:**
 
 | Experiment | XGB Acc | RF Acc |
 |---|---|---|
-| BASE_A | 82.2% | 77.3% |
-| BASE_A_dp (AoA + device, h=0) | 84.3% | 84.4% |
-| BASE_A_H (AoA + history, h=3) | 83.6% | 77.1% |
-| BASE_A_H_dp (all three) | 84.9% | 79.3% |
+| BASE_A | 81.7% | 81.6% |
+| BASE_A_dp (AoA + device, h=0) | 83.7% | 86.7% |
+| BASE_A_H3 (AoA + history, h=3) | 83.2% | 80.9% |
+| BASE_A_H3_dp (all three) | 84.2% | 82.8% |
 
 Without AoA: device knowledge and history provide almost identical gains, and combining both adds another +8 pp. With AoA: marginal gains from device params (+2 pp XGB) or history (+1.4 pp XGB) are small — AoA already captures most of the spatial information available.
 
-### 6.3 BS Placement Study — AoA Geometry Dependence
+### 7.3 BS Placement Study — AoA Geometry Dependence
 
-The center-BS result (+33 pp AoA gain) raised a critical question: was this gain due to genuine angular discrimination, or an artefact of the full 360° angular coverage that the center position provides?
+The center-BS result (+34 pp AoA gain) raised a critical question: was this gain due to genuine angular discrimination, or an artefact of the full 360° angular coverage that the center position provides?
 
 This experiment places the serving BS at the NE corner (48, 48, 10) — 15 m beyond the grid boundary — compressing all 225 grid points into a ~52° azimuth wedge. All other parameters are unchanged.
 
-#### 6.3.1 Primary Finding — AoA Gain
+#### 7.3.1 Primary Finding — AoA Gain
 
 | Metric | Center BS (360°) | NE BS (52°) |
 |---|---|---|
-| BASE_H accuracy (XGB) | 50.4% | 62.7% |
-| BASE_A_H accuracy (XGB) | 83.6% | 69.6% |
-| **AoA gain (XGB)** | **+33.2 pp** | **+6.9 pp** |
-| BASE_H accuracy (RF) | 52.5% | 62.2% |
-| BASE_A_H accuracy (RF) | 77.1% | 65.1% |
-| **AoA gain (RF)** | **+24.6 pp** | **+2.9 pp** |
+| BASE_H3 accuracy (XGB) | 48.9% | 60.9% |
+| BASE_A_H3 accuracy (XGB) | 83.2% | 68.4% |
+| **AoA gain (XGB)** | **+34.3 pp** | **+7.5 pp** |
+| BASE_H3 accuracy (RF) | 56.9% | 67.4% |
+| BASE_A_H3 accuracy (RF) | 80.9% | 71.0% |
+| **AoA gain (RF)** | **+24.0 pp** | **+3.6 pp** |
 
-**AoA gain drops from +33 pp to +7 pp (XGB) when azimuth spread shrinks from 360° to 52°.** The center-BS AoA advantage was primarily geometric: each grid point had a unique azimuth from the BS. In the NE placement, all points appear in the same quadrant (195°–251°, a 56° span). The model cannot distinguish adjacent grid points by azimuth alone.
+**AoA gain drops from +34 pp to +8 pp (XGB) when azimuth spread shrinks from 360° to 52°.** The center-BS AoA advantage was primarily geometric: each grid point had a unique azimuth from the BS. In the NE placement, all points appear in the same quadrant (195°–251°, a 56° span). The model cannot distinguish adjacent grid points by azimuth alone.
 
 The residual +7 pp gain is attributable to **elevation angle**, which encodes distance: BS height = 10 m, UE height = 1.5 m → vertical gap = 8.5 m. Elevation spans ~9° (SW corner, d=61 m) to ~31° (NE corner, d=21 m) — a 22° spread that still carries distance information even when azimuth is compressed.
 
-#### 6.3.2 History Gain is Geometry-Independent
+#### 7.3.2 History Gain is Geometry-Independent
 
 | Metric | Center BS | NE BS |
 |---|---|---|
-| BASE → BASE_H (XGB) | +23.1 pp | **+23.2 pp** |
-| BASE → BASE_H (RF) | +9.0 pp | **+10.3 pp** |
+| BASE → BASE_H3 (XGB) | +23.2 pp | **+23.3 pp** |
+| BASE → BASE_H3 (RF) | +11.0 pp | **+13.6 pp** |
 
 The transition history benefit is **identical regardless of BS placement**. History captures trajectory dynamics that depend on how measurements change as the UE moves — this is independent of the BS's angular view.
 
 This is the key differentiating result: **transition features are robust to BS deployment geometry; AoA is not**.
 
-#### 6.3.3 RSS/SINR Discrimination with Edge BS
+#### 7.3.3 RSS/SINR Discrimination with Edge BS
 
 Notably, the NE BS placement actually *improves* non-AoA experiments:
 
 | Experiment | Center BS XGB | NE BS XGB | Change |
 |---|---|---|---|
-| BASE | 27.3% | 39.5% | **+12.2 pp** |
-| BASE_H | 50.4% | 62.7% | **+12.3 pp** |
-| BASE_A | 82.2% | 63.1% | −19.1 pp |
+| BASE | 25.7% | 37.6% | **+11.8 pp** |
+| BASE_H3 | 48.9% | 60.9% | **+12.0 pp** |
+| BASE_A | 81.7% | 61.4% | −20.3 pp |
 
 The edge BS creates a larger distance dynamic range (21–61 m vs 0–28 m), giving RSS a stronger gradient and better positional discrimination. Grid points near the NE corner are far from those near the SW corner, making amplitude alone more informative.
 
-#### 6.3.4 Spatial Distribution of Errors — NE BS
+#### 7.3.4 Spatial Distribution of Errors — NE BS
 
-Per-Voronoi-cell breakdown (XGBoost, BASE_H):
+Per-Voronoi-cell breakdown (XGBoost, BASE_H3):
 
 | Cell | NE BS Acc | NE BS MAE | Center BS Acc | Center BS MAE |
 |------|-----------|-----------|---------------|---------------|
-| 1 | 66.3% | 3.66 m | 37.9% | 4.84 m |
-| 2 | 54.8% | 3.16 m | 52.1% | 6.01 m |
-| 3 | 85.0% | 0.93 m | 45.7% | 6.04 m |
-| 4 | 86.5% | 0.94 m | 62.6% | 3.47 m |
+| 1 | 64.7% | 3.90 m | 37.0% | 4.84 m |
+| 2 | 52.9% | 3.29 m | 49.9% | 6.21 m |
+| 3 | 84.6% | 0.89 m | 44.4% | 6.26 m |
+| 4 | 84.7% | 1.05 m | 60.7% | 3.64 m |
 
-Cells 3 and 4 (NE quadrant, close to serving BS) achieve 85–87% accuracy with sub-metre MAE — better than any cell in the center-BS experiment **without AoA**. Cells 1 and 2 (SW quadrant, far from BS) are harder, showing the characteristic edge-BS gradient.
+Cells 3 and 4 (NE quadrant, close to serving BS) achieve ~85% accuracy with MAE under 1.1 m — better than any cell in the center-BS experiment **without AoA**. Cells 1 and 2 (SW quadrant, far from BS) are harder, showing the characteristic edge-BS gradient.
 
-#### 6.3.5 Cross-User Generalization Under Edge BS
+#### 7.3.5 Cross-User Generalization Under Edge BS
 
 | Experiment | Center BS | NE BS |
 |---|---|---|
-| cross_user_BASE_H | 46.4% / 5.05 m | 53.9% / 3.89 m |
-| cross_user_BASE_A_H | **76.7% / 0.61 m** | 59.5% / 2.02 m |
+| cross_user_BASE_H3 | 45.2% / 5.15 m | 52.5% / 3.96 m |
+| cross_user_BASE_A_H3 | **76.3% / 0.62 m** | 58.4% / 2.05 m |
 
-With NE BS: BASE_H cross-user *improves* (+7 pp) because the stronger RSS gradient is inherently more device-agnostic. BASE_A_H cross-user *degrades* significantly (−17 pp) — when AoA is weak, the model falls back on RSS/SINR, which varies across devices.
-
----
-
-## 7. Summary of Findings
-
-### 7.1 Core Thesis: Validated
-
-**Transition history improves localization accuracy across all tested conditions:**
-
-1. Validated across **6 grid sizes** (9 to 400 classes), **4 ML algorithms** (Gaussian, RF, XGBoost, MLP), and **2 feature sets**.
-2. History gain of **+23 pp** (XGB, RSS+SINR) is consistent regardless of BS placement geometry.
-3. h=1 captures the majority of the gain; diminishing returns beyond h=3.
-
-### 7.2 AoA Is Placement-Sensitive; History Is Not
-
-| Metric | Center BS (360°) | NE BS (52°) |
-|---|---|---|
-| History gain (BASE → BASE_H, XGB) | +23.1 pp | +23.2 pp |
-| AoA gain (BASE_H → BASE_A_H, XGB) | +33.2 pp | +6.9 pp |
-
-This is the central comparative result. AoA is a powerful feature when angular diversity exists (center BS), but loses most of its advantage in edge-BS deployments — a common configuration in both indoor and outdoor cellular installations. Transition history provides reliable improvement in both cases.
-
-The residual +7 pp AoA gain at the NE BS is driven by elevation angle encoding distance, not azimuth.
-
-### 7.3 Device Heterogeneity
-
-- **Device parameters as features** add +8–12 pp to history-based experiments.
-- Weaker devices (1-antenna, low gain) benefit most from AoA when the BS provides full angular coverage (+42 pp for U2/U5).
-- **AoA generalizes well across device types** — cross-user drop only −7 pp (center BS) because angle is geometrically, not electronically, determined.
-- When AoA is weak (edge BS), cross-user drop grows to −17 pp because the model relies on device-dependent RSS/SINR.
-
-### 7.4 Channel Environment
-
-- **Per-cell accuracy depends more on cell size than channel type.** Voronoi cells with fewer grid points suffer from higher cross-boundary confusion regardless of LOS/NLOS.
-- **RMa_LOS (Highway) benefits most from AoA** (+39 pp) because a dominant single-ray channel makes RSS/SINR nearly range-only.
-- **Edge BS creates a spatial gradient:** cells near the BS achieve sub-metre MAE with RSS+SINR+history alone; far cells are harder but recover with device parameters.
-
-### 7.5 Feature Design Recommendations
-
-| Deployment Scenario | Recommended Feature Set |
-|---|---|
-| Center/overhead BS, diverse devices | BASE_A_H_dp — full set |
-| Center BS, unknown device | BASE_A_H — geometry provides AoA |
-| Edge/wall-mounted BS, known device | BASE_H_dp — history + device params |
-| Edge BS, unknown device, minimal hardware | BASE_H — history alone sufficient |
-| Any scenario, no AoA hardware | BASE_H_dp — best non-AoA option |
+With NE BS: BASE_H3 cross-user *improves* (+7 pp) because the stronger RSS gradient is inherently more device-agnostic. BASE_A_H3 cross-user *degrades* significantly (−18 pp) — when AoA is weak, the model falls back on RSS/SINR, which varies across devices.
 
 ---
 
-## 8. Configuration Reference
-
-### 8.1 Complete Simulation Parameters
-
-| Category | Parameter | Value |
-|---|---|---|
-| **Channel** | Center frequency | 3.5 GHz |
-| | Bandwidth | 100 MHz |
-| | Subcarriers | 256 (uniform OFDM) |
-| | QuaDRiGa version | v2.8.1 |
-| | Standard | 3GPP TR 38.901 |
-| **Grid** | Size | 15×15 (225 points) |
-| | Spacing | 2 m |
-| | Coordinate range | X, Y ∈ [5, 33] m |
-| | Position jitter | ±0.1 m |
-| | Neighbor connectivity | 8 |
-| **Movement** | Model | Random walk on grid graph |
-| | UE speed | 1.5 m/s |
-| | Steps per grid point | 400 |
-| | Total samples per user | 90,001 |
-| **BS — Center** | Serving BS position | (19, 19, 10) m |
-| | TX power | 30 dBm |
-| | IBS-1 | (−11, 19, 10) m — 30m west |
-| | IBS-2 | (19, −11, 10) m — 30m south |
-| **BS — NE Corner** | Serving BS position | (48, 48, 10) m |
-| | IBS-1 | (19, −10, 10) m — south |
-| | IBS-2 | (−10, 19, 10) m — west |
-| **AoA Noise** | Gaussian noise (per axis) | σ = 4° |
-| | Quantization step | Δ = 5° |
-| **Dataset** | Users | 5 |
-| | Samples per user | 90,001 |
-| | Total samples | 450,005 |
-| | Train / test | 360,005 / 90,000 (80/20) |
-| **Models** | XGBoost | n_est=50, depth=5, lr=0.15 |
-| | Random Forest | n_est=50, depth=15, sqrt features |
-| **History** | Primary depth | h = 3 |
-
-### 8.2 Output Files
-
-For each experiment run, the pipeline writes to `results/{experiment_name}/`:
-
-```
-csvs/
-  results_summary.csv        — model | experiment | accuracy | mae
-  per_user_breakdown.csv     — model | experiment | user_id | accuracy | mae
-  per_cell_breakdown.csv     — model | experiment | cell_id | accuracy | mae
-  data_volume_sweep.csv      — accuracy vs training data fraction
-images/
-  accuracy/
-    accuracy_bar_chart.png
-    per_user_heatmap_{model}.png
-    voronoi_accuracy_map_{exp}.png
-    learning_curve.png
-  mae/
-    mae_heatmap_{exp}_{model}.png    — per-grid-point MAE, adaptive colour scale
-    mae_heatmap_comparison_{model}.png
-```
-
----
-
-## 9. Test Coverage
-
-The pipeline has a formal test suite in `src/python/tests/` (pytest) and `src/matlab/tests/` (matlab.unittest). Run with:
-
-```bash
-# Python
-.venv/Scripts/python -m pytest experiments/09_grid_localization/src/python/tests/ -v
-
-# MATLAB (from src/matlab/)
-runtests('tests/TestGridGeneration')
-runtests('tests/TestReadJsonc')
-```
-
-### 9.1 Python Tests (77 pass, 1 skipped)
-
-| File | Behaviour verified |
-|---|---|
-| `test_read_jsonc.py` | JSONC comment stripping, URLs inside strings not stripped, scientific notation, error on missing file |
-| `test_feature_engineering.py` | `build_history_features`: shape, lag0 = current value, lag1 = previous step, no NaN, no cross-user contamination · `build_delta_features`: same shape as absolute, delta1 = first difference, no absolute lag columns · `make_split`: 80/20 ratio, test is last chronologically, zero leakage between train and test · `build_grid_lookup`: all points present, coordinates are means · `compute_mae`: 0 for perfect, 2 m for adjacent, √8 m for diagonal |
-| `test_aoa_noise.py` | Output quantized to exact 5° multiples · noise is applied (values change) · zero-mean (large-sample bias < 1°) · reproducible per user_id · different users get different noise sequences · azimuth and elevation are independently noised |
-| `test_experiment_runner.py` | 100% accuracy on trivially separable data (label remapping round-trip verified) · 0 MAE on perfect classifier · reported labels are 1-indexed · cross-user exclusion removes user from training but keeps in test · per-user MAE within 0.5 m of overall MAE (alignment check) |
-| `test_results_sanity.py` | Accuracy in [0, 100] · MAE ≤ grid diagonal (39.6 m) · BASE_H > BASE for both models/experiments · BASE_A > BASE · BASE_H_dp > BASE_H · AoA gain at center BS > 20 pp · AoA gain at NE BS < 15 pp · NE-BS azimuth range < 120° (confirms BS at (48,48) was used) · center-BS azimuth range > 180° · SINR > −35 dB (catches the original 30 dB calibration bug) |
-| `test_adaptive_vmax.py` | Low-error regime stays sub-2 m · high-error regime stays > 5 m · always positive · single outlier does not dominate |
-
-### 9.2 MATLAB Tests
-
-| File | Behaviour verified |
-|---|---|
-| `TestReadJsonc.m` | JSONC parsing, inline comments, nested objects, array values, missing file error, real config smoke-test |
-| `TestGridGeneration.m` | 225 points for 15×15 · X/Y range [5, 33] · uniform UE height · correct spacing · NE BS (48,48) lies outside grid · NE azimuth spread < 90° · center BS spread > 270° · 4-conn corner has 2 neighbors · 8-conn interior has 8 neighbors · neighbors are symmetric · no self-loops · walk stays in grid · walk visits > 95% of points |
-
-### 9.3 What Is Not Tested
-
-- MATLAB channel simulation correctness (QuaDRiGa internals)
-- End-to-end pipeline timing (no performance regression tests)
-- Plot visual output (only that files are saved without error)
-
----

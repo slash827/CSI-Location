@@ -33,6 +33,12 @@ x_input = [m(t-h), m(t-h+1), ..., m(t-1), m(t)]
 where *h* is the history depth hyperparameter.
 
 ### 1.3 Scope
+This work tests the thesis through simulation under controlled but diverse conditions:
+
+- **Environment coverage** — experiments span both indoor-like (UMi_NLOS shopping center, mixed UMi residential) and outdoor/semi-outdoor (UMi_LOS park, RMa_LOS highway) 3GPP scenarios within the same grid. This ensures the localization pipeline is evaluated across the full indoor-to-outdoor spectrum rather than optimised for a single propagation regime.
+- **Single serving BS** — the BS performs localization using only measurements it legitimately receives from the UE. Per-interferer RSS is explicitly excluded to avoid triangulation (a different problem requiring distributed infrastructure).
+- **Classification** — each grid point is a discrete class. This is appropriate at ≤2m grid spacing; we show it outperforms regression at all tested scales.
+- **Reproducibility** — all channel data is generated via QuaDRiGa/3GPP TR 38.901 with fixed seeds; results are fully reproducible.
 
 ---
 
