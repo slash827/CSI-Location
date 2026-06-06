@@ -215,28 +215,17 @@ fprintf('Distance traveled: %.2f m\n', ...
 ## 📝 File Organization Recommendation
 
 ```
-CSI_location/
-├── my_ue_movement_experiment.m          ← Your main experiment script
-├── generate_training_data.m             ← Batch data generation
-├── extract_features.m                   ← Feature engineering
-├── data/
-│   ├── raw/                             ← Raw simulation outputs
-│   │   ├── trajectory_0001.mat
-│   │   ├── trajectory_0002.mat
-│   │   └── ...
-│   ├── processed/
-│   │   ├── ml_dataset.mat               ← Ready for ML
-│   │   └── features_labels.csv
-│   └── results/
-│       ├── model_predictions.csv
-│       └── evaluation_plots.png
-├── models/
-│   ├── random_forest_model.mat
-│   └── neural_network_model.mat
+CSI-Location/
+├── experiments/01_basics/               ← QuaDRiGa tutorial scripts
+├── experiments/02_single_ue_analysis/   ← CSI metrics tutorial scripts
+├── experiments/09_grid_localization/    ← Main ML pipeline (Python + MATLAB)
+├── utils/
+│   ├── CSIMetrics.m
+│   └── ExperimentUtils.m
+├── results/                             ← gitignored, local only
 └── docs/
-    ├── SCRIPTS_EXPLAINED.md              ← Overview of all scripts
-    ├── ML_LOCATION_PREDICTION_GUIDE.md   ← ML project guide
-    └── QUICK_REFERENCE.md                ← This file
+    ├── SCRIPTS_EXPLAINED.md             ← Guide for tutorial scripts
+    └── QUICK_REFERENCE.md               ← This file
 ```
 
 ---
@@ -277,16 +266,7 @@ CSI_location/
 4. Modify trajectory in `my_ue_movement_experiment.m`
 5. Try different scenarios (LOS/NLOS)
 
-**Ready for ML** → Next steps:
-1. Generate 10 diverse trajectories
-2. Manually inspect the patterns (plot CSI vs position)
-3. Extract basic features (CQI mean, SINR mean, RSS mean)
-4. Train simple Random Forest on 10 trajectories
-5. Evaluate - what's your error?
-6. Expand to 50+ trajectories
-7. Add more features
-8. Try Neural Network
-9. Read ML_LOCATION_PREDICTION_GUIDE.md for advanced techniques
+**Ready for ML** → See `experiments/09_grid_localization/` — full pipeline with multi-user classification, XGBoost/RF, history features, 0.37 m MAE.
 
 **Advanced** → Research directions:
 1. Multi-BS triangulation
@@ -313,7 +293,7 @@ dbclear all      % Clear breakpoints
 
 **Conceptual questions**: Re-read SCRIPTS_EXPLAINED.md sections
 
-**ML questions**: See ML_LOCATION_PREDICTION_GUIDE.md
+**ML questions**: See `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md`
 
 **Feature ideas**: Look at existing ML papers on CSI-based localization
 

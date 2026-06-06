@@ -425,23 +425,6 @@ Good luck with your simulation! 🎯
 
 ## Moving Forward: Machine Learning Project
 
-Once you've generated simulation data and understand CSI/CQI behavior, you can move to the next phase: **predicting UE location from CSI/CQI measurements using machine learning**.
+Once you understand CSI/CQI behaviour from these scripts, the full ML pipeline is in `experiments/09_grid_localization/`. That experiment runs multi-user classification on a 15×15 grid using XGBoost and Random Forest with stacked history features, achieving **0.37 m MAE**.
 
-📚 **See the complete guide**: [`ML_LOCATION_PREDICTION_GUIDE.md`](ML_LOCATION_PREDICTION_GUIDE.md)
-
-This comprehensive guide covers:
-- **Data generation strategy** for training ML models
-- **Feature engineering** from CSI/CQI measurements
-- **ML pipeline** (from data prep to model training)
-- **Evaluation metrics** and performance analysis
-- **Advanced techniques** (LSTM, multi-BS, real-time tracking)
-- **Step-by-step roadmap** for your master's project
-
-The guide provides complete code examples for:
-- Generating diverse training trajectories
-- Extracting 25+ features from wireless measurements
-- Training Random Forest, Neural Networks, and LSTMs
-- Evaluating localization accuracy
-- Analyzing feature importance
-
-**Your Project Goal**: Train a model that can predict UE position (x, y coordinates) from observed CSI and CQI values over time, achieving < 10 meter mean localization error.
+See `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md` for full methodology and results.
