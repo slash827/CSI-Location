@@ -1,108 +1,129 @@
-# CSI-Based UE Location Prediction Project
+# CSI-Based Indoor Localization — Transition Feature Study
 
-## 📁 Project Structure
+Research project proving that **movement history (transition features) improves indoor localization accuracy** across all tested conditions. MATLAB + QuaDRiGa for channel simulation; Python + scikit-learn/XGBoost for ML.
+
+---
+
+## Key Results
+
+Main experiment: multi-user, 15×15 grid (225 cells, 2 m spacing), mixed Voronoi environment (highway / shopping / residential / park), 5 heterogeneous devices.
+
+| Feature Set | XGBoost Acc | XGBoost MAE |
+|---|---|---|
+| BASE (static RSS+SINR) | 25.7% | 8.56 m |
+| BASE_H3 (+ history h=3) | 48.9% | 4.64 m |
+| BASE_A_H3 (+ AoA) | 83.2% | 0.40 m |
+| BASE_A_H3_dp (+ device params) | **84.2%** | **0.37 m** |
+
+History alone adds **+23 pp** regardless of BS placement. Full technical results in `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md`.
+
+---
+
+## Project Structure
 
 ```
-CSI_location/
-├── experiments/           # All experimental scripts organized by complexity
-│   ├── 01_basics/        # Start here - Basic QuaDRiGa usage
-│   ├── 02_single_ue_analysis/  # CSI analysis and metrics
-│   ├── 03_ue_movement/   # UE trajectory simulations
-│   ├── 04_data_generation/  # Generate ML training datasets
-│   └── 05_ml_training/   # Machine learning models
-├── utils/                # Reusable functions and classes
-│   └── CSIMetrics.m      # CSI to RSS/SINR/CQI conversion
-├── results/              # Output files, plots, datasets
-├── docs/                 # Documentation
-└── README.md             # This file
+CSI-Location/
+├── experiments/
+│   ├── 01_basics/                  # QuaDRiGa fundamentals (tutorial)
+│   ├── 02_single_ue_analysis/      # RSS/SINR/CQI metrics (tutorial)
+│   ├── 03_ue_movement/             # Moving UE trajectory simulation
+│   ├── 04_data_generation_LOS/     # Dataset generation, LOS scenario
+│   ├── 05_data_generation_NLOS/    # Dataset generation, NLOS scenario
+│   ├── 06_urban_scenario/          # Urban multi-path experiments
+│   ├── 07_csi_distribution/        # CSI feature distribution analysis
+│   ├── 08_static_vs_walk/          # Early static vs transition comparison
+│   └── 09_grid_localization/       # MAIN EXPERIMENT — see below
+│       ├── configs/                # JSONC experiment configs
+│       ├── src/
+│       │   ├── matlab/             # QuaDRiGa simulation pipeline
+│       │   └── python/             # ML pipeline (train/eval/report)
+│       ├── docs/                   # Technical and research documentation
+│       ├── requirements.txt
+│       └── TASKS.md
+├── utils/                          # Shared MATLAB utilities
+│   ├── ExperimentUtils.m           # Channel setup, FFT, file I/O helpers
+│   └── CSIMetrics.m                # RSS / SINR / CQI computation
+├── results/                        # gitignored — local only
+└── docs/                           # Project-level guides and references
 ```
 
 ---
 
-## 🚀 Getting Started
+## Prerequisites
 
-### Prerequisites
-1. **MATLAB** installed
-2. **QuaDRiGa** installed and in MATLAB path
+**MATLAB** (simulation)
+- QuaDRiGa v2.8.1 — add to MATLAB path:
+  ```matlab
+  addpath(genpath('path/to/QuaDRiGa'));
+  savepath;
+  ```
 
-### Setup QuaDRiGa Path
+**Python** (ML pipeline)
+```bash
+cd experiments/09_grid_localization
+pip install -r requirements.txt
+```
+
+---
+
+## Main Experiment (09_grid_localization)
+
+All significant ML work lives here. Full documentation:
+- `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md` — system design, feature engineering, all results
+- `experiments/09_grid_localization/docs/Project_documentation/research_documentation.md` — research narrative
+
+### Run simulation (MATLAB)
 ```matlab
-addpath(genpath('D:\programs\QuaDRiGa'));  % Adjust to your installation
-savepath;
+% Edit configs/multi_user_voronoi_15x15_config.jsonc first
+cd experiments/09_grid_localization/src/matlab/runners
+run_multi_user_voronoi_15x15
 ```
 
-### Add Project Utils to Path
-```matlab
-addpath('utils');  % Makes CSIMetrics.m available everywhere
+### Run ML pipeline (Python)
+```powershell
+python experiments\09_grid_localization\src\python\pipelines\multi_user_pipeline.py `
+  --data-dir results\grid_localization\grid_15x15\sim_data_<timestamp> `
+  --out-dir results\multi_user_voronoi_15x15 `
+  --models rf xgboost `
+  --history 3
+```
+
+### Run tests
+```bash
+python -m pytest experiments/09_grid_localization/src/python/tests/ -v
 ```
 
 ---
 
-## 📚 Learning Path
+## Learning Path (experiments 01–08)
 
-Follow experiments in order:
+Experiments 01–08 are exploratory/tutorial work that preceded the main experiment.
 
-### **Level 1: Basics** (experiments/01_basics/)
-Learn QuaDRiGa fundamentals and CSI structure
-
-### **Level 2: Single UE Analysis** (experiments/02_single_ue_analysis/)
-Deep dive into CSI metrics, frequency analysis, CQI calculation
-
-### **Level 3: UE Movement** (experiments/03_ue_movement/)
-Simulate moving UE, track CSI changes over time
-
-### **Level 4: Data Generation** (experiments/04_data_generation/)
-Generate diverse datasets for ML training
-
-### **Level 5: ML Training** (experiments/05_ml_training/)
-Train models to predict UE location from CSI/CQI
+| Experiment | Focus |
+|---|---|
+| 01_basics | QuaDRiGa setup, CSI matrix structure |
+| 02_single_ue_analysis | RSS/SINR/CQI extraction, parameter effects |
+| 03_ue_movement | Moving UE, trajectory simulation |
+| 04–05_data_generation | Dataset generation under LOS / NLOS |
+| 06_urban_scenario | Urban multi-path |
+| 07_csi_distribution | Feature distribution analysis |
+| 08_static_vs_walk | Early static vs history comparison (Gaussian classifier) |
 
 ---
 
-## 🎯 Project Goal
+## Results Directory
 
-Build a machine learning model that predicts User Equipment (UE) location based on observed Channel State Information (CSI) and Channel Quality Indicator (CQI) values.
+`results/` is gitignored. Key subdirectories after running the main experiment:
 
-**Target Performance**: < 10 meters mean localization error
-
----
-
-## 📖 Documentation
-
-See `docs/` folder for comprehensive guides:
-- **SCRIPTS_EXPLAINED.md** - Complete explanation of all scripts
-- **ML_LOCATION_PREDICTION_GUIDE.md** - Full ML project roadmap
-- **QUICK_REFERENCE.md** - Quick commands and troubleshooting
-- **WORKFLOW_VISUALIZATION.md** - Visual project flow
+```
+results/
+├── grid_localization/          # Raw simulation data (.mat files)
+├── multi_user_voronoi_15x15/  # Center-BS ML results + plots
+│   └── csvs/results_summary.csv
+└── ne_bs_voronoi_15x15/       # NE-corner BS results + plots
+    └── csvs/results_summary.csv
+```
 
 ---
 
-## 🏃 Quick Start
-
-1. **Navigate to basics:**
-   ```matlab
-   cd experiments/01_basics
-   ```
-
-2. **Run first experiment:**
-   ```matlab
-   exp01_minimal_setup
-   ```
-
-3. **Progress through experiments** in order
-
-4. **Check results** in `results/` folder
-
----
-
-## 💡 Tips
-
-- Always run from experiment folder (uses relative paths)
-- Check console output for explanations
-- Save figures to `../../results/` for later reference
-- Read comments in each script for details
-- Experiment with parameters!
-
----
-
-*Last updated: October 31, 2025*
+*Last updated: 2026-06-06*
