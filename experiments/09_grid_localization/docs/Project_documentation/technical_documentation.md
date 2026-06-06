@@ -436,7 +436,7 @@ Experiments were run across two homogeneous scenarios to reveal the contribution
 | SINR alone | 31.03 m | Identical to RSS |
 | RSS + SINR | 31.02 m | No improvement |
 | + AoA azimuth | 4.54 m | Partial — azimuth alone insufficient in macro |
-| + AoA elevation | **2.01 m** | Elevation essential in macro NLOSenvironment |
+| + AoA elevation | **2.01 m** | Elevation essential in macro NLOS environment |
 
 RSS and SINR provide no useful information in either scenario without AoA. In UMa_NLOS, RSS varies so weakly with distance that the model cannot form a useful distance estimate. The 17× gap between UMi (14 m) and UMa (31 m) with RSS alone reflects the more severe distance ambiguity under macro propagation.
 
@@ -567,13 +567,13 @@ Almost all the gain occurs at h=1 (+21.9 pp out of +23.2 pp total). The incremen
 
 | User | Device | BASE_H3 Acc | BASE_A_H3 Acc | AoA Gain |
 |------|--------|------------|--------------|----------|
-| U1 | 4-ant flagship | 61.6% | 87.6% | +26.0 pp |
-| U2 | 2-ant mid-range | 38.5% | 80.2% | +41.7 pp |
-| U3 | 1-ant budget | 54.7% | 84.8% | +30.1 pp |
-| U4 | 4-ant flagship | 60.7% | 87.0% | +26.3 pp |
-| U5 | tablet/IoT | 36.3% | 78.4% | +42.1 pp |
+| U1 | 4-ant flagship | 60.1% | 87.5% | +27.5 pp |
+| U2 | 2-ant mid-range | 36.8% | 80.0% | +43.1 pp |
+| U3 | 1-ant budget | 52.5% | 83.7% | +31.2 pp |
+| U4 | 4-ant flagship | 59.4% | 86.7% | +27.2 pp |
+| U5 | tablet/IoT | 35.6% | 78.1% | +42.5 pp |
 
-Weaker devices (U2, U3, U5) benefit more from AoA — angular information compensates for degraded RSS/SINR quality. Flagship devices (U1, U4) already achieve reasonable accuracy with RSS+SINR history; AoA still adds ~26 pp.
+Weaker devices (U2, U3, U5) benefit more from AoA — angular information compensates for degraded RSS/SINR quality. Flagship devices (U1, U4) already achieve reasonable accuracy with RSS+SINR history; AoA still adds ~27 pp.
 
 #### 7.2.4 Per-Cell Breakdown (XGBoost, BASE_H3 vs BASE_A)
 
