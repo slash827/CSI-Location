@@ -275,6 +275,11 @@ if isfield(config_json.channel, 'mixed_scenario') && ...
         ag_config.transition_width = ag_params.transition_width;
         ag_config.random_seed = config_json.experiment.random_seed;
         
+        % Pass along scenario mapping overrides if present
+        if isfield(ag_params, 'scenario_mapping')
+            ag_config.scenario_mapping = ag_params.scenario_mapping;
+        end
+        
         % Convert area_types from struct array / cell to cell array of strings
         if iscell(ag_params.area_types)
             ag_config.area_types = ag_params.area_types;
@@ -789,9 +794,18 @@ if ~isempty(OVERRIDE_OUTPUT_FILENAME)
     aoa_az        = aoa_azimuth;   % [N x 1] degrees, power-weighted cluster AoA
     aoa_el        = aoa_elevation; % [N x 1] degrees, power-weighted cluster EoA
 
+    if isfield(walk_path, 'movement_times') && ~isempty(walk_path.movement_times)
+        m_times = walk_path.movement_times;
+        delta_t = [m_times(1); m_times];
+        timestamp_sec = cumsum([0; m_times]);
+    else
+        delta_t = ones(n_snapshots, 1) * config.step_duration;
+        timestamp_sec = (0:n_snapshots-1)' * config.step_duration;
+    end
+
     save(output_file, 'user_id_val', 'rss', 'sinr', 'aoa_az', 'aoa_el', ...
          'x_pos', 'y_pos', 'grid_point_id', 'voronoi_cell_id', ...
-         'step_index', 'device_profile', '-v7');
+         'step_index', 'delta_t', 'timestamp_sec', 'device_profile', '-v7');
     fprintf('Per-user data saved: %s\n', output_file);
     fprintf('  user_id=%d, n_antennas=%d, gain=%.1f dB, height=%.2f m\n', ...
         user_id_val, n_rx_antennas, OVERRIDE_ANTENNA_GAIN_DB, config.ue_height);

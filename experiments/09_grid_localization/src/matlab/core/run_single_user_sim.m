@@ -72,7 +72,7 @@ elapsed = toc(run_start);
 
 fprintf('=== User %d complete in %.1fs [%s] ===\n', user_idx, elapsed, datestr(now));
 
-%% Clear globals
+%% Clear globals and force memory cleanup
 OVERRIDE_CONFIG_NAME     = [];
 OVERRIDE_WALK_SEED       = [];
 OVERRIDE_N_RX_ANTENNAS   = [];
@@ -82,6 +82,10 @@ OVERRIDE_OUTPUT_DIR      = [];
 OVERRIDE_OUTPUT_FILENAME  = [];
 OVERRIDE_USER_ID         = [];
 OVERRIDE_CHANNEL_SEED    = [];
+
+% Force garbage collection of QuaDRiGa handle objects
+clearvars -except user_idx profile output_dir config_name workspace_root;
+java.lang.System.gc();
 
 diary off;
 end

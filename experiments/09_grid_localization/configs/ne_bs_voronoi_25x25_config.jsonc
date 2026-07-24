@@ -1,23 +1,15 @@
 {
-  // NE-BS Heterogeneous Environment — 15x15 Voronoi Grid
+  // NE-BS Heterogeneous Environment — 25x25 Voronoi Grid
   //
-  // OBJECTIVE: Test whether AoA informativeness depends on angular coverage diversity.
-  //   In the center-BS experiment the serving BS sat at the grid center, covering
-  //   ~360° of azimuth angles. Here the BS is placed 15m north and 15m east of the
-  //   NE corner, compressing all 225 grid points into a ~52° azimuth wedge.
-  //   Hypothesis: AoA gain (BASE_A_H − BASE_H) is much smaller than the ~35pp seen
-  //   with the center BS, because within-sector angular variation is limited.
+  // OBJECTIVE: Test localization on a larger 25x25 grid (625 classes/points)
+  //   using 3D regression to avoid OOM exceptions.
   //
   // NETWORK SETUP:
-  //   Grid: X ∈ [5, 33],  Y ∈ [5, 33],  NE corner = (33, 33)
-  //   Serving BS: (48, 48, 10) — 15m north + 15m east of NE corner
-  //     d_min = 21.2m (NE corner),  d_max = 60.8m (SW corner)
-  //     Azimuth span seen by BS: ~52° (SW sector, 199°–251°)
-  //   IBS-1: (-11, 19, 10) — west of grid   (E-W SINR gradient)
-  //   IBS-2: (19, -11, 10) — south of grid  (N-S SINR gradient)
-  //   Features extracted: RSS and SINR from serving BS only
-  //
-  // COMPARE TO: multi_user_voronoi_15x15_config.jsonc (center BS at [19, 19, 10])
+  //   Grid: X ∈ [5, 101],  Y ∈ [5, 101],  NE corner = (101, 101)
+  //   Serving BS: (116, 116, 10) — 15m north + 15m east of NE corner
+  //   IBS-1: (-25, 53, 10) — west of grid   (E-W SINR gradient)
+  //   IBS-2: (53, -25, 10) — south of grid  (N-S SINR gradient)
+  //   Features extracted: RSS, SINR, AoA from serving BS
   //
   // DEVICE PROFILES (5 users — applied via MATLAB override globals):
   //   U1: 4 antennas, 0 dB gain,  1.5 m height  (Flagship A,  seed=100)
@@ -27,8 +19,8 @@
   //   U5: 2 antennas, -1 dB gain, 0.9 m height  (Tablet/IoT,  seed=500)
 
   "experiment": {
-    "name": "ne_bs_voronoi_15x15",
-    "description": "NE-corner BS placement — 15x15 Voronoi grid, 5 device profiles",
+    "name": "ne_bs_voronoi_25x25",
+    "description": "NE-corner BS placement — 25x25 Voronoi grid, 5 device profiles, 4m spacing",
     "random_seed": 42
   },
 
@@ -38,8 +30,8 @@
   },
 
   "grid": {
-    "size": 15,
-    "spacing": 2.0,
+    "size": 25,
+    "spacing": 4.0,
     "ue_height": 1.5,
     "grid_offset": [5, 5],
     "position_jitter": 0.1,
@@ -54,7 +46,7 @@
 
   "channel": {
     "scenario": "3GPP_38.901_UMi_NLOS",
-    "center_frequency": 3.5e9,
+    "center_frequency": 3.0e9,
     "bandwidth": 1e8,
     "n_subcarriers": 256,
     "interference_per_sc_dbm": -999,
@@ -73,7 +65,6 @@
           "highway",
           "park"
         ],
-        // OVERRIDE: map realistic 3GPP scenarios for this specific grid, replacing default behavior 
         "scenario_mapping": {
           "highway": "3GPP_38.901_UMi_LOS",
           "park": "3GPP_38.901_UMi_LOS",
@@ -84,22 +75,22 @@
 
       "voronoi_cells": [
         {
-          "center": [15.0, 8.0],
+          "center": [35.0, 15.0],
           "scenario": "3GPP_38.901_UMi_LOS",
           "name": "highway"
         },
         {
-          "center": [33.4, 8.0],
+          "center": [95.0, 15.0],
           "scenario": "3GPP_38.901_UMi_NLOS",
           "name": "shopping_center"
         },
         {
-          "center": [26.4, 4.9],
+          "center": [75.0, 5.0],
           "scenario": "3GPP_38.901_UMi_NLOS",
           "name": "residential"
         },
         {
-          "center": [22.2, 30.7],
+          "center": [60.0, 90.0],
           "scenario": "3GPP_38.901_UMi_LOS",
           "name": "park"
         }
@@ -108,25 +99,24 @@
   },
 
   "base_station": {
-    // Serving BS: 15m north + 15m east of NE grid corner (33, 33)
-    // All 225 grid points lie in a ~52° azimuth wedge as seen from this BS
-    "position": [48, 48, 10],
+    // Serving BS: 15m north + 15m east of NE grid corner (101, 101)
+    "position": [116, 116, 10],
     "tx_power_dbm": 30,
 
     "interferers": {
       "enabled": true,
-      // IBS-1: west of grid  → creates E-W SINR gradient
-      // IBS-2: south of grid → creates N-S SINR gradient
+      // IBS-1: west of grid
+      // IBS-2: south of grid
       "positions": [
-        [-11,  19, 10],
-        [ 19, -11, 10]
+        [-25,  53, 10],
+        [ 53, -25, 10]
       ],
       "tx_power_dbm": 30
     }
   },
 
   "ml_task": {
-    "type": "classification",
+    "type": "regression",
     "test_ratio": 0.2,
     "metrics": ["RSS", "SINR"],
     "max_history_length": 4

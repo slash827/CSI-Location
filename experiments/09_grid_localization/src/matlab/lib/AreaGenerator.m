@@ -63,6 +63,12 @@ classdef AreaGenerator
 
             % Initialize areas struct array
             areas = struct();
+            
+            % Extract scenario mapping if provided
+            scenario_mapping = struct();
+            if isfield(config, 'scenario_mapping')
+                scenario_mapping = config.scenario_mapping;
+            end
 
             % Create each area
             for i = 1:num_areas
@@ -73,7 +79,7 @@ classdef AreaGenerator
                 areas(i).area_type = shuffled_types{i};
 
                 % Assign matching scenario based on area type
-                areas(i).scenario = AreaGenerator.assign_matching_scenario(areas(i).area_type);
+                areas(i).scenario = AreaGenerator.assign_matching_scenario(areas(i).area_type, scenario_mapping);
 
                 % Set transition width
                 areas(i).transition_width = transition_width;
@@ -122,11 +128,12 @@ classdef AreaGenerator
         end
         
         
-        function scenario = assign_matching_scenario(area_type)
+        function scenario = assign_matching_scenario(area_type, scenario_mapping)
             % ASSIGN_MATCHING_SCENARIO Assign appropriate scenario based on area type
             %
             % Input:
             %   area_type - string ('shopping_center', 'residential', etc.)
+            %   scenario_mapping - (optional) struct overriding default mappings
             %
             % Output:
             %   scenario - QuaDRiGa scenario string
@@ -138,6 +145,42 @@ classdef AreaGenerator
             %   highway         → RMa_LOS (open, fast)
             %   parking_lot     → UMi_LOS (open)
             %   park            → UMi_LOS (open spaces)
+            
+            if nargin < 2
+                scenario_mapping = struct();
+            end
+            
+            % Check for overrides in scenario_mapping
+            if isfield(scenario_mapping, area_type)
+                mapping = scenario_mapping.(area_type);
+                if ischar(mapping) || isstring(mapping)
+                    scenario = char(mapping);
+                    return;
+                elseif iscell(mapping) || isstruct(mapping)
+                    % Probabilistic mapping
+                    if isstruct(mapping) && length(mapping) > 1
+                        items = num2cell(mapping);
+                    else
+                        items = mapping;
+                    end
+                    
+                    if iscell(items)
+                        r = rand();
+                        cum_prob = 0;
+                        for k = 1:length(items)
+                            item = items{k};
+                            cum_prob = cum_prob + item.probability;
+                            if r <= cum_prob
+                                scenario = char(item.scenario);
+                                return;
+                            end
+                        end
+                        % Fallback to last item if rounding issues
+                        scenario = char(items{end}.scenario);
+                        return;
+                    end
+                end
+            end
             
             switch area_type
                 case 'shopping_center'
