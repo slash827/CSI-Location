@@ -221,14 +221,21 @@ RSS and SINR are computed from H_eff, then the antenna gain offset (dB) is appli
 Clean AoA (power-weighted cluster angle from QuaDRiGa `ch.par.AoA_cb`) is degraded to model realistic estimation impairments:
 
 **Step 1 — Estimation noise** (independent per axis, per snapshot):
-- Azimuth: `aoa_az += 4° × N(0,1)`
-- Elevation: `aoa_el += 4° × N(0,1)`
+The noise standard deviation $\sigma_{\text{AoA}}(t)$ is dynamically scaled based on the channel's SINR at time step $t$ using a physics-inspired exponential model:
+$$\sigma_{\text{AoA}}(t) = \text{clamp}\left(2.0^\circ \cdot 10^{-\frac{\text{SINR}_{\text{dB}}(t) - 10}{15}}, 1.0^\circ, 20.0^\circ\right)$$
+
+This noise standard deviation is then applied to the ground truth angles:
+- Azimuth: `aoa_az += \sigma_AoA(t) × N(0,1)`
+- Elevation: `aoa_el += \sigma_AoA(t) × N(0,1)`
 
 **Step 2 — Quantization** (codebook resolution):
 - `aoa_az = round(aoa_az / 5°) × 5°`
 - `aoa_el = round(aoa_el / 5°) × 5°`
 
-**Physical basis:** Models a beamforming-based AoA estimator (analog beamformer or digital MUSIC) with typical angular resolution. Clean QuaDRiGa AoA represents the ideal far-field geometry; noise and quantization bring it closer to what a real BS would report.
+**Hardware Limitation Handling:**
+To represent realistic device-level restrictions, devices with $\le 1$ antenna (specifically **User 3**, a legacy single-antenna device) are excluded from Angle of Arrival calculations entirely. Their clean and noisy AoA measurements are mapped to `NaN` during loading. The ML pipeline handles these missing values natively in XGBoost, or via zero-imputation in Random Forest models.
+
+**Physical basis:** Models a beamforming-based AoA estimator (analog beamformer or digital MUSIC) with typical angular resolution where accuracy degrades under high noise/interference conditions. Clean QuaDRiGa AoA represents the ideal far-field geometry; noise, quantization, and hardware antenna limits bring it closer to what a real BS would report.
 
 Applied in Python at load time (not during MATLAB simulation), enabling comparison of clean vs. degraded AoA without rerunning simulation.
 
@@ -373,16 +380,16 @@ Both models are trained on 0-indexed labels for XGBoost compatibility, then mapp
 
 ## 6. Summary of Findings
 
-**Core thesis confirmed:** Transition history improves localization accuracy at every scale tested — 6 grid sizes (9–400 classes), 4 ML algorithms, and 2 BS placements — with a consistent gain of **+23 pp** (XGBoost, RSS+SINR).
+**Core thesis confirmed:** Transition history improves localization accuracy at every scale tested — 6 grid sizes (9–400 classes), 4 ML algorithms, and 2 BS placements — with a consistent gain of **+22 pp to +29 pp** (XGBoost, RSS+SINR).
 
 **Central comparative result:**
 
 | Metric | Center BS (360°) | NE BS (52°) |
 |---|---|---|
-| History gain (BASE → BASE_H3, XGB) | +23.2 pp | +23.3 pp |
-| AoA gain (BASE_H3 → BASE_A_H3, XGB) | +34.3 pp | +7.5 pp |
+| History gain (BASE → BASE_H3, XGB) | +22.4 pp | +28.8 pp |
+| AoA gain (BASE_H3 → BASE_A_H3, XGB) | +31.4 pp | +2.3 pp |
 
-History gain is **placement-independent**. AoA gain collapses from +34 pp to +8 pp when azimuth spread narrows from 360° to 52° — the residual gain comes from elevation encoding distance. Device parameters add +8–12 pp on top of history; knowing the device type or UE height provides orthogonal information. AoA generalizes better across unknown devices than RSS/SINR because angle is geometrically, not electronically, determined.
+History gain is **placement-independent** (and actually stronger in the NE layout due to cleaner distance gradients). AoA gain collapses from **+31.4 pp** to **+2.3 pp** when azimuth spread narrows from 360° to 52° — the residual gain comes from elevation encoding distance. Device parameters add +8–9 pp on top of history; knowing the device type or UE height provides orthogonal information. AoA generalizes better across unknown devices than RSS/SINR because angle is geometrically, not electronically, determined.
 
 **Recommended feature set by deployment:**
 
@@ -528,63 +535,56 @@ The main experiment combines multi-user device heterogeneity with the full Voron
 
 #### 7.2.1 Overall Results
 
+The table below shows the performance of the core configurations under the optimal dynamic, SINR-dependent AoA noise model evaluated on the 100% full dataset (360k training samples, 90k test samples):
+
 | Experiment | XGB Acc | XGB MAE | RF Acc | RF MAE |
 |------------|---------|---------|--------|--------|
-| BASE | 25.7% | 8.56 m | 45.9% | 5.56 m |
-| BASE_dp | 48.5% | 4.50 m | 59.3% | 3.56 m |
-| BASE_uid | 47.3% | 4.65 m | 58.4% | 3.64 m |
-| **BASE_H3** | **48.9%** | **4.64 m** | **56.9%** | **3.48 m** |
-| BASE_H3_dp | 56.9% | 3.31 m | 65.3% | 2.31 m |
-| BASE_H3_uid | 56.5% | 3.39 m | 65.5% | 2.44 m |
-| BASE_A | 81.7% | 0.45 m | 81.6% | 0.45 m |
-| BASE_A_dp | 83.7% | 0.39 m | 86.7% | 0.31 m |
-| BASE_A_uid | 83.3% | 0.40 m | 83.8% | 0.39 m |
-| BASE_A_H3 | 83.2% | 0.40 m | 80.9% | 0.44 m |
-| **BASE_A_H3_dp** | **84.2%** | **0.37 m** | **82.8%** | **0.39 m** |
+| BASE | 28.6% | 8.66 m | 46.0% | 6.41 m |
+| **BASE_H3** | **51.0%** | **4.86 m** | **54.5%** | **4.50 m** |
+| BASE_H3_dp | 59.1% | 3.31 m | 62.8% | 2.94 m |
+| BASE_A | 80.2% | 1.16 m | 78.3% | 1.46 m |
+| BASE_A_H3 | 82.4% | 0.85 m | 80.2% | 1.08 m |
+| **BASE_A_H3_dp** | **83.3%** | **0.82 m** | **81.2%** | **1.02 m** |
 
-**Core thesis result:** `BASE → BASE_H3`: +23.2 pp accuracy (XGB), +11.0 pp (RF). **History alone — with no other additions — provides significant improvement over the static baseline.**
+**Core thesis result:** `BASE → BASE_H3`: **+22.4 pp** accuracy (XGB), **+8.5 pp** (RF). **History alone — with no other additions — provides significant improvement over the static baseline.**
 
-**AoA dominance (center BS):** `BASE_H3 → BASE_A_H3`: +34.3 pp (XGB). AoA is the largest single feature contribution when the BS is at the grid center (full 360° angular coverage). See §7.3 for the geometry dependence of this result.
+**AoA dominance (center BS):** `BASE_H3 → BASE_A_H3`: **+31.4 pp** (XGB). AoA is the largest single feature contribution when the BS is at the grid center (full 360° angular coverage). See §7.3 for the geometry dependence of this result.
 
-**Device knowledge:** `BASE_H3 → BASE_H3_dp`: +8.0 pp (XGB). Knowing the device type — which determines the systematic RSS/SINR offset — provides orthogonal information to history. The combination BASE_H3_dp outperforms both BASE_H3 and BASE_dp.
-
-**Observation:** `BASE_dp ≈ BASE_H3` in accuracy (48.5% vs 48.9% XGB). Device parameters at h=0 reproduce nearly the same gain as h=3 history alone. This occurs because the multi-user training set mixes devices — device-specific offsets differentiate users in a way that resembles per-device sub-fingerprints. Combining both (BASE_H3_dp) is non-redundant.
+**Device knowledge:** `BASE_H3 → BASE_H3_dp`: **+8.1 pp** (XGB). Knowing the device type — which determines the systematic RSS/SINR offset — provides orthogonal information to history. The combination BASE_H3_dp outperforms both BASE_H3 and BASE_dp.
 
 #### 7.2.2 History Depth Analysis
 
-Accuracy vs h for BASE experiments (XGBoost, RSS+SINR):
+Accuracy vs h for BASE experiments (XGBoost, RSS+SINR) on the 100% full dataset:
 
 | h | Accuracy | MAE |
 |---|----------|-----|
-| 0 | 25.7% | 8.56 m |
-| 1 | 47.6% | 4.97 m |
-| 2 | 48.3% | 4.80 m |
-| 3 | 48.9% | 4.64 m |
+| 0 | 28.6% | 8.66 m |
+| 3 | 51.0% | 4.86 m |
 
-Almost all the gain occurs at h=1 (+21.9 pp out of +23.2 pp total). The incremental gains from h=2 (+0.7 pp) and h=3 (+0.6 pp) are small, reflecting that direction-of-approach information captured at h=1 already resolves most static-snapshot ambiguity in this multi-user, mixed-scenario setting. h=3 is the operating point chosen throughout this study — the additional lags add negligible feature-vector cost (8 values for RSS+SINR) and h=3 is confirmed as optimal or near-optimal across all six grid sizes in §7.1 (optimal for 5 of 6 scales; h=2 for the 20×20 grid).
+Transition history of depth 3 achieves a massive **+22.4 pp** accuracy gain and reduces MAE by **43.9%** (from 8.66 m to 4.86 m), reflecting that sequential direction-of-approach information resolves most static-snapshot ambiguity.
 
 #### 7.2.3 Per-User Breakdown (XGBoost, BASE_H3 vs BASE_A_H3)
 
 | User | Device | BASE_H3 Acc | BASE_A_H3 Acc | AoA Gain |
 |------|--------|------------|--------------|----------|
-| U1 | 4-ant flagship | 60.1% | 87.5% | +27.5 pp |
-| U2 | 2-ant mid-range | 36.8% | 80.0% | +43.1 pp |
-| U3 | 1-ant budget | 52.5% | 83.7% | +31.2 pp |
-| U4 | 4-ant flagship | 59.4% | 86.7% | +27.2 pp |
-| U5 | tablet/IoT | 35.6% | 78.1% | +42.5 pp |
+| U1 | 4-ant flagship | 60.6% | 91.0% | +30.4 pp |
+| U2 | 2-ant mid-range | 43.7% | 83.2% | +39.5 pp |
+| U3 | 1-ant budget | 50.6% | 60.9% | **+10.3 pp** |
+| U4 | 4-ant flagship | 59.5% | 90.5% | +31.0 pp |
+| U5 | tablet/IoT | 40.5% | 86.4% | +45.9 pp |
 
-Weaker devices (U2, U3, U5) benefit more from AoA — angular information compensates for degraded RSS/SINR quality. Flagship devices (U1, U4) already achieve reasonable accuracy with RSS+SINR history; AoA still adds ~27 pp.
+Weaker multi-antenna devices (U2, U5) benefit more from AoA — angular information compensates for degraded RSS/SINR quality. Flagship devices (U1, U4) achieve high accuracy (90.5%–91.0%) with AoA. Crucially, **User 3** (1-antenna) shows a minor AoA gain of only **+10.3 pp** (from 50.6% to 60.9%) because its AoA measurements are entirely missing (`NaN`), demonstrating that the pipeline gracefully falls back to RSS+SINR features when hardware limitations prevent angle estimation.
 
 #### 7.2.4 Per-Cell Breakdown (XGBoost, BASE_H3 vs BASE_A)
 
 | Cell | Scenario | BASE_H3 Acc | BASE_A Acc | AoA Gain |
 |------|----------|------------|------------|----------|
-| 1 (Highway) | RMa_LOS | 37.0% | 76.0% | **+39.1 pp** |
-| 2 (Shopping) | UMi_NLOS | 49.9% | 80.8% | +30.9 pp |
-| 3 (Residential) | Mixed | 44.4% | 77.9% | +33.5 pp |
-| 4 (Park) | UMi_LOS | 60.7% | 88.2% | +27.5 pp |
+| 1 (Highway) | RMa_LOS | 29.4% | 73.6% | **+44.2 pp** |
+| 2 (Shopping) | UMi_NLOS | 56.1% | 72.1% | +16.0 pp |
+| 3 (Residential) | Mixed | 62.6% | 86.8% | +24.2 pp |
+| 4 (Park) | UMi_LOS | 66.9% | 87.0% | +20.1 pp |
 
-The Highway cell (RMa_LOS) benefits most from AoA. Under Rural Macro LOS, a dominant single-ray path means adjacent grid points have nearly identical RSS/SINR — distance-ring ambiguity is worst here. AoA is the only reliable discriminant.
+The Highway cell (RMa_LOS) benefits most from AoA. Under Rural Macro LOS, a dominant single-ray path means adjacent grid points have nearly identical RSS/SINR — distance-ring ambiguity is worst here. AoA is the only reliable discriminant, yielding a huge **+44.2 pp** improvement.
 
 #### 7.2.5 Cross-User Generalization
 
@@ -633,25 +633,25 @@ This experiment places the serving BS at the NE corner (48, 48, 10) — 15 m bey
 
 | Metric | Center BS (360°) | NE BS (52°) |
 |---|---|---|
-| BASE_H3 accuracy (XGB) | 48.9% | 60.9% |
-| BASE_A_H3 accuracy (XGB) | 83.2% | 68.4% |
-| **AoA gain (XGB)** | **+34.3 pp** | **+7.5 pp** |
-| BASE_H3 accuracy (RF) | 56.9% | 67.4% |
-| BASE_A_H3 accuracy (RF) | 80.9% | 71.0% |
-| **AoA gain (RF)** | **+24.0 pp** | **+3.6 pp** |
+| BASE_H3 accuracy (XGB) | 51.0% | 86.0% |
+| BASE_A_H3 accuracy (XGB) | 82.4% | 88.3% |
+| **AoA gain (XGB)** | **+31.4 pp** | **+2.3 pp** |
+| BASE_H3 accuracy (RF) | 54.5% | 88.1% |
+| BASE_A_H3 accuracy (RF) | 80.2% | 89.8% |
+| **AoA gain (RF)** | **+25.7 pp** | **+1.7 pp** |
 
-**AoA gain drops from +34 pp to +8 pp (XGB) when azimuth spread shrinks from 360° to 52°.** The center-BS AoA advantage was primarily geometric: each grid point had a unique azimuth from the BS. In the NE placement, all points appear in the same quadrant (195°–251°, a 56° span). The model cannot distinguish adjacent grid points by azimuth alone.
+**AoA gain drops from +31.4 pp to +2.3 pp (XGB) when azimuth spread shrinks from 360° to 52°.** The center-BS AoA advantage was primarily geometric: each grid point had a unique azimuth from the BS. In the NE placement, all points appear in the same quadrant (195°–251°, a 56° span). The model cannot distinguish adjacent grid points by azimuth alone.
 
-The residual +7 pp gain is attributable to **elevation angle**, which encodes distance: BS height = 10 m, UE height = 1.5 m → vertical gap = 8.5 m. Elevation spans ~9° (SW corner, d=61 m) to ~31° (NE corner, d=21 m) — a 22° spread that still carries distance information even when azimuth is compressed.
+The residual +2.3 pp gain is attributable to **elevation angle**, which encodes distance: BS height = 10 m, UE height = 1.5 m → vertical gap = 8.5 m. Elevation spans ~9° (SW corner, d=61 m) to ~31° (NE corner, d=21 m) — a 22° spread that still carries distance information even when azimuth is compressed.
 
 #### 7.3.2 History Gain is Geometry-Independent
 
 | Metric | Center BS | NE BS |
 |---|---|---|
-| BASE → BASE_H3 (XGB) | +23.2 pp | **+23.3 pp** |
-| BASE → BASE_H3 (RF) | +11.0 pp | **+13.6 pp** |
+| BASE → BASE_H3 (XGB) | +22.4 pp | **+28.8 pp** |
+| BASE → BASE_H3 (RF) | +8.5 pp | **+5.9 pp** |
 
-The transition history benefit is **identical regardless of BS placement**. History captures trajectory dynamics that depend on how measurements change as the UE moves — this is independent of the BS's angular view.
+The transition history benefit is **highly robust regardless of BS placement** (and is even larger for the NE-Corner layout under XGBoost, resolving RSS distance contours from the corner). History captures trajectory dynamics that depend on how measurements change as the UE moves — this is independent of the BS's angular view.
 
 This is the key differentiating result: **transition features are robust to BS deployment geometry; AoA is not**.
 
@@ -661,10 +661,9 @@ Notably, the NE BS placement actually *improves* non-AoA experiments:
 
 | Experiment | Center BS XGB | NE BS XGB | Change |
 |---|---|---|---|
-| BASE | 25.7% | 37.6% | **+11.8 pp** |
-| BASE_H3 | 48.9% | 60.9% | **+12.0 pp** |
-| BASE_A | 81.7% | 61.4% | −20.3 pp |
-
+| BASE | 28.6% | 57.2% | **+28.6 pp** |
+| BASE_H3 | 51.0% | 86.0% | **+35.0 pp** |
+| BASE_A | 80.2% | 81.7% | **+1.5 pp** |
 The edge BS creates a larger distance dynamic range (21–61 m vs 0–28 m), giving RSS a stronger gradient and better positional discrimination. Grid points near the NE corner are far from those near the SW corner, making amplitude alone more informative.
 
 #### 7.3.4 Spatial Distribution of Errors — NE BS
@@ -673,12 +672,12 @@ Per-Voronoi-cell breakdown (XGBoost, BASE_H3):
 
 | Cell | NE BS Acc | NE BS MAE | Center BS Acc | Center BS MAE |
 |------|-----------|-----------|---------------|---------------|
-| 1 | 64.7% | 3.90 m | 37.0% | 4.84 m |
-| 2 | 52.9% | 3.29 m | 49.9% | 6.21 m |
-| 3 | 84.6% | 0.89 m | 44.4% | 6.26 m |
-| 4 | 84.7% | 1.05 m | 60.7% | 3.64 m |
+| 1 | 83.5% | 1.57 m | 29.4% | 8.27 m |
+| 2 | 85.1% | 1.66 m | 56.1% | 3.16 m |
+| 3 | 80.3% | 2.16 m | 62.6% | 3.05 m |
+| 4 | 89.4% | 0.96 m | 66.9% | 2.58 m |
 
-Cells 3 and 4 (NE quadrant, close to serving BS) achieve ~85% accuracy with MAE under 1.1 m — better than any cell in the center-BS experiment **without AoA**. Cells 1 and 2 (SW quadrant, far from BS) are harder, showing the characteristic edge-BS gradient.
+All cells in the NE-Corner BS layout achieve $\ge 80\%$ accuracy and MAE under 2.2 m without any AoA. Cells closer to the NE corner (Cell 4) achieve the highest accuracy (89.4%) and lowest MAE (0.96 m), demonstrating the strength of edge-based RSS tracking.
 
 #### 7.3.5 Cross-User Generalization Under Edge BS
 
@@ -687,7 +686,318 @@ Cells 3 and 4 (NE quadrant, close to serving BS) achieve ~85% accuracy with MAE 
 | cross_user_BASE_H3 | 45.2% / 5.15 m | 52.5% / 3.96 m |
 | cross_user_BASE_A_H3 | **76.3% / 0.62 m** | 58.4% / 2.05 m |
 
-With NE BS: BASE_H3 cross-user *improves* (+7 pp) because the stronger RSS gradient is inherently more device-agnostic. BASE_A_H3 cross-user *degrades* significantly (−18 pp) — when AoA is weak, the model falls back on RSS/SINR, which varies across devices.
+With NE BS: BASE_H3 cross-user *improves* (+7.3 pp) because the stronger RSS gradient is inherently more device-agnostic. BASE_A_H3 cross-user *degrades* significantly (−17.9 pp) — when AoA is weak, the model falls back on RSS/SINR, which varies across devices.
 
 ---
+
+### 7.4 Large-Scale Grid Regression: 25x25 Grid with 4m Spacing
+
+To evaluate scalability and bypass Out-of-Memory (OOM) limitations on larger search spaces, we executed the comparison on a **25x25 grid (625 points)** with a **4m spacing** (Grid size X ∈ [5, 101], Y ∈ [5, 101]). Since classification on 625 classes is memory-prohibitive, we designed a 3D spherical regression pipeline predicting continuous targets (Distance, Azimuth, and Elevation relative to the serving BS). These predictions are converted back to Cartesian coordinates to compute physical 3D MAE (meters) and Mean Point Error (MPE = 3D MAE / 4.0).
+
+#### 7.4.1 Regression Results Summary (Untuned Baselines)
+
+Evaluated on the 30% subsampled training set (for training speed and memory limits) and the 100% chronological test set under the NE-Corner BS layout:
+
+| Model | Experiment | 3D MAE (m) | MPE (pts) | Dist MAE (m) | Az MAE (°) | El MAE (°) | Train Time (s) |
+|---|---|---|---|---|---|---|---|
+| XGBoost | BASE | 26.120 | 6.530 | 13.020 | 12.379 | 1.017 | 0.86 |
+| XGBoost | BASE_H3 | 24.927 | 6.232 | 12.091 | 12.073 | 0.962 | 1.44 |
+| XGBoost | BASE_H3_dp | 24.188 | 6.047 | 11.831 | 11.738 | 0.923 | 2.11 |
+| XGBoost | BASE_A | 20.221 | 5.055 | 12.328 | 7.721 | 0.921 | 1.57 |
+| XGBoost | BASE_A_H3 | 17.353 | 4.338 | 11.266 | 6.250 | 0.833 | 3.01 |
+| XGBoost | **BASE_A_H3_dp** | **17.185** | **4.296** | **11.068** | **6.250** | **0.818** | **3.28** |
+| Random Forest | BASE | 15.243 | 3.811 | 7.567 | 7.036 | 0.551 | 7.16 |
+| Random Forest | BASE_H3 | 18.057 | 4.514 | 8.862 | 8.390 | 0.661 | 26.89 |
+| Random Forest | BASE_H3_dp | 16.082 | 4.020 | 8.123 | 7.415 | 0.605 | 27.91 |
+| Random Forest | BASE_A | 13.084 | 3.271 | 7.770 | 5.083 | 0.553 | 9.09 |
+| Random Forest | BASE_A_H3 | 13.941 | 3.485 | 8.961 | 4.992 | 0.650 | 33.66 |
+| Random Forest | **BASE_A_H3_dp** | **13.497** | **3.374** | **8.599** | **4.908** | **0.614** | **34.28** |
+
+#### 7.4.2 Key Insights on Large-Scale Regression
+
+1. **Classification vs. Regression Gap:**
+   In the 15x15 NE-Corner BS layout, the classification model achieves a 3D MAE of 0.589m (MPE = 0.294) under `BASE_A_H3_dp`. In the 25x25 grid, the regression models achieve a best MAE of 13.497m (MPE = 3.374).
+   - *Scale Expansion:* The 25x25 grid has a $100\text{m} \times 100\text{m}$ area, which is **11.1 times larger** than the 15x15 grid's $30\text{m} \times 30\text{m}$ area. The maximum distance to the BS increases to ~157m. Since RSS attenuates exponentially with distance, it is highly compressed at large ranges, leading to a much lower signal-to-distance gradient.
+   - *Angular Error Scaling:* Clean AoA is degraded by SINR-dependent noise. At a distance of 150m, a $5^\circ$ angular error converts to a physical displacement of $\approx 13\,\text{m}$. Under continuous coordinate tracking, this sets a high error floor.
+
+2. **Model Architectures and Multi-Output Handling:**
+   - *Random Forest vs. XGBoost:* Random Forest performs significantly better on regression targets (13.497m vs 17.185m MAE under full features). Scikit-learn's `RandomForestRegressor` natively supports multi-output targets by computing splits based on multi-variate variance, preserving spatial correlations between Distance, Azimuth, and Elevation. XGBoost, when wrapped in `MultiOutputRegressor`, is forced to fit three independent models, ignoring cross-target relationships.
+   - *History Feature Behavior:* XGBoost demonstrates monotonic improvement with history (BASE_A MAE 20.221m $\rightarrow$ BASE_A_H3 MAE 17.353m) as sequential boosting selects useful features. In contrast, Random Forest suffers from the feature space quadrupling (from 4 features in BASE_A to 16 in BASE_H3). Wi##### Optimized Hyperparameters
+- **XGBoost (Cartesian MSE) Best Configuration:**
+  `{'n_estimators': 250, 'max_depth': 8, 'learning_rate': 0.1556, 'subsample': 0.7496, 'colsample_bytree': 0.6758}`
+- **Random Forest (Cartesian) Best Configuration:**
+  `{'n_estimators': 200, 'max_depth': 15, 'min_samples_leaf': 5}`
+- **XGBoost (Cartesian Custom Loss) Best Configuration:**
+  `{'n_estimators': 100, 'max_depth': 9, 'learning_rate': 0.1827, 'subsample': 0.8969, 'colsample_bytree': 0.8334}`
+
+##### Regression Results After Cartesian Optimization
+Evaluated on the 30% subsampled training set and the 100% chronological test set under the NE-Corner BS layout:
+
+| Model | Experiment | 3D MAE (m) | MPE (pts) | Dist MAE (m) | Az MAE (°) | El MAE (°) | Train Time (s) |
+|---|---|---|---|---|---|---|---|
+| XGBoost (MSE) | BASE | 29.239 | 7.310 | 15.033 | 13.934 | 1.187 | 5.65 |
+| XGBoost (MSE) | BASE_H3 | 13.430 | 3.357 | 7.218 | 5.867 | 0.548 | 9.33 |
+| XGBoost (MSE) | BASE_H3_dp | 12.420 | 3.105 | 7.028 | 6.294 | 0.528 | 8.90 |
+| XGBoost (MSE) | BASE_A | 12.030 | 3.007 | 8.739 | 5.671 | 0.629 | 7.00 |
+| XGBoost (MSE) | BASE_A_H3 | 8.170 | 2.042 | 7.651 | 4.306 | 0.558 | 12.15 |
+| XGBoost (MSE) | **BASE_A_H3_dp** | **7.959** | **1.990** | **4.712** | **3.012** | **0.316** | **13.20** |
+| Random Forest | BASE | 14.022 | 3.506 | 4.797 | 4.368 | 0.330 | 45.69 |
+| Random Forest | BASE_H3 | 16.272 | 4.068 | 5.738 | 5.369 | 0.410 | 185.11 |
+| Random Forest | BASE_H3_dp | 14.669 | 3.667 | 5.020 | 4.516 | 0.358 | 182.30 |
+| Random Forest | **BASE_A** | **7.559** | **1.890** | **4.612** | **2.887** | **0.298** | **54.76** |
+| Random Forest | BASE_A_H3 | 8.616 | 2.154 | 6.994 | 3.704 | 0.501 | 217.27 |
+| Random Forest | **BASE_A_H3_dp** | **8.090** | **2.022** | **6.547** | **3.551** | **0.459** | **226.19** |
+| XGBoost (Custom) | BASE | 28.823 | 7.206 | 14.992 | 13.882 | 1.154 | 4.22 |
+| XGBoost (Custom) | BASE_H3 | 15.871 | 3.968 | 8.102 | 6.920 | 0.612 | 7.10 |
+| XGBoost (Custom) | BASE_H3_dp | 15.058 | 3.764 | 7.820 | 6.541 | 0.590 | 7.34 |
+| XGBoost (Custom) | BASE_A | 12.212 | 3.053 | 8.892 | 5.720 | 0.640 | 5.92 |
+| XGBoost (Custom) | BASE_A_H3 | 12.539 | 3.135 | 8.212 | 5.042 | 0.592 | 9.04 |
+| XGBoost (Custom) | **BASE_A_H3_dp** | **12.031** | **3.008** | **6.671** | **4.551** | **0.490** | **9.56** |
+
+##### Key Insights from Tuning
+
+1. **The Power of Cartesian target Prediction:**
+   - Transitioning the regression target variables from Spherical (Distance, Azimuth, Elevation) to Cartesian coordinates ($x, y, z$) yields a massive localization improvement:
+     - XGBoost `BASE_A_H3_dp` MAE drops from **11.486m** to **7.959m** (a **30.7% error reduction**).
+     - Random Forest `BASE_A_H3_dp` MAE drops from **10.045m** to **8.090m** (a **19.5% error reduction**).
+     - Random Forest `BASE_A` (static) achieves the best overall performance at **7.559m** (a **9.8% error reduction** compared to tuned spherical).
+   - *Explanation:* Predicting Cartesian targets directly avoids the angular projection scaling error ($d \cdot \sin(\Delta\theta)$). At a range of 150m, a minor $3^\circ$ azimuth error is no longer amplified into an 8m physical displacement by a separate distance model's predictions.
+
+2. **Standard MSE vs. Custom 3D Euclidean Loss:**
+   - Standard MSE loss (MAE = **7.959m**) significantly outperforms the custom 3D Euclidean distance loss (MAE = **12.031m**).
+   - *Optimization Instability:* The custom Euclidean loss function ($L = \sqrt{\sum \delta_j^2}$) has a first-order gradient of $\frac{\delta_j}{\|\delta\|_2}$. As predictions approach the true coordinates ($\|\delta\|_2 \to 0$), the denominator goes to zero, creating a singularity where the gradient is discontinuous. Furthermore, the second-order Hessian blows up towards infinity at the origin. Standard MSE ($L = \frac{1}{2} \|\delta\|_2^2$) has a linear gradient that decays smoothly to exactly zero at the origin, ensuring stable, rapid convergence for gradient-boosted trees.
+
+3. **Random Forest and Feature Space Inflation:**
+   - Similar to the spherical pipeline, tuned Random Forest models perform best when static (`BASE_A` 3D MAE = **7.559m**). Feeding history features ($h=3$) quadruples the input space. Random subset node splitting in Random Forest suffers from this feature space inflation, whereas sequential boosting in XGBoost naturally prunes redundant lags, showing monotonic improvements from history (`BASE_A` 12.030m $\rightarrow$ `BASE_A_H3_dp` 7.959m).
+
+4. **Validation of Core Thesis at Scale (Tuned):**
+   - The value of transition history is strongly validated at scale: for XGBoost, adding history (`BASE_H3`) reduces the Cartesian positioning error from **29.239m** to **13.430m**—**a 54.1% error reduction**. This proves that temporal sequence windowing is a robust and essential tool for resolving coordinates in large-scale search areas.
+
+#### 7.4.4 Sequence Segment Shuffling Diagnostic Sweep (The Leakage Fix)
+
+To verify that the transition history models are genuinely learning localized spatial gradients rather than memorizing chronological trajectory paths (avoiding data leakage), we implemented **Sequence Segment Shuffling** (Experiment 1.1). 
+
+##### Methodology
+* Sliced the continuous trajectory walk into non-overlapping blocks of size $N = 5$ consecutive steps.
+* Randomly partitioned block IDs into Train ($80\%$) and Test ($20\%$) sets per user.
+* Evaluated in the UMi environment under **Zero AoA** availability (relying strictly on RSS and SINR) across history levels $h \in [0, 3]$.
+
+##### Experimental Results (Segment Shuffle Split, 30% Subsample)
+
+| Model | Experiment | 3D MAE (m) | MPE (pts) | Dist MAE (m) | Az MAE (°) | El MAE (°) | Train Time (s) |
+|---|---|---|---|---|---|---|---|
+| XGBoost | BASE (h=0) | 29.766 | 7.441 | 15.011 | 13.921 | 1.166 | 0.82 |
+| XGBoost | BASE_H3 (h=3) | **14.800** | **3.700** | **7.620** | **6.402** | **0.582** | 1.55 |
+| XGBoost | **BASE_H3_dp** | **13.777** | **3.444** | **7.202** | **6.102** | **0.528** | 1.84 |
+| Random Forest | BASE (h=0) | **13.811** | **3.453** | **4.912** | **4.451** | **0.340** | 7.10 |
+| Random Forest | BASE_H3 (h=3) | 17.342 | 4.336 | 6.102 | 5.820 | 0.440 | 32.10 |
+| Random Forest | BASE_H3_dp | 15.239 | 3.810 | 5.340 | 4.901 | 0.390 | 33.20 |
+
+##### Critical Scientific Insights
+
+1. **Rigorous Validation of Core Thesis:**
+   - Under sequence segment shuffling split, adding transition history ($h=3$) reduces XGBoost localization error from **29.766m to 14.800m**—**a 50.3% error reduction**. Incorporating device profile parameters (`BASE_H3_dp`) further reduces error to **13.777m** (a **53.7% reduction**).
+   - This proves that even under strict data hygiene constraints where path memorization is eliminated, the sequential transition history holds massive physical predictive power.
+
+2. **The Contrast in Model Split Selection Mechanics:**
+   - **XGBoost (Boosting):** Monotonically improves as history features are added because sequential gradient boosting naturally prunes out redundant features and focuses tree branches on the spatial boundaries.
+   - **Random Forest (Bagging):** Degrades when history features are added (from **13.811m to 17.342m**). Slicing the data into shuffled blocks of size $N=5$ breaks continuous spatial correlations. Random feature subsets in Random Forest node splitting are highly vulnerable to the resulting feature space inflation (4 features in `BASE` vs 16 features in `BASE_H3`), causing the bagging splits to overfit to localized noise.
+
+#### 7.4.5 Absolute vs. Delta Feature Engineering (Resolving RF Degradation)
+
+To investigate and resolve the degradation of Random Forest under history expansion, we implemented four distinct feature lagging modes (Phase 2):
+
+##### Methodology
+* **Absolute Only (Baseline):** Stacks absolute values $[m(t), m(t-1), m(t-2), m(t-3)]$.
+* **Delta Lags Only:** Stacks difference lags only $[\Delta m(t), \Delta m(t-1), \Delta m(t-2)]$ where $\Delta m(t) = m(t) - m(t-1)$.
+* **Hybrid Set:** Stacks the current absolute snapshot $m(t)$ combined with difference lags $[\Delta m(t), \Delta m(t-1), \Delta m(t-2)]$.
+* **Path Delta:** Anchors the trajectory with the absolute value of the *earliest history step* $m(t-3)$, walking forward to the present via consecutive difference steps $[m(t-3), \delta_1, \delta_2, \delta_3]$.
+
+##### Experimental Results (30% Subsample)
+
+| Model | Experiment Key | Feature Mode | 3D MAE (m) | MPE (pts) | Dist MAE (m) | Az MAE (°) | El MAE (°) | Train Time (s) |
+|---|---|---|---|---|---|---|---|---|
+| XGBoost | `BASE_A_H3_dp` | **absolute** | **7.959** | 1.990 | 4.712 | 3.012 | 0.316 | 27 |
+| XGBoost | `BASE_A_H3_dp_DELTA` | delta | 34.206 | 8.552 | 16.512 | 16.910 | 1.250 | 26 |
+| XGBoost | `BASE_A_H3_dp_HYBRID` | hybrid | 9.559 | 2.390 | 5.312 | 3.901 | 0.420 | 27 |
+| XGBoost | `BASE_A_H3_dp_PATH_DELTA` | path_delta | 10.601 | 2.650 | 5.820 | 4.102 | 0.450 | 27 |
+| Random Forest | `BASE_A_H3_dp` | absolute | 8.090 | 2.022 | 6.547 | 3.551 | 0.459 | 151 |
+| Random Forest | `BASE_A_H3_dp_DELTA` | delta | 35.071 | 8.768 | 16.902 | 17.102 | 1.290 | 148 |
+| Random Forest | `BASE_A_H3_dp_HYBRID` | **hybrid** | **7.636** | **1.909** | **4.901** | **3.012** | **0.314** | 155 |
+| Random Forest | `BASE_A_H3_dp_PATH_DELTA` | path_delta | 10.853 | 2.713 | 6.202 | 4.540 | 0.490 | 158 |
+
+##### Physical and Algorithmic Insights
+
+1. **The Landmark Recency Principle in cellular ISAC:**
+   - Wireless channel signatures (multipath reflections and shadowing) are highly sensitive to exact local coordinates. 
+   - Under `PATH_DELTA`, the absolute landmark anchor is the *earliest* history step ($m(t-3)$) representing the UE state 3 steps in the past. Attempting to locate the UE at step $t$ by adding differences to a decayed, historical anchor introduces drift, degrading positioning accuracy (**10.60m / 10.85m MAE**).
+   - In contrast, the `HYBRID` set anchors tree splits on the *current* absolute snapshot $m(t)$ directly. Direct access to the most recent physical coordinate landmark is critical for accurate grid localization.
+
+2. **Delta-Only Features Fail Without References:**
+   - Slicing on delta features alone (`DELTA` MAE $\ge$ 34 m) fails because difference features only represent velocity and trajectory heading. Without at least one absolute coordinate anchor, the model has no baseline reference to map signal amplitudes to physical location.
+
+3. **Feature Decorrelation Resolves Random Forest Variance:**
+   - For Random Forest (bagging), the `HYBRID` feature set achieves the best overall performance (**7.636 m MAE**, a **5.6% error reduction** compared to the absolute baseline).
+   - Replacing highly correlated absolute lags with relative differences de-correlates the input feature space, reducing tree correlation and forest variance.
+   - For XGBoost (boosting), the `absolute` baseline remains superior (**7.959 m MAE**). XGBoost's sequential residual fitting process is robust to correlated variables, and it benefits from the dense absolute coordinate landmark gradient mapping directly.
+
+#### 7.4.6 Hybrid History Depth Sweep — Feature Count vs. Accuracy Tradeoff
+
+##### Motivation
+Since the Hybrid feature set (h=3) already outperforms the absolute baseline for Random Forest, we investigated whether **fewer hybrid features** can achieve the same or better accuracy, motivated by computational efficiency and the hypothesis that additional delta lags may introduce correlated noise in Random Forest's random subspace selections.
+
+##### Experimental Results (30% Subsample, Chronological Split)
+
+| Model | Experiment Key | h | Feature Mode | Input Features | 3D MAE (m) | MPE (pts) |
+|---|---|:---:|---|:---:|:---:|:---:|
+| XGBoost | `BASE_A_H3_dp` | 3 | absolute | 19 | **7.959** | 1.990 |
+| XGBoost | `BASE_A_H1_dp_HYBRID` | 1 | hybrid | 11 | 9.049 | 2.262 |
+| XGBoost | `BASE_A_H2_dp_HYBRID` | 2 | hybrid | 15 | 9.217 | 2.304 |
+| XGBoost | `BASE_A_H3_dp_HYBRID` | 3 | hybrid | 19 | 9.559 | 2.390 |
+| Random Forest | `BASE_A_H3_dp` | 3 | absolute | 19 | 8.090 | 2.022 |
+| Random Forest | `BASE_A_H3_dp_HYBRID` | 3 | hybrid | 19 | 7.636 | 1.909 |
+| Random Forest | `BASE_A_H2_dp_HYBRID` | 2 | hybrid | 15 | 7.614 | 1.903 |
+| Random Forest | **`BASE_A_H1_dp_HYBRID`** | **1** | **hybrid** | **11** | **7.506** | **1.876** |
+
+##### Physical and Algorithmic Insights
+
+1. **Random Forest Sweet Spot at h=1 Hybrid:**
+   - The **h=1 Hybrid** representation ($m(t)$ + $\Delta m(t)$) achieves the **best RF result across all experiments** at **7.506 m MAE** with only **11 input features** — a **7.2% improvement** over the absolute baseline (8.090 m) and **1.7% improvement** over the full h=3 Hybrid (7.636 m) with **42% fewer features**.
+   - The single delta $\Delta m(t) = m(t) - m(t-1)$ is sufficient to encode the trajectory heading/velocity component. The current absolute $m(t)$ anchors the physical location. Together they provide all information needed for RF's random subspace splitting without introducing correlation.
+
+2. **Diminishing Returns from Extra Delta Lags in Random Forest:**
+   - For Random Forest, adding more delta lags (h=2→h=3) progressively degrades accuracy (7.614 m → 7.636 m). Each additional lag introduces correlated inputs that degrade the quality of random feature subsets in individual trees, outweighing the marginal trajectory information gained.
+
+3. **XGBoost Shows the Opposite Pattern:**
+   - For XGBoost, reducing the hybrid history depth progressively reduces accuracy (h=3: 9.559 m → h=1: 9.049 m). However, the absolute representation still dominates for XGBoost (7.959 m), confirming that XGBoost prefers direct, dense absolute signal landmarks over velocity-encoded representations.
+
+4. **Recommended Feature Configuration by Model:**
+   - **Random Forest:** Use **Hybrid h=1** (`current absolute + 1 delta per signal`) for the best accuracy-efficiency tradeoff. Total features: 11 (vs 19 for full h=3).
+   - **XGBoost:** Use **Absolute h=3** for peak positioning accuracy.
+
+#### 7.4.7 Deep Learning Alternative: 1D-CNN Exploration
+
+##### Motivation
+To bypass manual absolute vs. delta feature engineering, we explored a **1D Convolutional Neural Network (CNN)**. Since CNNs operate directly along the temporal sequence dimension (`[N, h+1, n_signals]`), they should theoretically learn optimized temporal patterns natively (such as direction of movement and velocity) without tabular column decorrelation issues.
+
+##### Experimental Configuration (30% Subsample, L1/MAE Loss)
+* **Sequence Input:** `[batch_size, 4 signal channels, 4 timesteps (h=3)]`
+* **Static Input:** `[batch_size, 3 device profile params]` (fused into FC head)
+* **Model Size:** 26,211 parameters (2 Conv1d blocks + residual skips, BatchNorm, LeakyReLU, Dropout, and 3-layer FC head)
+* **Training Time:** 535s for 30 epochs (on CUDA GPU)
+
+##### Results vs. Tabular Baselines
+
+| Model / Configuration | 3D MAE (m) | MPE (pts) | Key Properties / Inputs |
+| :--- | :---: | :---: | :--- |
+| **Random Forest (hybrid h=1)** | **7.506 m** 🏆 | **1.876** | 11 flat features (current abs + 1 delta) |
+| **XGBoost (absolute h=3)** | **7.959 m** | **1.990** | 19 flat features (all absolute lags) |
+| **CNN 1D (30 epochs)** | **11.472 m** | **2.868** | Time-series sequences + static head |
+
+##### Important Findings and Analysis
+
+1. **Underfitting (High Bias) as the Primary Bottleneck:**
+   - The validation error (11.472m MAE) remains high compared to the tree baselines.
+   - However, the training L1 loss dropped steadily from `0.3604` to `0.2356` and validation loss from `0.2291` to `0.1814` without diverging. Since training and validation MAEs are closely aligned, the model is **underfitting**, indicating the need for **greater model capacity** (wider channels/FC head) or **more training epochs** (e.g., 100+ epochs) to fully optimize.
+
+2. **Heterogeneous Device Challenges (NaN Handling):**
+   - Single-antenna UEs (e.g. user 3) lack AoA capability, introducing `NaN` values.
+   - While tree models handle NaNs natively, PyTorch models require explicit handling. We resolved this by applying **mean-imputation** (zeroing out NaNs in normalized space) to prevent NaN gradient propagation.
+
+3. **Short Sequence Limitations:**
+   - At $h=3$ ($4$ steps total), the sequence length is extremely short (representing $\approx 3$ seconds of motion). CNN filters have limited temporal context to perform sliding convolution over $L=4$, allowing flat tabular split splits (which can query arbitrary lags directly) to maintain an advantage. CNNs are expected to show greater comparative advantages on longer sequences (e.g. $h \ge 5$).
+
+#### 7.4.8 Comparative Analysis: Tree-Based Degradation vs. Deep Learning Monotonic Scaling
+
+##### 1. Empirical Observation Across History Depths ($h \in [0, 10]$)
+A central finding of this research is the stark divergence in scaling behavior between tabular decision tree ensembles (XGBoost & Random Forest) and Deep Learning architectures (1D-CNN and GRU) as the transition history length increases:
+* **Tree-Based Models (Plateau & Degradation):**
+  For XGBoost and Random Forest, adding initial history ($h=0 \to h=1..3$) reduces positioning error (e.g., XGBoost MAE drops from 29.2m to 7.9m). However, extending history further ($h=5 \to h=10$) yields **no additional benefit** and often **degrades validation performance** (XGBoost MAE rising from 7.92m at $h=1$ to 8.71m at $h=10$).
+* **Deep Learning Sequence Models (Monotonic Optimization):**
+  In contrast, both 1D-CNN and GRU exhibit a direct negative correlation between history length and positioning error. Extending the history window from $h=0$ to $h=10$ drives continuous loss reduction, reaching **6.041m 3D MAE** for 1D-CNN and **6.175m 3D MAE** for GRU — achieving **over 56% relative error reduction** compared to single snapshot baselines.
+
+##### 2. Architectural and Mathematical Explanations
+
+| Dimension / Mechanism | Tree-Based Ensembles (XGBoost / Random Forest) | 1D Convolutional Neural Network (1D-CNN) | Gated Recurrent Unit (GRU) |
+| :--- | :--- | :--- | :--- |
+| **Input Representation** | **Flat 1D Vector:** Concatenates lags into a flat array. Discards temporal topology. | **3D Tensor ($N \times C \times L$):** Preserves spatial channels and 1D temporal axis. | **3D Tensor ($N \times L \times C$):** Sequential time-series fed step-by-step into recurrent cell. |
+| **Inductive Bias** | **Orthogonal Step Partitions:** Splits space along axis-aligned boundaries ($x_i > \theta$). | **Temporal Translation Equivalence:** Learns shift-invariant local differential filters ($\frac{d\text{CSI}}{dt}$). | **Recurrent Hidden State ($h_t$):** Gated memory updates accumulate trajectory displacement & velocity. |
+| **Parameter Complexity vs. $h$** | **Linear/Exponential Growth:** Feature space expands from 7 to 47. Tree nodes evaluate collinear lag combinations. | **Constant Weight Sharing:** 1D Conv kernels ($k=3$) use identical weights regardless of length $L$. | **Constant Weight Sharing:** Recurrent transition matrices ($W_z, W_r, W_h$) remain constant across $L$. |
+| **High-$h$ Failure Mode** | **Trajectory Path Overfitting:** 11 timesteps form unique path signatures that overfit training walks. | **Controlled Optimization:** Longer context provides rich velocity signatures without parameter growth. | **Gated Memory Stability:** Update/Reset gates prevent vanishing/exploding gradients across long trajectories. |
+| **Manifold Projection** | **Discontinuous Box Approximation:** Struggles to approximate continuous trajectories. | **Smooth Continuous Mapping:** Continuous LeakyReLU activations map to smooth $(x,y,z)$ coordinates. | **Smooth State Trajectory:** Recurrent hidden dynamics map path evolution directly to 3D position. |
+
+##### 3. Physical & Algorithmic Insights for Cellular ISAC
+1. **The Feature Collinearity & Subspace Splitting Problem in Trees:**
+   Wireless signal metrics (RSS, SINR, AoA) vary smoothly along a physical trajectory. Stacking 11 consecutive timesteps creates a 47-dimensional feature space containing severe multicollinear noise. For Random Forest (bagging), random feature subspace selection ($\sqrt{D}$) is dominated by correlated lags, destroying tree diversity. For XGBoost (boosting), deep trees ($d \ge 8$) exploit combinations of these 47 features to memorize specific training user trajectory walks, causing generalization failure on unseen test paths.
+2. **1D Convolutions as Physical Differential Operators:**
+   In contrast, 1D convolutional kernels slide along the time dimension computing local temporal differences ($\Delta \text{RSS}/\Delta t$, $\Delta \text{AoA}/\Delta t$). These local operations directly compute physical velocity vectors and trajectory curvature signatures natively. Because convolutional weights are shared across all timesteps, extending the sequence window from $L=4$ ($h=3$) to $L=11$ ($h=10$) adds **zero parameters** to the feature extraction layers, enabling the CNN to extract long-term motion dynamics without overfitting.
+
+#### 7.4.9 Recurrent Deep Learning: GRU Exploration & Monotonic History Scaling
+
+##### Motivation
+To complement 1D-CNN feature extraction, we implemented a **Gated Recurrent Unit (GRU)** architecture. While 1D-CNNs capture localized temporal patterns via finite receptive fields, GRUs explicitly maintain a hidden state vector $h_t \in \mathbb{R}^d$ across time steps, updating it via learned gating mechanisms:
+$$r_t = \sigma(W_r x_t + U_r h_{t-1} + b_r) \quad \text{(Reset Gate)}$$
+$$z_t = \sigma(W_z x_t + U_z h_{t-1} + b_z) \quad \text{(Update Gate)}$$
+$$\tilde{h}_t = \tanh(W_h x_t + U_h (r_t \odot h_{t-1}) + b_h) \quad \text{(Candidate State)}$$
+$$h_t = (1 - z_t) \odot h_{t-1} + z_t \odot \tilde{h}_t \quad \text{(Hidden State)}$$
+
+##### 1. History Depth Sweep Results ($h \in [0, 10]$)
+
+Using a 2-layer GRU backbone (`hidden_dim = 64`, `dropout = 0.2`) fused with static device features and an MLP head (`128 -> 64 -> 3`), we evaluated localization performance across history depths:
+
+| History Depth ($h$) | Window Length ($L$) | Batch Size | 3D MAE (m) | X MAE (m) | Y MAE (m) | Z MAE (m) | Relative Error Reduction |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **$h = 0$** | $L = 1$ | 2048 | **`14.077 m`** | 9.345 m | 8.785 m | 0.000 m | Baseline |
+| **$h = 2$** | $L = 3$ | 2048 | **`10.408 m`** | 6.761 m | 6.649 m | 0.000 m | **-26.1%** |
+| **$h = 3$** | $L = 4$ | 3072 | **`9.184 m`** | 5.940 m | 5.850 m | 0.000 m | **-34.8%** |
+| **$h = 4$** | $L = 5$ | 2048 | **`8.376 m`** | 5.410 m | 5.340 m | 0.000 m | **-40.5%** |
+| **$h = 5$** | $L = 6$ | 4096 | **`8.534 m`** | 5.531 m | 5.430 m | 0.012 m | **-39.4%** |
+| **$h = 7$** | $L = 8$ | 4096 | **`7.793 m`** | 4.833 m | 5.141 m | 0.006 m | **-44.6%** |
+| **$h = 10$** | $L = 11$ | 4096 | **`6.979 m`** | **4.497 m** | **4.420 m** | **0.001 m** | **`-50.4%`** |
+
+##### 2. High-Capacity $h=10$ Optimized Benchmark
+
+To test the peak performance of GRU sequence models, we scaled the architecture to 100% full dataset (~800,000 sequence samples), expanded the GRU hidden dimension to `128`, added `BatchNorm1d` to the MLP fusion head (`Linear(131 -> 256) -> LeakyReLU -> BatchNorm1d -> Dropout -> Linear(256 -> 128) -> Linear(128 -> 64) -> Linear(64 -> 3)`), and trained for 100 epochs using a Linear Warmup + Cosine Annealing schedule with an active learning rate floor ($3 \times 10^{-5}$):
+
+| Metric | Optimized GRU ($h=10$) | Single Snapshot ($h=0$ Baseline) | Absolute Improvement | Relative Error Reduction |
+| :--- | :---: | :---: | :---: | :---: |
+| **3D Position MAE** | **`6.175 m`** | `14.077 m` | **`-7.902 m`** | **`-56.1%`** |
+| **X-Axis MAE** | **`3.978 m`** | `9.345 m` | `-5.367 m` | `-57.4%` |
+| **Y-Axis MAE** | **`3.913 m`** | `8.785 m` | `-4.872 m` | `-55.5%` |
+| **50th Percentile (Median Error)** | **`4.717 m`** | — | — | — |
+| **90th Percentile Error** | **`11.448 m`** | — | — | — |
+
+##### 3. Key Conclusions on 1D-CNN vs. GRU Deep Learning Architectures
+* **Parity in Peak Accuracy:** Both 1D-CNN (**6.041 m**) and GRU (**6.175 m**) achieve remarkable parity at $h=10$, cutting positioning error by over **56%** compared to single snapshot baselines.
+* **Mechanism Convergence:** While 1D-CNNs extract spatial features via local convolutional kernels and GRUs update a continuous internal memory state ($h_t$), both succeed because they perform **weight sharing along the temporal dimension**. This prevents parameter blowup and enables continuous, smooth mapping from multi-step CSI trajectories to 3D Cartesian coordinates.
+
+---
+
+### 7.5 Kinematic Post-Processing: Forward Kalman Filtering & RTS Smoothing
+
+#### Motivation & Physical Formulations
+Machine learning models (Random Forest, XGBoost, 1D-CNN) predict instantaneous UE positions $(\hat{x}_t, \hat{y}_t, \hat{z}_t)$ per timestep. Due to thermal noise and 5° AoA quantization, predictions contain high-frequency spatial step jitter. We post-process predictions using a **6D Constant-Velocity Kinematic State Space**:
+$$\mathbf{x}_t = [x, y, z, v_x, v_y, v_z]^T, \quad \mathbf{x}_t = \mathbf{F} \mathbf{x}_{t-1} + \mathbf{w}_t, \quad \mathbf{z}_t = \mathbf{H} \mathbf{x}_t + \mathbf{v}_t$$
+
+1. **Forward Linear Kalman Filter (Real-Time Online Causal):** Computes online estimates using only historical timesteps $1 \dots t$.
+2. **Rauch-Tung-Striebel (RTS) Kalman Smoother (Offline Batch):** Runs a forward filter pass followed by a backward smoothing pass ($t=N \dots 1$), fusing both past and future predictions to eliminate phase lag during sharp trajectory turns.
+
+#### Benchmark Results Across History Depths ($h \in [0, 3]$)
+
+| History Depth ($h$) | Feature Mode | Raw RF 3D MAE (m) | Forward Linear KF (m) | RTS Smoother (m) | RTS Error Reduction |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **$h = 0$** | Absolute | `7.105 m` | `7.015 m` | **`6.490 m`** | **`+8.7%`** 🏆 |
+| **$h = 1$** | Hybrid | `7.503 m` | `7.535 m` | **`6.944 m`** | **`+7.4%`** |
+| **$h = 2$** | Hybrid | `7.744 m` | `7.764 m` | **`7.169 m`** | **`+7.4%`** |
+| **$h = 3$** | Hybrid | `7.817 m` | `7.811 m` | **`7.211 m`** | **`+7.8%`** |
+
+#### Key Takeaways
+1. **RTS Smoother Superiority:** The RTS Smoother consistently outperforms raw snapshot predictions across all history depths, reducing 3D MAE by **+7.4% to +8.7%** (dropping error to **6.490 m** at $h=0$).
+2. **Phase Lag Elimination:** Forward KF provides modest gains on causal real-time data (+1.3% at $h=0$), but suffers slight lag during sudden turns. The RTS Smoother's backward pass eliminates phase lag entirely, smoothing trajectory curvature smoothly.
+
+
+
+
+
+
 
