@@ -152,10 +152,10 @@ class _ETATracker:
         remaining   = self.total - self.done
         eta_s       = (elapsed / self.done) * remaining if self.done else 0
         filled      = int(20 * self.done / self.total)
-        bar         = '█' * filled + '░' * (20 - filled)
-        print(f'     └─ done in {_fmt_s(item_sec)}  '
+        bar         = '#' * filled + '-' * (20 - filled)
+        print(f'     +- done in {_fmt_s(item_sec)}  '
               f'[{bar}] {self.done}/{self.total}  '
-              f'ETA ≈ {_fmt_s(eta_s)} remaining', flush=True)
+              f'ETA ~ {_fmt_s(eta_s)} remaining', flush=True)
 
     def skip_item(self) -> None:
         """Advance counter without recording time (for checkpointed experiments)."""
@@ -262,19 +262,44 @@ def load_user_file(mat_path: Path) -> dict:
     }
 
 
-def _apply_aoa_noise(ud: dict) -> dict:
-    """Apply 4° Gaussian noise + 5° quantization to AoA fields in-place."""
+def _apply_aoa_noise(ud: dict, sinr_dependent: bool = False) -> dict:
+    """Apply noise + 5° quantization to AoA fields in-place.
+    
+    If the device has only 1 antenna, the BS cannot calculate its AoA,
+    so we set the AoA fields to None (will be treated as NaN).
+    """
     uid = ud['user_id']
+    n_ant = ud['device']['n_antennas']
+    
+    if n_ant <= 1:
+        ud['aoa_az'] = None
+        ud['aoa_el'] = None
+        return ud
+        
+    if ud['aoa_az'] is not None or ud['aoa_el'] is not None:
+        if sinr_dependent:
+            # Optimal physical SINR-dependent noise formula (ref_std=2.0, k=15)
+            # as determined by the sensitivity analysis sweep.
+            sinr_db = ud['sinr']
+            noise_std = 2.0 * (10.0 ** (-(sinr_db - 10.0) / 15.0))
+            noise_std = np.clip(noise_std, 1.0, 20.0)
+        else:
+            noise_std = np.full(len(ud['rss']), AOA_NOISE_STD_DEG)
+
     if ud['aoa_az'] is not None:
         rng = np.random.RandomState(42 + uid * 1000)
+        noise = noise_std * rng.randn(len(ud['aoa_az']))
         ud['aoa_az'] = np.round(
-            (ud['aoa_az'] + AOA_NOISE_STD_DEG * rng.randn(len(ud['aoa_az'])))
+            (ud['aoa_az'] + noise)
             / AOA_QUANT_STEP_DEG) * AOA_QUANT_STEP_DEG
+            
     if ud['aoa_el'] is not None:
         rng = np.random.RandomState(43 + uid * 1000)
+        noise = noise_std * rng.randn(len(ud['aoa_el']))
         ud['aoa_el'] = np.round(
-            (ud['aoa_el'] + AOA_NOISE_STD_DEG * rng.randn(len(ud['aoa_el'])))
+            (ud['aoa_el'] + noise)
             / AOA_QUANT_STEP_DEG) * AOA_QUANT_STEP_DEG
+            
     return ud
 
 
@@ -300,7 +325,7 @@ def _ud_to_dataframe(ud: dict) -> pd.DataFrame:
     })
 
 
-def load_all_users(data_dir: Path) -> pd.DataFrame:
+def load_all_users(data_dir: Path, sinr_dependent_aoa: bool = False) -> pd.DataFrame:
     """Load all per-user .mat files into a combined DataFrame.
 
     Auto-detects the filename stem by scanning for user1_*.mat — works for
@@ -327,7 +352,7 @@ def load_all_users(data_dir: Path) -> pd.DataFrame:
             raise FileNotFoundError(f"Missing: {mat_file}")
         print(f"  Loading user {u}: {mat_file.name}")
         ud = load_user_file(mat_file)
-        ud = _apply_aoa_noise(ud)
+        ud = _apply_aoa_noise(ud, sinr_dependent=sinr_dependent_aoa)
         udf = _ud_to_dataframe(ud)
         frames.append(udf)
         print(f"    user_id={ud['user_id']}, n={len(udf):,}, "
@@ -734,13 +759,14 @@ def compute_mae(y_true_ids: np.ndarray, y_pred_ids: np.ndarray,
     return float(np.mean(errors))
 
 
-def evaluate_split(y_true, y_pred, grid_lookup, label=''):
-    """Return dict with accuracy and MAE."""
+def evaluate_split(y_true, y_pred, grid_lookup, spacing=2.0, label=''):
+    """Return dict with accuracy, MAE, and MPE (Mean Point Error)."""
     acc = accuracy_score(y_true, y_pred) * 100.0
     mae = compute_mae(np.array(y_true), np.array(y_pred), grid_lookup)
+    mpe = mae / spacing
     if label:
-        print(f"    {label:30s}  acc={acc:5.1f}%  MAE={mae:.3f}m")
-    return {'accuracy': acc, 'mae': mae}
+        print(f"    {label:30s}  acc={acc:5.1f}%  MAE={mae:.3f}m  MPE={mpe:.3f}pts")
+    return {'accuracy': acc, 'mae': mae, 'mpe': mpe}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -752,6 +778,7 @@ def run_one_experiment(feat_df: pd.DataFrame,
                        grid_lookup: dict,
                        model_name: str,
                        exp_label: str,
+                       spacing: float = 2.0,
                        exclude_user=None) -> dict:
     """
     Train on 'train' split, evaluate on 'test' split.
@@ -775,6 +802,10 @@ def run_one_experiment(feat_df: pd.DataFrame,
     y_test  = feat_df.loc[test_mask,  label_col].map(label2idx).values
     y_test_orig = feat_df.loc[test_mask, label_col].values
 
+    if model_name == 'rf':
+        X_train = np.nan_to_num(X_train, nan=0.0)
+        X_test  = np.nan_to_num(X_test, nan=0.0)
+
     model = get_model(model_name, len(all_labels))
     t0    = time.time()
     model.fit(X_train, y_train)
@@ -783,7 +814,7 @@ def run_one_experiment(feat_df: pd.DataFrame,
     y_pred_idx  = model.predict(X_test)
     y_pred_orig = np.array([idx2label[i] for i in y_pred_idx])
 
-    overall = evaluate_split(y_test_orig, y_pred_orig, grid_lookup, label=exp_label)
+    overall = evaluate_split(y_test_orig, y_pred_orig, grid_lookup, spacing=spacing, label=exp_label)
     overall['train_time_s'] = round(train_sec, 2)
 
     # Per-user breakdown
@@ -795,7 +826,7 @@ def run_one_experiment(feat_df: pd.DataFrame,
         yt = feat_df.loc[um, label_col].values
         yp = y_pred_orig[((feat_df.loc[test_mask, 'user_id'] == uid)
                           .reset_index(drop=True)).values]
-        per_user[uid] = evaluate_split(yt, yp, grid_lookup)
+        per_user[uid] = evaluate_split(yt, yp, grid_lookup, spacing=spacing)
 
     # Per-Voronoi-cell breakdown
     per_cell = {}
@@ -806,7 +837,7 @@ def run_one_experiment(feat_df: pd.DataFrame,
         yt = feat_df.loc[cm, label_col].values
         yp = y_pred_orig[((feat_df.loc[test_mask, 'voronoi_cell_id'] == cid)
                           .reset_index(drop=True)).values]
-        per_cell[int(cid)] = evaluate_split(yt, yp, grid_lookup)
+        per_cell[int(cid)] = evaluate_split(yt, yp, grid_lookup, spacing=spacing)
 
     cm_matrix = confusion_matrix(y_test_orig, y_pred_orig, labels=all_labels)
 
@@ -853,10 +884,28 @@ def _load_checkpoints(ckpt_dir: Path) -> dict:
         try:
             data = _json.loads(f.read_text())
             m, e = data['model'], data['experiment']
+            
+            # Ensure mpe key exists for backwards compatibility
+            overall = data['overall']
+            if 'mpe' not in overall:
+                overall['mpe'] = overall['mae'] / 2.0
+            
+            per_user = {}
+            for k, v in data['per_user'].items():
+                if 'mpe' not in v:
+                    v['mpe'] = v['mae'] / 2.0
+                per_user[int(k)] = v
+                
+            per_cell = {}
+            for k, v in data['per_cell'].items():
+                if 'mpe' not in v:
+                    v['mpe'] = v['mae'] / 2.0
+                per_cell[int(k)] = v
+                
             loaded.setdefault(m, {})[e] = {
-                'overall':   data['overall'],
-                'per_user':  {int(k): v for k, v in data['per_user'].items()},
-                'per_cell':  {int(k): v for k, v in data['per_cell'].items()},
+                'overall':   overall,
+                'per_user':  per_user,
+                'per_cell':  per_cell,
                 'cm': None, 'cm_labels': [],
             }
         except Exception:
@@ -869,7 +918,8 @@ def run_all_experiments(df: pd.DataFrame,
                         models: list[str],
                         h_primary: int = 3,
                         run_only: list[str] = None,
-                        checkpoint_dir: Path | None = None) -> dict:
+                        checkpoint_dir: Path | None = None,
+                        spacing: float = 2.0) -> dict:
     """
     Run experiments from EXPERIMENTS registry + CROSS_USER_EXPERIMENTS.
     If run_only is given (list of keys), only those experiments run.
@@ -944,7 +994,7 @@ def run_all_experiments(df: pd.DataFrame,
         print(f"\n{'='*60}")
         print(f"Model: {model_name}")
         print(f"{'='*60}")
-        results[model_name] = {}
+        results.setdefault(model_name, {})
 
         # ── Core experiments ──────────────────────────────────────────────────
         for exp_def in EXPERIMENTS:
@@ -963,7 +1013,7 @@ def run_all_experiments(df: pd.DataFrame,
                 continue
             eta.start_item(f'{key}  [{model_name}]')
             results[model_name][key] = run_one_experiment(
-                feat_df, feat_cols, grid_lookup, model_name, f"  {key} {model_name}")
+                feat_df, feat_cols, grid_lookup, model_name, f"  {key} {model_name}", spacing=spacing)
             if checkpoint_dir:
                 _write_checkpoint(checkpoint_dir, model_name, key, results[model_name][key])
             eta.finish_item()
@@ -988,7 +1038,7 @@ def run_all_experiments(df: pd.DataFrame,
             eta.start_item(f'{cu_key}  [{model_name}]  (train U1–U4, test U5)')
             results[model_name][cu_key] = run_one_experiment(
                 feat_df, feat_cols, grid_lookup, model_name,
-                f"  {cu_key} {model_name}", exclude_user=5)
+                f"  {cu_key} {model_name}", spacing=spacing, exclude_user=5)
             if checkpoint_dir:
                 _write_checkpoint(checkpoint_dir, model_name, cu_key, results[model_name][cu_key])
             eta.finish_item()
@@ -1001,11 +1051,12 @@ def run_all_experiments(df: pd.DataFrame,
                 fdf, fc = _get_feat(h_val, None, False, 'absolute')
                 eta.start_item(f'learning_curve h={h_val}  [{model_name}]')
                 res = run_one_experiment(fdf, fc, grid_lookup, model_name,
-                                         f"  h={h_val} {model_name}")
+                                         f"  h={h_val} {model_name}", spacing=spacing)
                 eta.finish_item()
                 lc.append({'h': h_val,
                            'accuracy': res['overall']['accuracy'],
-                           'mae':      res['overall']['mae']})
+                           'mae':      res['overall']['mae'],
+                           'mpe':      res['overall']['mpe']})
             results[model_name]['learning_curve'] = lc
 
         # ── Evict feature cache after each model to free RAM ─────────────────
@@ -1024,7 +1075,8 @@ def run_all_experiments(df: pd.DataFrame,
 
 def save_results(results: dict, df: pd.DataFrame, out_dir: Path,
                  models: list[str], h_primary: int,
-                 append_mode: bool = False):
+                 append_mode: bool = False,
+                 spacing: float = 2.0):
     """
     Save CSV summaries and experiment config JSON.
     When append_mode=True: read existing CSVs, replace rows for the new
@@ -1045,6 +1097,7 @@ def save_results(results: dict, df: pd.DataFrame, out_dir: Path,
                 'model': model_name, 'experiment': exp,
                 'accuracy_%': round(o['accuracy'], 2),
                 'mae_m':      round(o['mae'], 4),
+                'mpe_pts':    round(o.get('mpe', o['mae'] / spacing), 4),
                 'train_time_s': o.get('train_time_s'),
             })
             if not exp.startswith('cross_user_'):
@@ -1053,6 +1106,7 @@ def save_results(results: dict, df: pd.DataFrame, out_dir: Path,
                         'model': model_name, 'experiment': exp, 'user_id': uid,
                         'accuracy_%': round(m['accuracy'], 2),
                         'mae_m':      round(m['mae'], 4),
+                        'mpe_pts':    round(m.get('mpe', m['mae'] / spacing), 4),
                     })
                 for cid, m in results[model_name][exp]['per_cell'].items():
                     pc_rows.append({
@@ -1060,6 +1114,7 @@ def save_results(results: dict, df: pd.DataFrame, out_dir: Path,
                         'voronoi_cell_id': cid,
                         'accuracy_%': round(m['accuracy'], 2),
                         'mae_m':      round(m['mae'], 4),
+                        'mpe_pts':    round(m.get('mpe', m['mae'] / spacing), 4),
                     })
 
     def _write_csv(fname, rows):
@@ -1263,6 +1318,35 @@ def run_env_variability(env_dir: Path, grid_lookup: dict,
 # ─────────────────────────────────────────────────────────────────────────────
 # 12.  Visualisations
 # ─────────────────────────────────────────────────────────────────────────────
+
+def get_grid_spacing(data_dir: Path) -> float:
+    """Read the config file to determine grid spacing (meters). Default is 2.0."""
+    for cfg_name in ('data_generation_config.jsonc', 'config.jsonc', 'config.json'):
+        p = data_dir / cfg_name
+        if p.exists():
+            try:
+                from utils.read_jsonc import read_jsonc as _rjsonc
+                cfg = _rjsonc(p)
+                return float(cfg.get('grid', {}).get('spacing', 2.0))
+            except Exception:
+                pass
+
+    try:
+        import scipy.io as _sio
+        mat = _sio.loadmat(str(data_dir / 'experiment_info.mat'), squeeze_me=True)
+        ei = mat.get('experiment_info')
+        if ei is not None:
+            config_name = str(ei['config_name'].flat[0]) if hasattr(ei['config_name'], 'flat') else str(ei['config_name'])
+            cfg_path = EXPERIMENT_ROOT / 'configs' / config_name
+            if cfg_path.exists():
+                from utils.read_jsonc import read_jsonc as _rjsonc
+                cfg = _rjsonc(cfg_path)
+                return float(cfg.get('grid', {}).get('spacing', 2.0))
+    except Exception:
+        pass
+
+    return 2.0  # default fallback
+
 
 def _read_bs_geometry(data_dir: Path):
     """Return (bs_xy, ibs_xys) by reading the JSONC config for data_dir.
@@ -1878,7 +1962,7 @@ def plot_voronoi_accuracy_map(results: dict, df: pd.DataFrame,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def save_pipeline_report(results: dict, df: pd.DataFrame,
-                         out_dir: Path, args, tuned_params: dict) -> None:
+                         out_dir: Path, args, tuned_params: dict, spacing: float = 2.0) -> None:
     """Write PIPELINE_REPORT.md to out_dir with the command, params, and results."""
     import datetime
     import platform
@@ -1931,6 +2015,7 @@ def save_pipeline_report(results: dict, df: pd.DataFrame,
         f'| Total samples | {len(df):,} |',
         f'| Users | {df["user_id"].nunique()} |',
         f'| Grid classes | {df["grid_point_id"].nunique()} |',
+        f'| Grid spacing (m) | {spacing} |',
         f'',
     ]
 
@@ -1981,8 +2066,8 @@ def save_pipeline_report(results: dict, df: pd.DataFrame,
             f'',
             f'## Results Summary',
             f'',
-            f'| Model | Experiment | Accuracy (%) | MAE (m) | Train time (s) |',
-            f'|---|---|---|---|---|',
+            f'| Model | Experiment | Accuracy (%) | MAE (m) | MPE (pts) | Train time (s) |',
+            f'|---|---|---|---|---|---|',
         ]
         for model_name in args.models:
             if model_name not in results:
@@ -1993,7 +2078,7 @@ def save_pipeline_report(results: dict, df: pd.DataFrame,
                 o = results[model_name][exp]['overall']
                 lines.append(
                     f'| {model_name} | {exp} | {o["accuracy"]:.2f} | '
-                    f'{o["mae"]:.4f} | {o.get("train_time_s", "—")} |'
+                    f'{o["mae"]:.4f} | {o.get("mpe", o["mae"] / 2.0):.4f} | {o.get("train_time_s", "—")} |'
                 )
         lines += [f'']
 
@@ -2006,11 +2091,11 @@ def save_pipeline_report(results: dict, df: pd.DataFrame,
                 lines += [
                     f'### Learning Curve — {model_name.upper()} (h = 0 … {MAX_HISTORY_CURVE})',
                     f'',
-                    f'| h | Accuracy (%) | MAE (m) |',
-                    f'|---|---|---|',
+                    f'| h | Accuracy (%) | MAE (m) | MPE (pts) |',
+                    f'|---|---|---|---|',
                 ]
                 for row in lc:
-                    lines.append(f'| {row["h"]} | {row["accuracy"]:.2f} | {row["mae"]:.4f} |')
+                    lines.append(f'| {row["h"]} | {row["accuracy"]:.2f} | {row["mae"]:.4f} | {row.get("mpe", row["mae"]/2.0):.4f} |')
                 lines += [f'']
 
     report_path.write_text('\n'.join(lines), encoding='utf-8')
@@ -2071,6 +2156,10 @@ def main():
                         metavar='PATH',
                         help='Load tuned hyperparameters from a saved tuned_params.json '
                              'instead of running Optuna (e.g. results/.../tuning/tuned_params.json)')
+    parser.add_argument('--sinr-dependent-aoa', action='store_true',
+                        help='Make AoA noise dependent on snapshot SINR')
+    parser.add_argument('--subsample', type=float, default=1.0,
+                        help='Fraction of training data to subsample (default: 1.0)')
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir)
@@ -2090,12 +2179,27 @@ def main():
 
     # ── Load data ─────────────────────────────────────────────────────────────
     print("\n=== Loading user data ===")
-    df = load_all_users(data_dir)
+    df = load_all_users(data_dir, sinr_dependent_aoa=args.sinr_dependent_aoa)
     print(f"Loaded {len(df):,} total samples, "
           f"{df['user_id'].nunique()} users, "
           f"{df['grid_point_id'].nunique()} grid classes")
 
     df = make_split(df, test_ratio=0.2)
+    if args.subsample < 1.0:
+        print(f"\n[Subsample] Keeping {args.subsample:.0%} of train data per user...")
+        train_mask = df['split'] == 'train'
+        test_mask  = df['split'] == 'test'
+        train_df = df[train_mask]
+        test_df  = df[test_mask]
+        
+        sub_trains = []
+        for uid in sorted(train_df['user_id'].unique()):
+            u_train = train_df[train_df['user_id'] == uid].sort_values('step_index')
+            n_keep = max(1, int(len(u_train) * args.subsample))
+            sub_trains.append(u_train.iloc[:n_keep])
+            
+        df = pd.concat(sub_trains + [test_df], ignore_index=True)
+
     print(f"Split: train={( df['split']=='train').sum():,}  "
           f"test={( df['split']=='test').sum():,}")
 
@@ -2149,20 +2253,24 @@ def main():
         print(env_df.to_string(index=False))
         return
 
+    spacing = get_grid_spacing(data_dir)
+    print(f"[config] Detected grid spacing: {spacing} meters")
+
     # ── Run experiments ────────────────────────────────────────────────────────
     results = run_all_experiments(df, grid_lookup,
                                   models=args.models,
                                   h_primary=args.history,
                                   run_only=args.run_only,
-                                  checkpoint_dir=csv_dir / 'checkpoint')
+                                  checkpoint_dir=csv_dir / 'checkpoint',
+                                  spacing=spacing)
 
     # ── Print summary table ────────────────────────────────────────────────────
     if results:
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 80)
         print("RESULTS SUMMARY")
-        print("=" * 70)
-        print(f"{'Model':<10} {'Experiment':<20} {'Accuracy':>10} {'MAE (m)':>10}")
-        print("-" * 70)
+        print("=" * 80)
+        print(f"{'Model':<10} {'Experiment':<20} {'Accuracy':>10} {'MAE (m)':>10} {'MPE (pts)':>10}")
+        print("-" * 80)
         for model_name in args.models:
             if model_name not in results:
                 continue
@@ -2170,13 +2278,13 @@ def main():
                 if exp == 'learning_curve':
                     continue
                 o = results[model_name][exp]['overall']
-                print(f"{model_name:<10} {exp:<20} {o['accuracy']:>9.1f}%  {o['mae']:>9.3f}m")
-        print("=" * 70)
+                print(f"{model_name:<10} {exp:<20} {o['accuracy']:>9.1f}%  {o['mae']:>9.3f}m  {o.get('mpe', o['mae']/spacing):>9.3f}pts")
+        print("=" * 80)
 
     # ── Save CSVs ─────────────────────────────────────────────────────────────
     print(f"\nSaving results to {out_dir}")
     save_results(results, df, csv_dir, args.models, args.history,
-                 append_mode=args.append_results)
+                 append_mode=args.append_results, spacing=spacing)
 
     # ── Plots (full run only, not in --run-only mode) ─────────────────────────
     if HAS_MATPLOTLIB and args.run_only is None:
@@ -2227,7 +2335,7 @@ def main():
     print("\n=== Multi-user pipeline complete ===")
 
     # ── Pipeline report ────────────────────────────────────────────────────────
-    save_pipeline_report(results, df, out_dir, args, TUNED_PARAMS)
+    save_pipeline_report(results, df, out_dir, args, TUNED_PARAMS, spacing=spacing)
 
 
 if __name__ == '__main__':
