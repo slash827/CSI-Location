@@ -4,7 +4,6 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
 from matplotlib.patches import Rectangle, Circle
@@ -118,10 +117,10 @@ def plot_environment_layout(bs_pos, interferers=None, grid_bounds=(5, 101, 5, 10
     if save_path:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        plt.close(fig)
+        fig.savefig(save_path, dpi=150, bbox_inches='tight')
+        # Note: do NOT call plt.close(fig) here — caller decides whether to plt.show()
         print(f"[SAVED] Environment layout plot: {save_path}")
-    
+
     return fig, ax
 
 
@@ -132,19 +131,30 @@ def analyze_distance_and_interference_errors(preds, targs, bs_pos, interferers=N
     2. Distance to Nearest Interfering BS (<50m, 50-100m, >100m)
     3. LOS vs NLOS Propagation Areas (Voronoi Areas)
     Saves a comprehensive Markdown report to report_dir if specified.
+
+    IMPORTANT: `targs` and `preds` are 2D displacements RELATIVE to bs_pos[:2],
+    i.e. targs = ue_xy - bs_pos[:2].  bs_pos is the absolute [x, y, z] position
+    of the serving BS. This function converts back to absolute coordinates
+    internally for all spatial calculations.
     """
     errs = np.linalg.norm(preds - targs, axis=1)
-    
-    # Distance to Main BS (2D)
-    dist_bs = np.linalg.norm(targs - bs_pos[:2], axis=1)
+
+    # Convert relative offsets back to absolute UE positions
+    # targs = ue_xy - bs_pos[:2]  =>  ue_abs = targs + bs_pos[:2]
+    bs_xy = np.array(bs_pos[:2], dtype=float)
+    ue_abs = targs + bs_xy          # absolute [x, y] positions of test UEs
+
+    # Distance to Main BS (2D): since targs are the displacement vector from BS,
+    # the distance is simply the norm of targs.
+    dist_bs = np.linalg.norm(targs, axis=1)
     
     if interferers is None:
         interferers = [[-60, 53, 10], [53, -60, 10]]
     
-    # Distance to Nearest Interfering BS
+    # Distance to Nearest Interfering BS (use absolute UE positions)
     int_dists = []
     for int_pos in interferers:
-        d_i = np.linalg.norm(targs - np.array(int_pos[:2]), axis=1)
+        d_i = np.linalg.norm(ue_abs - np.array(int_pos[:2], dtype=float), axis=1)
         int_dists.append(d_i)
     dist_nearest_int = np.min(np.column_stack(int_dists), axis=1)
 
@@ -156,16 +166,18 @@ def analyze_distance_and_interference_errors(preds, targs, bs_pos, interferers=N
         {"center": [60.0, 90.0], "scenario": "LOS", "name": "Park (LOS)"}
     ]
     centers = np.array([c['center'] for c in voronoi_cells])
-    dists_v = np.linalg.norm(targs[:, None, :] - centers[None, :, :], axis=2)
+    # Use absolute UE positions for Voronoi lookup (centers are in absolute coords)
+    dists_v = np.linalg.norm(ue_abs[:, None, :] - centers[None, :, :], axis=2)
     nearest_v_idx = np.argmin(dists_v, axis=1)
     is_los = np.array([voronoi_cells[i]['scenario'] == 'LOS' for i in nearest_v_idx])
 
     # 1. Main BS Distance Bins
+    # Grid is 5-101m from origin (BS at [0,0]), so distances range ~7m to ~143m
     bs_bins = [
-        ("< 30m from Main BS", dist_bs < 30),
-        ("30m - 60m from Main BS", (dist_bs >= 30) & (dist_bs < 60)),
-        ("60m - 90m from Main BS", (dist_bs >= 60) & (dist_bs < 90)),
-        ("> 90m from Main BS", dist_bs >= 90)
+        ("< 40m from Main BS  (Near zone)",  dist_bs < 40),
+        ("40m - 80m from Main BS (Mid zone)", (dist_bs >= 40) & (dist_bs < 80)),
+        ("80m - 120m from Main BS (Far zone)", (dist_bs >= 80) & (dist_bs < 120)),
+        ("> 120m from Main BS (Corner zone)", dist_bs >= 120)
     ]
 
     # 2. Interferer Distance Bins

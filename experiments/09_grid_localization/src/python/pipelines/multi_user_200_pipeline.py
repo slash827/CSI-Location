@@ -11,6 +11,7 @@ def load_200_users(data_dir):
     """
     Loads per-user MAT files from data_dir into a single DataFrame.
     Computes instantaneous physical speed v(t) (m/s) per user trajectory.
+    Handles both 200-user and 300-user multi-user simulation datasets.
     """
     mat_files = sorted(glob.glob(os.path.join(data_dir, 'user*.mat')))
     if not mat_files:
@@ -30,7 +31,6 @@ def load_200_users(data_dir):
         y_pos = mat['y_pos'].flatten().astype(np.float32)
         step_idx = mat['step_index'].flatten().astype(np.int32)
         
-        # Load delta_t and timestamp if present
         if 'delta_t' in mat:
             delta_t = mat['delta_t'].flatten().astype(np.float32)
         else:
@@ -45,7 +45,10 @@ def load_200_users(data_dir):
         dp = mat['device_profile']
         n_ant = float(dp['n_antennas'][0,0][0,0])
         gain = float(dp['antenna_gain_db'][0,0][0,0])
-        height = float(dp['ue_height_m'][0,0][0,0])
+        if 'ue_height' in dp.dtype.names:
+            height = float(dp['ue_height'][0,0][0,0])
+        else:
+            height = float(dp['ue_height_m'][0,0][0,0])
         
         df_u = pd.DataFrame({
             'user_id': u_id,
@@ -61,58 +64,33 @@ def load_200_users(data_dir):
             'n_antennas': n_ant,
             'antenna_gain_db': gain,
             'ue_height': height
-        }).sort_values('step_index').reset_index(drop=True)
+        })
         
-        # Compute ground truth physical speed v(t) = sqrt(dx^2 + dy^2) / dt
-        dx = np.diff(df_u['x_pos'].values, prepend=df_u['x_pos'].values[0])
-        dy = np.diff(df_u['y_pos'].values, prepend=df_u['y_pos'].values[0])
-        dt = np.maximum(0.01, df_u['delta_t'].values)
-        df_u['speed_m_s'] = np.sqrt(dx**2 + dy**2) / dt
+        # Calculate instantaneous physical speed v(t) (m/s)
+        dx = np.diff(x_pos, prepend=x_pos[0])
+        dy = np.diff(y_pos, prepend=y_pos[0])
+        dist_step = np.sqrt(dx**2 + dy**2)
+        speed = dist_step / np.maximum(delta_t, 1e-3)
+        speed[0] = speed[1] if len(speed) > 1 else 0.0
+        df_u['speed_m_s'] = speed.astype(np.float32)
         
         dfs.append(df_u)
         
     df_all = pd.concat(dfs, ignore_index=True)
     return df_all
 
+
 def make_unseen_user_split(df, train_ratio=0.8, seed=42):
     """
-    Performs an 80/20 User-Level Split:
-    160 Training Users vs. 40 Completely Unseen Test Users.
+    Splits user_ids into train_users (80%) and unseen test_users (20%).
     """
     user_ids = sorted(df['user_id'].unique())
-    np.random.seed(seed)
-    shuffled_users = np.random.permutation(user_ids)
+    rng = np.random.RandomState(seed)
+    shuffled_uids = rng.permutation(user_ids)
     
     n_train = int(len(user_ids) * train_ratio)
-    train_users = set(shuffled_users[:n_train])
-    test_users  = set(shuffled_users[n_train:])
+    train_uids = set(shuffled_uids[:n_train])
+    test_uids  = set(shuffled_uids[n_train:])
     
-    df['split'] = df['user_id'].apply(lambda u: 'train' if u in train_users else 'test')
-    return df, train_users, test_users
-
-def build_multitask_sequences(df, h, signal_cols=['rss', 'sinr', 'aoa_azimuth', 'aoa_elevation', 'delta_t'],
-                               static_cols=['n_antennas', 'antenna_gain_db', 'ue_height'],
-                               target_cols=['target_x', 'target_y', 'target_z']):
-    """
-    Constructs sequence datasets for multi-task training:
-      - X_seq: [N, h+1, 5] (including delta_t channel)
-      - X_static: [N, 3]
-      - y_coords: [N, 3] (3D location)
-      - y_speed:  [N, 1] (instantaneous speed)
-    """
-    all_seq, all_static, all_coords, all_speeds = [], [], [], []
-    
-    for uid in sorted(df['user_id'].unique()):
-        udf = df[df['user_id']==uid].sort_values('step_index').reset_index(drop=True)
-        sigs = udf[signal_cols].values.astype(np.float32)
-        statics = udf[static_cols].values.astype(np.float32)
-        coords = udf[target_cols].values.astype(np.float32)
-        speeds = udf['speed_m_s'].values.astype(np.float32).reshape(-1, 1)
-        
-        for i in range(h, len(udf)):
-            all_seq.append(sigs[i-h : i+1])  # [h+1, n_channels]
-            all_static.append(statics[i])
-            all_coords.append(coords[i])
-            all_speeds.append(speeds[i])
-            
-    return np.stack(all_seq), np.stack(all_static), np.stack(all_coords), np.stack(all_speeds)
+    df['split'] = df['user_id'].apply(lambda u: 'train' if u in train_uids else 'test')
+    return df, train_uids, test_uids
