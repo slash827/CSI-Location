@@ -5,7 +5,7 @@
 **Institution:** Bar-Ilan University
 **Industry Partners:** CEVA, Cellcom
 **Status:** Draft v1 — academic project report (target: conference paper)
-**Code & data provenance:** `git commit 98c40b3`, `experiments/09_grid_localization/`
+**Code & data provenance:** branch `main`, `experiments/09_grid_localization/` (run `git log -1 -- experiments/09_grid_localization/` for the exact revision)
 
 ---
 
@@ -451,7 +451,7 @@ The same lens explains the population's error structure. Devices that can observ
 | Configs | `experiments/09_grid_localization/configs/*.jsonc` |
 | Figures | `docs/figures/` |
 | Detailed results of record | `docs/Project_documentation/technical_documentation.md` §7–9 |
-| Commit | `98c40b3` |
+| Revision | branch `main` — `git log -1 -- experiments/09_grid_localization/` |
 
 Seeds: global seed 42; per-user walk seeds distinct per profile. Simulation results live under `results/` and are gitignored — regenerate from the runners in `src/matlab/runners/`.
 

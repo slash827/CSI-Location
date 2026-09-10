@@ -1,6 +1,6 @@
 # 5G NR CSI Localization: Handover Knowledge Base & Project Synthesis
 
-> **Status:** Current, Validated & Fully Committed (`git commit: 98c40b3`)  
+> **Status:** Current, Validated & Fully Committed on branch `main`  
 > **Last Updated:** September 2026  
 > **Workspace Root:** `experiments/09_grid_localization/`  
 > **Primary References:**  
