@@ -1,6 +1,6 @@
 # 5G NR CSI Localization: Handover Knowledge Base & Project Synthesis
 
-> **Status:** Current, Validated & Fully Committed (`git commit: 11296cd`)  
+> **Status:** Current, Validated & Fully Committed (`git commit: 98c40b3`)  
 > **Last Updated:** September 2026  
 > **Workspace Root:** `experiments/09_grid_localization/`  
 > **Primary References:**  
@@ -52,12 +52,26 @@ In our research discussion with Alon Levin on August 20, 2026, we established th
 ## 3. Key Empirical Findings & Master Benchmark
 
 ### 3.1 History Depth Sweep & $\Delta\text{MAE}$ Analysis ($h \in [0, 10]$)
-Adding sequence history systematically reduces positioning error:
-* **$h = 0$ (Snapshot Baseline):** `22.846 m` MAE (P50: `20.170 m`, P90: `41.488 m`)
-* **$h = 1$:** `21.284 m` MAE ($\Delta\text{MAE} = \mathbf{-1.562 m}$, **$+6.8\%$ gain** — computes instantaneous velocity $\mathbf{v}$)
-* **$h = 3$:** `20.026 m` MAE ($\Delta\text{MAE} = \mathbf{-1.258 m}$, **$+12.3\%$ cumulative gain**)
-* **$h = 5$:** `19.260 m` MAE ($\Delta\text{MAE} = \mathbf{-0.766 m}$, **$+15.7\%$ cumulative gain**) $\to$ **Empirical Sweet Spot** ($\approx 2.5\text{s}$)
-* **$h = 10$:** `20.215 m` MAE ($\Delta\text{MAE} = +0.955 m$ — decorrelation/overfitting as random-walk headings decorrelate after $3\text{–}4\text{s}$).
+
+Adding sequence history systematically reduces positioning error. Two distinct deltas are reported and must not be conflated:
+
+* **Step $\Delta$MAE** — change vs. the *previous* history depth in the sweep (marginal value of the extra frames).
+* **Cumulative $\Delta$MAE** — change vs. the $h=0$ snapshot baseline (headline gain of the mechanism).
+
+| History $h$ | MAE | P50 | P90 | Step $\Delta$MAE (vs. prev. $h$) | Cumulative $\Delta$MAE (vs. $h=0$) | Cumulative gain |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| $h = 0$ (snapshot baseline) | `22.846 m` | `20.170 m` | `41.488 m` | — | — | — |
+| $h = 1$ | `21.284 m` | `18.397 m` | `39.378 m` | `-1.562 m` | `-1.562 m` | **$+6.8\%$** |
+| $h = 3$ | `20.026 m` | `16.654 m` | `38.647 m` | `-1.258 m` | `-2.820 m` | **$+12.3\%$** |
+| $h = 5$ | **`19.260 m`** | **`15.228 m`** | **`38.005 m`** | `-0.766 m` | `-3.586 m` | **$+15.7\%$** 🏆 |
+| $h = 10$ | `20.215 m` | `16.485 m` | `37.472 m` | `+0.955 m` | `-2.631 m` | $+11.5\%$ (plateau) |
+
+*Sign convention: negative $\Delta\text{MAE}$ (metres) = error reduced. The **Cumulative gain** column reports the same reduction as a positive percentage, matching `technical_documentation.md` §8.*
+
+Interpretation:
+* $h = 1$ is where the model first gains instantaneous velocity $\mathbf{v}$ — the single largest step gain, and the point at which distance-ring symmetry is broken.
+* $h = 5$ ($\approx 2.5\text{s}$ of history) is the **empirical sweet spot**; all master-benchmark models in §3.2 are evaluated here.
+* $h = 10$ *regresses* (positive step $\Delta$): random-walk headings decorrelate after $3\text{–}4\text{s}$, so the extra frames add noise and overfitting capacity rather than kinematic signal.
 
 ### 3.2 Master Cross-Model Benchmark Scorecard (Apples-to-Apples at $h=5$)
 
