@@ -308,7 +308,7 @@ Cross-user BASE_A_H tests a multi-user AoA database against a completely unseen 
 **Diagnostic Outlier Trajectory Audit:**
 * **100% of top 5 worst outliers are 1-antenna devices** ($33.5\text{m}\text{–}52.9\text{m}$).
 * **100% of top 5 best users are multi-antenna devices** ($10.4\text{m}\text{–}11.8\text{m}$).
-* Boundary transitions incur only a negligible $+1.45\text{m}$ transient penalty, proving the channel data is physically valid.
+* Boundary transitions cost nothing at all — $18.33\text{m}$ MAE crossing vs $19.34\text{m}$ within-cell, marginally *better* — confirming the channel data is physically valid.
 
 ![bg right:48% 95%](../figures/antenna_cohort_error_cdf.png)
 

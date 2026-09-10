@@ -431,7 +431,7 @@ An automated diagnostic audit across all 47 unseen test trajectories isolated th
 * **100% of Top 5 Worst Outliers are 1-Antenna Devices** (MAE $33.5\text{m}\text{–}52.9\text{m}$).
 * **100% of Top 5 Best Users are Multi-Antenna Devices** (MAE $10.4\text{m}\text{–}11.8\text{m}$).
 * **Azimuth Angular Tracking:** Multi-antenna UEs track azimuth with **$3.53^\circ$** mean error, whereas 1-antenna UEs exhibit complete angular collapse (**$15.76^\circ$** mean error) due to dummy $(0^\circ, 0^\circ)$ AoA.
-* **Voronoi Boundary Crossings:** Incur only a minor transient penalty ($18.33\text{m}$ vs $19.34\text{m}$ steady state), confirming that QuaDRiGa spatial consistency prevents data corruption.
+* **Voronoi Boundary Crossings:** Incur no penalty — crossings average $18.33\text{m}$ MAE against $19.34\text{m}$ within-cell steady state, marginally *better* — confirming that QuaDRiGa spatial consistency prevents data corruption.
 
 ### 10.2 Architectural Mitigation: Explicit AoA Validity Masking (Option A)
 * **Problem:** In standard CSI processing, single-antenna UEs are assigned dummy $(0^\circ, 0^\circ)$ AoA. This induces $\cos(0^\circ)=1.0$ and $\text{ray}_y = r_{\text{est}}$, artificially pulling network predictions along the North-East boresight.

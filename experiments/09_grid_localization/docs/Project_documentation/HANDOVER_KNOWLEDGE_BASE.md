@@ -93,7 +93,7 @@ Interpretation:
 * **Outlier Trajectory Audit:**
   - **100% of top 5 worst outliers are 1-antenna devices** ($33.5\text{m}\text{–}52.9\text{m}$).
   - **100% of top 5 best users are multi-antenna devices** ($10.4\text{m}\text{–}11.8\text{m}$).
-  - Boundary crossings between Voronoi cells only exhibit a negligible $+1.45\text{m}$ transient penalty, proving the data is physically sound and not corrupted.
+  - Boundary crossings between Voronoi cells cost nothing: crossing samples average $18.33\text{m}$ MAE against $19.34\text{m}$ within-cell steady state, i.e. marginally *better*. QuaDRiGa spatial consistency prevents transient jumps, so scenario changes are not corrupting the sequences.
 
 ### 3.4 Architectural Mitigation: Explicit AoA Validity Masking (Option A)
 * **Problem:** Dummy $(0^\circ, 0^\circ)$ AoA in single-antenna UEs caused $\cos(0^\circ)=1.0$ and $\text{ray}_y = r_{\text{est}}$, artificially anchoring predictions along the North-East axis.
