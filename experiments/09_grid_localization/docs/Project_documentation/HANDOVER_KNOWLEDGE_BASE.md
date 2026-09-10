@@ -41,7 +41,9 @@ In our research discussion with Alon Levin on August 20, 2026, we established th
   - Single serving Base Station at $[116, 116, 10]\text{m}$ (Top-Right / North-East).
   - Pushed South-West interfering towers at $[-60, 53, 10]\text{m}$ and $[53, -60, 10]\text{m}$.
   - 4 Voronoi propagation areas: Park (LOS), Highway (LOS), Shopping District (NLOS), Residential (NLOS).
-* **User Population:** 300 unseen mobile users with continuous random-walk trajectories.
+* **User Population:** 300 unseen mobile users. **Not random walks** — four trajectory patterns (billiards 35%, momentum walk 35%, waypoint tour 20%, straight transit 10%) and four speed classes (pedestrian 40% at $1.0$–$1.5\,$m/s, jogger 25% at $2.5$–$4.5$, vehicle 25% at $8$–$15$, static 10% at $0.1$–$0.5$). All four patterns are heading-persistent.
+* **Window duration is user-dependent:** step duration is spacing/speed, so a fixed $h$ is *not* a fixed time window. Per-user $\Delta t$ spans $0.27$–$32.5\,$s, making the $h=5$ window anywhere from $1.3\,$s to $162\,$s (median $13.5\,$s).
+* **Interference:** users are batched 25 per shared QuaDRiGa layout, but SINR counts only the two interfering base stations plus noise. **No user-to-user interference is modelled.**
 * **Evaluation Protocol:** Strict 80/20 train/test split on **unseen users** (User ID disjoint, Seed=42).
 * **Hardware Cohorts (Standard 3GPP Rel-15/16 Evaluation Benchmark):**
   - **85% Multi-Antenna Devices:** 4-antenna and 2-antenna smartphones (beamforming-capable, active AoA estimation).
@@ -71,7 +73,7 @@ Adding sequence history systematically reduces positioning error. Two distinct d
 Interpretation:
 * $h = 1$ is where the model first gains instantaneous velocity $\mathbf{v}$ — the single largest step gain, and the point at which distance-ring symmetry is broken.
 * $h = 5$ ($\approx 2.5\text{s}$ of history) is the **empirical sweet spot**; all master-benchmark models in §3.2 are evaluated here.
-* $h = 10$ *regresses* (positive step $\Delta$): random-walk headings decorrelate after $3\text{–}4\text{s}$, so the extra frames add noise and overfitting capacity rather than kinematic signal.
+* $h = 10$ *regresses* for this model (positive step $\Delta$). This is **not universal**: the 1D-CNN and $k$-NN turn at $h=10$, while XGBoost and Random Forest keep improving through $h=10$ on the same data. Fixed-window estimators must consume every lag; tree ensembles can decline to split on an uninformative one. Any claim that $h=5$ is a shared optimum is unsupported.
 
 ### 3.2 Master Cross-Model Benchmark Scorecard (Apples-to-Apples at $h=5$)
 

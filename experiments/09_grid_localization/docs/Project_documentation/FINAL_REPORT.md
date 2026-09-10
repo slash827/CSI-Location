@@ -46,7 +46,7 @@ The framing of this work follows directly from a research discussion with Alon L
 ### 1.3 Contributions
 
 * **C1 — Mechanism, cross-validated across paradigms.** A history-stacking input transformation, evaluated at fixed protocol across seven estimators spanning four algorithmic paradigms, with $\Delta\text{MAE}$ reported per model rather than only in aggregate.
-* **C2 — A physical account of the optimum.** We show the gain is not monotone in $h$: it peaks at $h=5$ ($\approx 2.5\,\text{s}$) and *regresses* at $h=10$, and we tie this to the heading decorrelation time of a $1.5\,\text{m/s}$ pedestrian random walk ($3$–$4\,\text{s}$).
+* **C2 — A model-class account of the optimum.** We show the gain is not monotone in $h$ for *fixed-window* estimators: the 1D-CNN and $k$-NN peak at $h=5$ and regress at $h=10$, while tree ensembles improve monotonically through $h=10$. The optimum is a property of how an estimator consumes the window, not of the propagation physics alone — a tree can decline to split on an uninformative lag, whereas a convolution over a fixed window and a distance metric over a fixed vector cannot ignore one.
 * **C3 — Cohort-disaggregated evaluation.** We show that aggregate MAE over a mixed-hardware population is a mixture artifact, and give the per-antenna-tier decomposition (including error CDFs) that makes results interpretable.
 * **C4 — AoA validity masking.** A two-line feature-pipeline change that removes the dummy-boresight bias for AoA-blind devices, with measured benefit to *both* cohorts.
 * **C5 — Reproducible artifact.** Full simulation configs, notebooks, shared utilities, and fixed seeds.
@@ -116,7 +116,7 @@ For a UE moving at roughly constant speed, the pair $(\dot r, \dot\theta)$ const
 | Purpose | Isolate the mechanism under clean, repeatable conditions | Stress it under realistic scale, hardware mix, and unseen users |
 | Grid | $15\times15 = 225$ cells, $2\,\text{m}$ spacing | $25\times25 = 625$ cells, $4\,\text{m}$ spacing, $\approx 100\,\text{m}\times100\,\text{m}$ |
 | Task | Classification (exact cell) | Spherical regression → Cartesian MAE |
-| Population | 5 device profiles, 450,005 samples | 300 users, random-walk trajectories |
+| Population | 5 device profiles, 450,005 samples | 300 users, four mobility patterns, mixed speeds |
 | Split | Chronological 80/20 **per user** | 80/20 over **disjoint user IDs** (zero-shot users) |
 | Carrier | $3.5\,\text{GHz}$ | $3.0\,\text{GHz}$ Sub-6 |
 | BS geometry | Center BS $[19,19,10]$ and NE BS $[48,48,10]$ | Serving BS $[116,116,10]$; interferers $[-60,53,10]$, $[53,-60,10]$ |
@@ -139,14 +139,42 @@ The service area is partitioned into **four Voronoi propagation zones**, each as
 
 Zone boundaries are generated at simulation time from a fixed seed.
 
+**What "interference" means here.** Campaign B's 300 users are generated in shared QuaDRiGa layouts of 25 users each, with three transmitters per layout: the serving BS and the two interfering sites. SINR is computed as
+
+$$\text{SINR} = \frac{P_{\text{serving}}}{P_{\text{IBS-1}} + P_{\text{IBS-2}} + P_{\text{noise}}}, \qquad P_{\text{noise}} = -104\,\text{dBm}$$
+
+so interference comes **only from the two interfering base stations**. No user-to-user coupling is modelled: co-scheduled UEs in the same layout do not interfere with one another, and a user's SINR is unchanged by how many other users share its layout. Batching users into shared layouts is a simulation-efficiency measure that also lets users in a batch share large-scale parameter maps; it is not a multi-user interference model. Uplink multi-user interference, pilot contamination, and scheduling effects are all out of scope.
+
 ![Figure 1: Macro-cell spatial environment](../figures/environment_spatial_layout.png)
 *Figure 1 — Campaign B deployment layout: $100\,\text{m}\times100\,\text{m}$ service area, serving BS at $[116,116,10]\,\text{m}$ (north-east, off-grid), two pushed south-west interferers, and the four Voronoi propagation zones.*
 
 ### 4.3 Mobility model
 
-UE trajectories are constrained random walks on the 8-connected grid adjacency graph, starting at the grid centre, at $1.5\,\text{m/s}$. Step duration is $\text{spacing}/v$ ($1.33\,\text{s}$ for a cardinal $2\,\text{m}$ step, $\times\sqrt2$ diagonally). Each user draws a distinct walk seed, which separates device effects from trajectory randomness. Position jitter of $\pm0.1\,\text{m}$ per snapshot prevents the estimator from latching onto exactly-aligned coordinates.
+The two campaigns use **different mobility models**, and the distinction governs how the history results must be read.
 
-The random walk is deliberately adversarial for history: it has no persistent heading. §5.1 shows this is what caps the useful window at $\approx 2.5\,\text{s}$.
+**Campaign A** uses constrained random walks on the 8-connected grid adjacency graph, starting at the grid centre, at $1.5\,\text{m/s}$. Step duration is $\text{spacing}/v$ ($1.33\,\text{s}$ for a cardinal $2\,\text{m}$ step, $\times\sqrt2$ diagonally). This walk carries no persistent heading.
+
+**Campaign B is not a random walk.** Each of the 300 users draws one of four trajectory patterns and one of four speed classes (`runners/run_multi_user_300_25x25.m`, `lib/generate_diverse_trajectories.m`):
+
+| Pattern | Share | Character |
+| :--- | :---: | :--- |
+| Billiards | 35% | straight-line street navigation with boundary bounces |
+| Momentum walk | 35% | random walk with 70% probability of continuing straight |
+| Waypoint tour | 20% | directed transit between five sampled waypoints |
+| Straight transit | 10% | arterial crossing, entering and leaving at the boundary |
+
+| Speed class | Share | Range |
+| :--- | :---: | :--- |
+| Pedestrian | 40% | $1.0$–$1.5\,\text{m/s}$ |
+| Jogger | 25% | $2.5$–$4.5\,\text{m/s}$ |
+| Vehicle | 25% | $8.0$–$15.0\,\text{m/s}$ |
+| Static | 10% | $0.1$–$0.5\,\text{m/s}$ |
+
+**All four patterns carry heading persistence**, and two of them — billiards and straight transit — are strongly persistent. Campaign B is therefore *favourable* to transition history rather than adversarial to it, which is the opposite of what a "random walk" description would imply.
+
+A direct consequence, easy to miss: because step duration is $\text{spacing}/v$ and speed spans two orders of magnitude across the population, **a fixed history depth is not a fixed time window.** Measured over the 232 users retained after cohort downsampling, per-user $\Delta t$ ranges from $0.27\,\text{s}$ to $32.5\,\text{s}$ (median $2.71\,\text{s}$), so an $h=5$ window covers $1.3\,\text{s}$ for the fastest vehicle and $162\,\text{s}$ for the slowest static user, with a median of $13.5\,\text{s}$. Statements of the form "$h=5 \approx 2.5\,\text{s}$" hold for one speed class only and are avoided throughout this report.
+
+Position jitter of $\pm0.1\,\text{m}$ per snapshot prevents the estimator from latching onto exactly-aligned coordinates.
 
 ### 4.4 Device heterogeneity and the AoA impairment model
 
@@ -214,12 +242,12 @@ Three observations:
 
 1. **The largest marginal gain is the first step.** $h=0\!\to\!1$ contributes $-1.562\,\text{m}$, $44\%$ of the total achievable reduction, from a single extra frame. This is exactly the transition at which velocity becomes computable, and it is the strongest direct evidence for the mechanism as stated in §3.3.
 2. **Middle depths refine rather than transform.** $h=1\!\to\!5$ adds a further $-2.024\,\text{m}$; the temporal convolution is now averaging over Rayleigh fast-fading nulls and angular estimation noise as well as reading velocity.
-3. **The curve turns.** At $h=10$ error *increases* by $+0.955\,\text{m}$. For a $1.5\,\text{m/s}$ random walk, headings decorrelate after $3$–$4\,\text{s}$, so a $5\,\text{s}$ window feeds the model stale directional evidence and additional parameters to overfit. Notably P90 continues to fall slightly ($37.472\,\text{m}$), i.e. long windows still help the hardest samples while hurting typical ones — consistent with a smoothing/staleness trade-off rather than a pure capacity artifact.
+3. **The curve turns — for this model.** At $h=10$ the 1D-CNN's error *increases* by $+0.955\,\text{m}$. P90 continues to fall slightly ($37.472\,\text{m}$), i.e. long windows still help the hardest samples while hurting typical ones — a smoothing-versus-staleness trade-off rather than a pure capacity artifact.
 
-**$h=5$ ($\approx2.5\,\text{s}$) is the empirical sweet spot** and is fixed for all cross-model comparisons that follow.
+**The turn is not universal, and §5.4 shows it is a property of the estimator rather than of the data.** $h=5$ is nonetheless fixed for all cross-model comparisons that follow, because it is the depth at which the master benchmark was run.
 
 ![Figure 2: Universal ΔMAE curves across model families](../figures/universal_delta_mae_history_curves.png)
-*Figure 2 — The universality result. $\Delta\text{MAE}$ vs. history depth for four algorithmic paradigms (1D-CNN, XGBoost, Random Forest, GRU). Left: absolute 2D error in metres. Right: normalized improvement against each model's own $h=0$ baseline. Every family improves; the $h=5$ optimum is shared.*
+*Figure 2 — The universality result. $\Delta\text{MAE}$ vs. history depth for four algorithmic paradigms (1D-CNN, XGBoost, Random Forest, GRU). Left: absolute 2D error in metres. Right: normalized improvement against each model's own $h=0$ baseline. Every family improves at every depth. The **location** of each family's optimum differs, however — see §5.4.*
 
 ### 5.2 Feature-set ablation: physical inductive bias
 
@@ -242,6 +270,36 @@ Campaign A confirms the same effect in a different task formulation and a differ
 | AoA gain (`BASE_H3`→`BASE_A_H3`) | $+31.4$ pp | $+2.3$ pp |
 
 **AoA's value is geometry-dependent and collapses by an order of magnitude** when the BS sits at a corner and all grid points fall inside a $52^\circ$ wedge. **History's value does not** — it is slightly *larger* in the harder geometry. This is the strongest available argument that history is a mechanism rather than a configuration-specific trick: it survives the deployment change that destroys the competing information source.
+
+### 5.4 Where the optimum sits, and why it moves
+
+Running the sweep across estimator families shows that history helps everywhere, but the depth at which the benefit saturates is not shared. Two independent sweeps from July (7 raw channels) and a fresh sweep (13 derived channels) agree:
+
+| Estimator | Channels | $h=0$ | $h=5$ | $h=10$ | Behaviour at $h=10$ |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| 1D-CNN | 13 | 22.846 m | **19.260 m** | 20.215 m | **turns** ($+0.955$ m) |
+| $k$-NN | 13 | 27.440 m | **23.983 m** | 24.485 m | **turns** ($+0.502$ m) |
+| XGBoost | 13 | 22.349 m | 19.434 m | **19.027 m** | still improving |
+| XGBoost (Jul) | 5 raw | 28.325 m | 25.404 m | **25.002 m** | still improving |
+| Random Forest (Jul) | 5 raw | 27.704 m | 25.945 m | **25.880 m** | still improving |
+
+**Fixed-window estimators turn; tree ensembles do not.** The explanation is architectural rather than physical. A tree ensemble performs implicit feature selection: a lag that carries no signal is simply never split on, so an over-long window costs nothing but training time. A 1D convolution consumes every position in its receptive field, and $k$-NN measures distance over the whole concatenated vector — for both, an uninformative lag actively injects noise into the representation.
+
+This matters for how the contribution is stated. The *mechanism* claim — history reduces error in every family — is supported without qualification. A claim that "$h=5$ is the universal optimum" is not supported, and the honest version is: **the useful window is bounded for fixed-window estimators and effectively unbounded (over the range tested) for estimators that can ignore inputs.**
+
+### 5.5 Does the gain survive per-depth hyperparameter re-tuning?
+
+Earlier runs contained configurations where added history made tree ensembles worse, raising the concern that the history gain is confounded with capacity: enlarging the input space without re-fitting capacity and regularization is not a controlled comparison. We tested this directly on XGBoost with Optuna (TPE, 20 trials per depth). Tuning used training users only, split further into sub-train and validation by user id; test users were touched exactly once, for the final evaluation.
+
+| $h$ | Fixed defaults | Per-depth tuned | Gain, defaults | Gain, tuned |
+| :---: | :---: | :---: | :---: | :---: |
+| 0 | 22.349 m | 21.906 m | — | — |
+| 1 | 21.117 m | 21.199 m | $+5.51\%$ | $+3.23\%$ |
+| 3 | 19.801 m | 19.657 m | $+11.40\%$ | $+10.27\%$ |
+| 5 | 19.434 m | 19.072 m | $+13.04\%$ | $+12.94\%$ |
+| 10 | **19.027 m** | **18.968 m** | $+14.87\%$ | $+13.41\%$ |
+
+**The confound does not materialise.** History helps monotonically under both regimes, and per-depth tuning buys at most $0.44\,\text{m}$ — at $h=1$ it is slightly negative, which is tuning noise (the tuned configuration won on validation users and lost on test users). The history gain is therefore not a capacity artifact, and no "provided the model is re-tuned" qualifier is needed for this campaign.
 
 ---
 
@@ -325,10 +383,10 @@ An automated audit over all unseen test users:
 Two further audits confirm the data is sound:
 
 * **Voronoi boundary crossings.** Within-cell $19.34\,\text{m}$ vs. crossing $18.33\,\text{m}$ — crossings are, if anything, marginally *easier*. QuaDRiGa spatial consistency prevents transient discontinuities, so scenario changes are not corrupting the sequences.
-* **Sharp direction reversals.** Straight ($<30^\circ$ turn) $18.74\,\text{m}$; moderate ($30$–$90^\circ$) $20.14\,\text{m}$; sharp ($\ge90^\circ$) $22.02\,\text{m}$, a $+3.29\,\text{m}$ penalty. This is a *predicted* consequence of the mechanism, not a defect: a reversal invalidates the heading evidence in the window, so a history-based estimator must briefly lag. Attention layers and RTS smoothing partially compensate.
+* **Sharp direction reversals.** Straight ($<30^\circ$ turn) $18.74\,\text{m}$; moderate ($30$–$90^\circ$) $20.14\,\text{m}$; sharp ($\ge90^\circ$) $22.02\,\text{m}$, a $+3.29\,\text{m}$ penalty. This is a *predicted* consequence of the mechanism, not a defect: a reversal invalidates the heading evidence in the window, so a history-based estimator must briefly lag. (An earlier draft of this section claimed attention layers and RTS smoothing partially compensate. Neither claim is supported by the recorded results — see §7.7 for what the smoother actually does — and both are withdrawn.)
 
 ![Figure 5: Best-case trajectory](../figures/diagnostic_BEST_user_119_ant2.png)
-*Figure 5 — User 119 (2-antenna, $10.42\,\text{m}$ MAE). Left: ground truth (black), 1D-CNN prediction (blue), RTS-smoothed path (green) in tight agreement. Right: per-step error and model uncertainty, stable at $\approx10\,\text{m}$.*
+*Figure 5 — User 119 (2-antenna, $10.42\,\text{m}$ MAE). Left: ground truth (black), 1D-CNN prediction (blue), and the RTS-smoothed path (green) produced with the notebook's default filter settings. Right: per-step error and model uncertainty, stable at $\approx10\,\text{m}$. Note that the smoothed track is shown for continuity with the source notebooks; at these settings smoothing *increases* population MAE (§7.7).*
 
 ![Figure 6: Worst-case trajectory](../figures/diagnostic_WORST_user_250_ant1.png)
 *Figure 6 — User 250 (1-antenna, $33.50\,\text{m}$ MAE). Range is tracked correctly; predictions smear along the arc. The failure is geometric, not statistical.*
@@ -385,6 +443,25 @@ Error grows with range as angular uncertainty translates into linear uncertainty
 
 Both cohorts improve. The single-antenna gain is the intended effect — with the false anchor removed the network optimizes range purely from path-loss gradients. The multi-antenna gain is a side effect worth naming: **cross-cohort gradient protection**, i.e. corrupted single-antenna gradients were degrading the shared kernels that multi-antenna devices also use. The cost is one extra input channel and $0.2\,\text{K}$ parameters.
 
+### 7.7 Kinematic post-processing: the smoother was mis-tuned
+
+The master benchmark records a forward Kalman filter and RTS smoother applied to every model's predictions, and reports the smoothed track as *worse* than the raw one in every case — by $5.6\%$ for $k$-NN and by $37$–$48\%$ for the trained models. Taken at face value that would say kinematic post-processing is useless here.
+
+It is a tuning artifact. The notebooks apply the smoother with `process_noise_std = 0.5` m/√s and `R_std = 15.0` m. A process noise of $0.5$ encodes near-constant-velocity motion; the Campaign B population includes vehicles at $15\,\text{m/s}$, boundary bounces, and waypoint turns, all of which violate that assumption at every step. The filter consequently trusts a wrong motion model over the measurements and over-smooths. Sweeping the process noise on $k$-NN $h=5$ predictions:
+
+| $Q$ (process noise std) | best $R$ | RTS MAE | vs. raw $23.983\,\text{m}$ |
+| :---: | :---: | :---: | :---: |
+| 0.5 (notebook default) | 5.0 | 27.642 m | $-15.25\%$ |
+| 2.0 | 5.0 | 25.942 m | $-8.17\%$ |
+| 8.0 | 5.0 | 22.893 m | $+4.54\%$ |
+| 16.0 | 5.0 | 21.610 m | $+9.89\%$ |
+| 32.0 | 5.0 | 21.264 m | $+11.34\%$ |
+| 64.0 | 10.0 | **21.260 m** | **$+11.35\%$** |
+
+The curve is monotone, crosses zero near $Q \approx 8$, and plateaus around $Q \approx 32$. Re-tuned, smoothing turns a $15\%$ degradation into an $11\%$ improvement.
+
+Two caveats before this is relied upon. The sweep above was run on $k$-NN predictions; a sweep across all model families is in progress and its outcome governs whether this generalises. And a third picture exists in the record: the July XGBoost and Random Forest sweeps report RTS *helping* slightly ($+3.6\%$ down to $+2.2\%$) at the default settings, which is consistent with neither the master benchmark nor the sweep above. Until that discrepancy is resolved, **no smoothing result should enter the paper**, and the headline numbers in this report are all raw, unsmoothed predictions.
+
 ---
 
 ## 8. Discussion
@@ -393,9 +470,9 @@ Both cohorts improve. The single-antenna gain is the intended effect — with th
 
 **What the evidence does not support.** We do not claim state-of-the-art absolute accuracy; $14.58\,\text{m}$ for multi-antenna devices at $100\,\text{m}$ range is respectable for single-BS operation but is not competitive with multi-BS or UWB systems. We also do not claim the gain is unbounded in $h$ — it demonstrably is not.
 
-**The non-monotonicity is a feature of the claim, not a caveat to it.** Because the optimum is set by heading decorrelation time, the mechanism carries a testable prediction: for mobility models with more persistent headings (vehicles, corridor walking, sidewalks) the optimal $h$ should shift *later* and the peak gain should be *larger*, since the random walk used here is close to the worst case for temporal evidence. This is the single most valuable follow-up experiment.
+**The non-monotonicity belongs to the estimator, not to the physics.** §5.4 shows the turn at $h=10$ appears for the 1D-CNN and $k$-NN and not for tree ensembles, on the same data. An account resting on heading decorrelation alone cannot explain that split, since all families see identical trajectories. The architectural account — fixed-window consumers cannot ignore a stale lag, tree ensembles can — does explain it, and it predicts that any estimator with implicit feature selection should keep improving with depth until the feature count itself becomes the binding constraint.
 
-**An open anomaly.** Earlier (August) tree-ensemble runs showed configurations where added history *degraded* XGBoost and Random Forest. The working explanation is hyperparameter interaction — the XGBoost defaults were already near-optimal for the snapshot feature set, so history expanded the feature space without a matching capacity/regularization adjustment. The Random Forest row in §6 ($20.884\,\text{m}$, worst single-antenna error in the table) is consistent with this. A universality claim must confront this directly: the honest form of the claim is that history helps **when the estimator's capacity and regularization are re-fit to the enlarged input space**, and a per-model hyperparameter re-tune at each $h$ is required before the paper can state it cleanly.
+**On the tree-ensemble anomaly.** Earlier runs contained configurations where added history degraded XGBoost and Random Forest, which raised the possibility that the history gain was confounded with model capacity. §5.5 tested this directly and **the anomaly does not reproduce on Campaign B**: history helps XGBoost monotonically whether or not each depth gets its own hyperparameters, and re-tuning is worth at most $0.44\,\text{m}$. The degradation documented in the tuned 25×25 regression study (`technical_documentation.md` §7.4, where Random Forest `BASE` at $9.664\,\text{m}$ beats `BASE_H3` at $11.732\,\text{m}$) is therefore specific to Random Forest under that task formulation, not a general property of tree ensembles, and the report's own explanation there — static features are physically unique per coordinate, so splitting on lags fragments the sample without adding information — remains the best account. The Random Forest row in §6 ($20.884\,\text{m}$, and the worst single-antenna error in the table) is consistent with the same weakness.
 
 **Deployment guidance.** From Campaign A's placement study plus Campaign B's cost/accuracy profile:
 
@@ -412,8 +489,8 @@ Both cohorts improve. The single-antenna gain is the intended effect — with th
 ## 9. Limitations and Threats to Validity
 
 1. **Simulation only.** All results are QuaDRiGa TR 38.901. Spatial consistency — the precondition for the entire mechanism — is a model property here; real channels exhibit it but with additional non-stationarity, hardware impairments, and calibration drift. Field validation is not yet performed.
-2. **Random-walk mobility.** The mobility model has no heading persistence, which almost certainly *understates* the achievable gain and sets the $h=5$ optimum artificially early. Realistic mobility traces are needed.
-3. **Hyperparameters not re-tuned per $h$.** Held fixed by design (to isolate the input change), but this confounds capacity with input dimensionality and is the likely source of the tree-ensemble anomaly in §8.
+2. **Synthetic mobility.** Campaign B's four patterns (§4.3) are heading-persistent and speed-diverse, so unlike Campaign A they are not adversarial to history — but they are still generated on an 8-connected grid graph, not drawn from measured traces. Real mobility has road geometry, stop-and-go dynamics, and dwell behaviour that none of the four patterns reproduce.
+3. **A fixed $h$ is not a fixed time window.** Because speed varies by two orders of magnitude and step duration is $\text{spacing}/v$, the $h=5$ window spans $1.3\,\text{s}$ to $162\,\text{s}$ across users (§4.3). Every history result is therefore an average over widely different temporal horizons, and per-speed-class sweeps would be needed to separate "how many samples" from "how much elapsed time". This is the most significant unexamined confound in the study.
 4. **Cohort mix is assumed, not measured.** The $85/15$ split is a 3GPP-representative assumption; results are sensitive to it, which is exactly why §7.1 reports the components separately.
 5. **Two campaigns differ in more than scale.** Carrier frequency, grid spacing, task formulation, and split protocol all differ between A and B, so cross-campaign numbers are not directly comparable — only within-campaign $\Delta$'s are.
 6. **Single interference geometry per campaign.** SINR informativeness depends on interferer placement; only one configuration per campaign was swept.
@@ -429,11 +506,11 @@ The same lens explains the population's error structure. Devices that can observ
 
 **Priority follow-ups, in order:**
 
-1. **Per-$h$ hyperparameter re-tuning** for the tree ensembles, to close the §8 anomaly and let the universality claim be stated without qualification.
-2. **Heading-persistent mobility** (sidewalk / corridor / vehicular traces) to test the prediction that optimal $h$ shifts later and peak gain increases.
+1. **Disentangle history depth from elapsed time.** Sweep $h$ *within* each speed class, so that "six samples" and "thirteen seconds" stop being confounded (§9.3). This is now the highest-value experiment, because every history number in the report is currently averaged over a $1.3$–$162\,\text{s}$ spread of temporal horizons.
+2. **Resolve the smoothing discrepancy** (§7.7) across all model families, then either adopt re-tuned kinematic post-processing or report it as a clean negative result. Three inconsistent pictures currently exist in the record.
 3. **A targeted LOS→blocked→LOS scenario**: a UE walking a straight sidewalk past a blocking building. This isolates the case where history should be decisive — the estimator can localize the blocked interval using evidence from $t\pm k$. It also connects naturally to non-causal (smoothed) operation, which is legitimate for many use cases.
 4. **Seed-repeated runs with confidence intervals** on all reported deltas.
-5. **Extend the $\Delta\text{MAE}$ sweep to every model family**, not only the four in Figure 2, so that the universality figure covers the full scorecard.
+5. **Extend the depth sweep past $h=10$ for tree ensembles**, which had not saturated at the deepest window tested (§5.4) — the true optimum for that family is still unknown.
 6. **Field or measured-trace validation.**
 
 ---
