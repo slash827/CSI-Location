@@ -1,27 +1,34 @@
 # 5G NR CSI Localization: Handover Knowledge Base & Project Synthesis
 
-> **Status:** Current & Validated  
+> **Status:** Current, Validated & Fully Committed (`git commit: 11296cd`)  
 > **Last Updated:** September 2026  
 > **Workspace Root:** `experiments/09_grid_localization/`  
 > **Primary References:**  
 > - Detailed Technical Document: [`docs/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md)  
-> - Presentation Slides: [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md)  
-> - Discussion Notes with Alon Levin: [`data/meeting_20_08_26.txt`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/data/meeting_20_08_26.txt)
+> - High-Level Research Overview: [`docs/Project_documentation/research_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/research_documentation.md)  
+> - Presentation Slide Deck: [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md)  
+> - Discussion Transcript with Alon Levin: [`data/meeting_20_08_26.txt`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/data/meeting_20_08_26.txt)
 
 ---
 
 ## 1. Executive Summary & Research Positioning
 
 ### 1.1 The Core Scientific Question
-Can transition history ($h$) and physical inductive biases resolve the fundamental **distance-ring ambiguity** inherent to single-Base Station (BS) cellular localization without private UE-side telemetry (GPS or internal IMUs)?
+Can temporal transition history ($h$) and physical inductive biases resolve the fundamental **distance-ring ambiguity** inherent to single-Base Station (BS) cellular localization without private UE-side telemetry (GPS or internal IMUs)?
 
 ### 1.2 Research Positioning (Aligned with Alon Levin's Guidance)
-As agreed in our team discussion with Alon, **the project is NOT positioned as "we built a single better model"** (which is vulnerable to trivial model-to-model competition). 
+In our research discussion with Alon Levin on August 20, 2026, we established the strategic framing for this project:
 
-Instead, **the project is positioned as a generalizable physical-kinematic mechanism**:
-1. **Universal $\Delta\text{MAE}$ Gain:** Introducing temporal transition history ($h$) provides a systematic accuracy gain ($\Delta\text{MAE} = -15.7\%$) across *all* model families (Tree Ensembles, RNNs, 1D-CNNs, Attention).
-2. **Distance-Ring Ambiguity Resolution:** In single-BS deployments, static signal strength (RSS/SINR) only defines an iso-power distance ring. Sequential history provides velocity vector constraints ($\mathbf{v} \approx \frac{\Delta\mathbf{r}}{\Delta t}$) that break this symmetry.
-3. **Decoupled Hardware Physics:** Explaining the 2.3x performance gap between multi-antenna smartphones ($14.6\text{m}$ MAE) and single-antenna IoT devices ($34.5\text{m}$ MAE) as a fundamental physical limit of single-BS AoA observability, rather than model failure.
+1. **Avoid the "Single Best Model" Pitfall:**
+   - *Alon's Advice:* *"Are we positioning it as: we are introducing a method to improve the accuracy of any such model… or are we looking at: we are making the best model? If you claim you have the best model, someone can say 'everybody creates a new model every day'. Whereas if you just suggest an improvement to the mechanism… you don't need to show you have the best results, just that you're improving the results for every single model."*
+   - *Our Position:* We frame transition history ($h$) as a **universal physical-kinematic mechanism**. Adding sequential history breaks the distance-ring symmetry and systematically reduces positioning error ($\Delta\text{MAE} = -15.7\%$) across **all** explored model families (Tree Ensembles, RNNs, 1D-CNNs, Transformers).
+
+2. **Decouple Hardware Cohort Physics ($N \ge 2$ vs. $N=1$):**
+   - *Alon's Advice:* *"The single antenna case is an outlier precisely because it has no AoA information available whatsoever… Instead of doing aggregate results across all these devices, do a per-device class statistical summary and plot them against each other… The one antenna case is completely off the charts, and then you explain it because it's missing AoA."*
+   - *Our Position:* We show that modern multi-antenna smartphones ($85\%$ of traffic) achieve **`14.58 m` MAE / `12.31 m` Median** ($3.5^\circ$ angle error). Single-antenna IoT devices ($15\%$ mix) have zero AoA observability, suffering radial distance smearing ($34.5\text{m}$ MAE) that inflates the aggregate mean to $19.3\text{m}$.
+
+3. **Distill Insights into Clean Figures:**
+   - Rather than dense text dumps, we summarize the research through two publication-grade dual-panel figures: universal $\Delta\text{MAE}$ curves across all models and per-antenna cohort CDFs.
 
 ---
 
@@ -42,17 +49,19 @@ Instead, **the project is positioned as a generalizable physical-kinematic mecha
 
 ---
 
-## 3. Key Empirical Findings & Benchmarks
+## 3. Key Empirical Findings & Master Benchmark
 
 ### 3.1 History Depth Sweep & $\Delta\text{MAE}$ Analysis ($h \in [0, 10]$)
 Adding sequence history systematically reduces positioning error:
 * **$h = 0$ (Snapshot Baseline):** `22.846 m` MAE (P50: `20.170 m`, P90: `41.488 m`)
-* **$h = 1$:** `21.284 m` MAE ($\Delta\text{MAE} = \mathbf{-1.562 m}$, **$+6.8\%$ gain** — computes velocity vector $\mathbf{v}$)
+* **$h = 1$:** `21.284 m` MAE ($\Delta\text{MAE} = \mathbf{-1.562 m}$, **$+6.8\%$ gain** — computes instantaneous velocity $\mathbf{v}$)
 * **$h = 3$:** `20.026 m` MAE ($\Delta\text{MAE} = \mathbf{-1.258 m}$, **$+12.3\%$ cumulative gain**)
 * **$h = 5$:** `19.260 m` MAE ($\Delta\text{MAE} = \mathbf{-0.766 m}$, **$+15.7\%$ cumulative gain**) $\to$ **Empirical Sweet Spot** ($\approx 2.5\text{s}$)
 * **$h = 10$:** `20.215 m` MAE ($\Delta\text{MAE} = +0.955 m$ — decorrelation/overfitting as random-walk headings decorrelate after $3\text{–}4\text{s}$).
 
 ### 3.2 Master Cross-Model Benchmark Scorecard (Apples-to-Apples at $h=5$)
+
+*Evaluated on identical 300-user unseen test splits ($100\text{m} \times 100\text{m}$ grid, 15% single-antenna mix, Seed=42)*:
 
 | Model Architecture | History | Params | Train Time | Overall 2D MAE | Median P50 | Multi-Ant MAE (85%) | Single-Ant MAE (15%) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -100,15 +109,10 @@ Adding sequence history systematically reduces positioning error:
 
 ---
 
-## 5. Next Steps Completed & Validated (Aligned with Alon Levin)
+## 5. Recommended Next Steps for the New Chat
 
-1. [x] **Plot Unified $\Delta\text{MAE}$ Curves Across All Models:**
-   - Generated [`docs/figures/universal_delta_mae_history_curves.png`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/universal_delta_mae_history_curves.png) using [`src/python/plotting/plot_unified_delta_mae.py`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/src/python/plotting/plot_unified_delta_mae.py).
-   - Demonstrates systematic downward error curves across 1D-CNN, XGBoost, Random Forest, and GRU, confirming the universal physical-kinematic gain mechanism and empirical sweet spot at $h=5$ ($\sim 2.5\text{s}$).
-2. [x] **Per-Device Antenna Cumulative Distribution Function (CDF):**
-   - Generated [`docs/figures/antenna_cohort_error_cdf.png`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/antenna_cohort_error_cdf.png) using [`src/python/plotting/plot_antenna_cohort_cdf.py`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/src/python/plotting/plot_antenna_cohort_cdf.py).
-   - Demonstrates that smartphones hit $<10\text{m}$ in $>34\%$ of steps and $<15\text{m}$ in $60\%$ of steps (median $\approx 13.4\text{m}$), whereas single-antenna IoT devices are constrained to $30.6\text{m}$ median error due to missing AoA.
-3. [x] **Synchronize High-Level Documents:**
-   - Updated [`docs/Project_documentation/research_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/research_documentation.md) with complete 3-Act narrative, Sections 8, 9, 10, and figures.
-   - Updated [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md) with slides matching the unified narrative, master benchmark scorecard table, and figure embeds.
-
+1. **Review and Rehearse Presentation Slides:**
+   - Walk through [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md).
+   - Ensure the narrative transitions cleanly across the 3 acts: (1) Single-BS Distance-Ring Ambiguity, (2) Universal $\Delta\text{MAE}$ gain via History, (3) Hardware Cohort Discontinuity and AoA Masking.
+2. **Draft the Final Project Report / Paper Sections:**
+   - Use [`docs/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md) (Sections 8 and 9) as the source of truth for the methodology and empirical evaluation chapters.
