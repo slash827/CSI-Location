@@ -490,41 +490,43 @@ The remainder of this section records the pre-fix investigation. Its
 population spanning $0.1$ to $15\,\text{m/s}$ — is unaffected by the defect and is
 being re-tested directly, alongside a per-user $q_u \propto v_u$ variant.
 
-#### Pre-fix investigation (superseded)
+#### Corrected results
 
-The master benchmark records a forward Kalman filter and RTS smoother applied to every model's predictions, and reports the smoothed track as *worse* than the raw one in every case — by $5.6\%$ for $k$-NN and by $37$–$48\%$ for the trained models. Taken at face value that would say kinematic post-processing is useless here.
+With the time base repaired, the smoother behaves as kinematic post-processing should. Re-running all six families at $h=5$ (10 process-noise values $	imes$ 6 measurement-noise values each):
 
-It is a tuning artifact. The notebooks apply the smoother with `process_noise_std = 0.5` m/√s and `R_std = 15.0` m. A process noise of $0.5$ encodes near-constant-velocity motion; the Campaign B population includes vehicles at $15\,\text{m/s}$, boundary bounces, and waypoint turns, all of which violate that assumption at every step. The filter consequently trusts a wrong motion model over the measurements and over-smooths. Sweeping the process noise on $k$-NN $h=5$ predictions:
+| Model | Raw MAE | RTS at notebook default ($Q{=}0.5$, $R{=}15$) | Best RTS found | Best $Q$ |
+| :--- | ---: | ---: | ---: | :---: |
+| $k$-NN | 23.983 m | 21.501 m ($+10.35\%$) | 21.330 m ($+11.06\%$) | 1.0 |
+| Random Forest | 19.417 m | 19.759 m ($-1.77\%$) | 18.933 m ($+2.49\%$) | 4.0 |
+| XGBoost | 19.434 m | 19.366 m ($+0.35\%$) | 18.588 m ($+4.35\%$) | 2.0 |
+| 1D-CNN | 19.076 m | 19.095 m ($-0.10\%$) | 18.380 m ($+3.65\%$) | 4.0 |
+| GRU | 19.258 m | 19.296 m ($-0.20\%$) | 18.543 m ($+3.72\%$) | 2.0 |
+| 1D-CNN + attention | 18.857 m | 18.714 m ($+0.76\%$) | 17.964 m ($+4.74\%$) | 4.0 |
 
-| $Q$ (process noise std) | best $R$ | RTS MAE | vs. raw $23.983\,\text{m}$ |
-| :---: | :---: | :---: | :---: |
-| 0.5 (notebook default) | 5.0 | 27.642 m | $-15.25\%$ |
-| 2.0 | 5.0 | 25.942 m | $-8.17\%$ |
-| 8.0 | 5.0 | 22.893 m | $+4.54\%$ |
-| 16.0 | 5.0 | 21.610 m | $+9.89\%$ |
-| 32.0 | 5.0 | 21.264 m | $+11.34\%$ |
-| 64.0 | 10.0 | **21.260 m** | **$+11.35\%$** |
+Three things change relative to the defective run:
 
-The curve is monotone, crosses zero near $Q \approx 8$, and plateaus around $Q \approx 32$.
+1. **The default settings are roughly neutral, not catastrophic.** They range from $-1.8\%$ to $+10.4\%$ rather than $-28\%$ to $-48\%$. The published $-44\%$ figures were measuring the broken time base, nothing else.
+2. **The optimum moved from $Q pprox 128$ to $Q pprox 1$–$4$.** With a correct $dt$ the filter needs only modest process noise; the enormous $Q$ the defective run preferred was compensating for a state transition that assumed $0.01\,	ext{s}$ had elapsed.
+3. **The gain now shrinks as the estimator improves** — $+11\%$ for $k$-NN at $23.98\,	ext{m}$ down to $+3.7\%$ for the GRU at $19.26\,	ext{m}$ — which is the expected behaviour of a smoother and matches what the July sweeps recorded ($+3.6\%$ decaying to $-0.1\%$). All three pictures in the record are now consistent.
 
-Repeating the sweep across all six estimator families (each trained at $h=5$ under the Campaign B protocol, $10$ process-noise values $\times$ $6$ measurement-noise values) gives the same picture every time:
+Properly configured, kinematic post-processing is worth **$2.5\%$ to $4.7\%$** on the trained models. That is a real but secondary effect next to the $13$–$15\%$ from transition history, and it is complementary: history operates inside the estimator, smoothing outside it.
 
-| Model | Raw MAE | RTS at notebook default ($Q{=}0.5$, $R{=}15$) | Best RTS found |
+#### A single global process noise is the wrong model
+
+The population spans $0.12$ to $14.89\,	ext{m/s}$ (§4.3), yet $Q$ is applied globally. The same $q$ is simultaneously too tight to track a manoeuvring vehicle and too loose for a near-static user. Scaling process noise by each user's own speed, $q_u = k \cdot v_u$, beats the best global setting for every model tested:
+
+| Model | Best global $Q$ | Best per-user $q_u = k v_u$ | Gain from going per-user |
 | :--- | ---: | ---: | ---: |
-| $k$-NN | 23.983 m | 28.788 m ($-20.03\%$) | 21.260 m ($+11.35\%$) |
-| Random Forest | 19.417 m | 27.826 m ($-43.31\%$) | 18.851 m ($+2.91\%$) |
-| XGBoost | 19.434 m | 27.809 m ($-43.10\%$) | 18.480 m ($+4.91\%$) |
-| 1D-CNN | 19.213 m | 27.692 m ($-44.13\%$) | 18.414 m ($+4.16\%$) |
-| GRU | 19.209 m | 27.763 m ($-44.53\%$) | 18.286 m ($+4.80\%$) |
-| 1D-CNN + attention | 18.813 m | 27.490 m ($-46.12\%$) | 17.979 m ($+4.43\%$) |
+| $k$-NN | $+11.06\%$ ($Q{=}1$) | $+13.52\%$ ($k{=}0.3$) | $+2.5$ pp |
+| Random Forest | $+2.46\%$ ($Q{=}4$) | $+3.20\%$ ($k{=}0.5$) | $+0.7$ pp |
+| XGBoost | $+4.35\%$ ($Q{=}2$) | $+5.66\%$ ($k{=}0.3$–$0.5$) | $+1.3$ pp |
 
-**All six recover.** Every family follows the same trajectory as $Q$ rises — strongly negative at $Q \le 4$, crossing zero at $Q \approx 8$, flat from $Q \approx 16$ onward. The apparent "best" at $Q{=}128$ is noise on that plateau, not a located optimum. The benefit is modest for the trained models ($+2.9\%$ to $+4.9\%$) and large for $k$-NN ($+11.4\%$), which is expected: a smoother has more to remove from a noisier estimator.
+Both grids were extended until the optima were interior rather than at a boundary, so these are located optima and not grid-edge artifacts. The change is small and physically motivated — the filter's assumed manoeuvre magnitude should scale with how fast the target actually moves — and it is free at inference time, since $v_u$ is already estimated by the model's own speed head.
 
-The reported degradation is therefore **entirely an artifact of one filter setting**, not evidence about kinematic post-processing.
+It also reinforces the report's central theme from a second direction: population *heterogeneity* is what must be modelled explicitly, whether the axis is antenna count (§7.1, §7.6) or speed. A single global constant is the wrong object in both cases.
 
-A caveat on interpretation, and a hypothesis worth testing before this is written up as a tuning fix. A constant-velocity filter with a *single* global $Q$ is being applied to a population spanning $0.1$ to $15\,\text{m/s}$ (§4.3). The same $q$ that is far too tight to track a manoeuvring vehicle is far too loose for a static user, so the value the sweep lands on is a compromise that fits neither end well. The physically-motivated alternative is to scale process noise per user, $q_u \propto v_u$, which would make the filter's assumed manoeuvre magnitude match each user's actual dynamics.
+**Caveat.** These are oracle settings: $Q$, $R$ and $k$ were selected on the same test users they are evaluated on. The comparison between global and per-user is fair — both were tuned identically — but the absolute gains are optimistic and a deployed system would need the constants fixed in advance or fitted on training users.
 
-One discrepancy remains unexplained. The July XGBoost and Random Forest sweeps report RTS *helping* slightly ($+3.6\%$ falling to $-0.1\%$ as the model improves) at exactly these default settings, on the same mobility model and with the same filter function. Their targets were 3D and their models substantially weaker (raw MAE $25$–$28\,\text{m}$), which plausibly explains a smaller effect but not a sign flip of this size. Until it is understood, **no smoothing result should enter the paper**; every headline number in this report is a raw, unsmoothed prediction.
 
 ---
 
