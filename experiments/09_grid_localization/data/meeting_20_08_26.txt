@@ -1,0 +1,190 @@
+‏rkb-uaew-ywc (2026-08-20 19:01 GMT+3) – ‏Transcript
+Attendees
+Alon Levin, גלעד בטאט
+Transcript
+Alon Levin: Yep. Uh-huh. Mhm.
+גלעד בטאט: Okay.
+גלעד בטאט: Let's see. So, I did the ablation test. I also have it. I'm trying to make the result visualize them.
+גלעד בטאט: Because I have a few plots that I created. it is a lot of data to read.
+Alon Levin: No. Yep.
+גלעד בטאט: One second. I'll go to share it. do you see the code like U? Yep, probably is. Okay.
+גלעד בטאט: So you said about ablation test and can you remind me did you ask for empirical error decomposition or…
+גלעד בטאט: this is something that Gemini suggested …
+Alon Levin: I think…
+Alon Levin: what we're speaking about last time was did we talk about doing the I'm confusing projects at this point we spoke about taking a look at the results I think I had it somewhere as well.
+גלעד בטאט: wait. some of the things you asked for. I can just and view Find it that talk. One second.
+Alon Levin: I don't remember if I left it at the office or not. And I'm working from home today.
+גלעד בטאט: Okay, so last time we talked about checking the delta of the MAE per history addition to see if adding history even helps. I think that in general it does.
+גלעד בטאט: I mean even if I did not calculate the delta you can see that there's a rising you can see the numbers of the rising or decreasing. so you said about checking for the existence of bad data.
+Alon Levin: That's one.
+Alon Levin: Yes. Yes. Mhm.
+גלעד בטאט: And remind me about the ablation tests previously. Let's see this one second. History. so, we have this one. Gemini suggested quite a lot of experiments to run. let's see one is just a history sweep with the manis transision history resolve the distance ring. I'm not sure what does it mean distance ring ambiguity.
+גלעד בטאט: It means that on same distance from the base station we could have very similar RSS and SR and…
+Alon Levin: You get the idea, Yeah, exactly. that it's essentially not purely…
+Alon Levin: 
+גלעד בטאט: so yeah the history could be okay so it does make sense that it will help okay so this is one of the Okay,…
+Alon Levin: but the direct path is the main cause of the exact this was the CNN or…
+גלעד בטאט: there is indeed a gain from it as you can see. I like how one is seen it.
+Alon Levin: Which? Yeah, this is the one DCN. Okay. is this an analysis of new experiments or…
+גלעד בטאט: Let's see the second ablation feature set five versus this derived from the base station features.
+גלעד בטאט: The five versus 15. the ones will replicate this one. it just extended features using per history. it's like taking CNN for example with it's the same simulation…
+00:05:00
+Alon Levin: the experiments that we looked at last time? Yes.
+גלעד בטאט: but just different ways of how to feature engineer to the model and how will the model be same environment just give you take for example
+גלעד בטאט: only those five and here you take you add a few weeks ago I thought about…
+גלעד בטאט: which kind of features I could add to extend because I felt like maybe this is too little so I thought about adding there is a small improvement here something at least not in this environment we have to remember this is the 300 users This is quite of environment in general.
+Alon Levin: So we Right.
+גלעד בטאט: So let's see the third one the hardware diversity single antenna and…
+גלעד בטאט: and it actually advised me that maybe there are some case I need to remember I mean it said that about when there is only one antenna what was it called? maybe we should just put it aside on a different category.
+Alon Levin: That's right.
+Alon Levin: because of the no AOA.
+גלעד בטאט: Because it harms the average.
+גלעד בטאט: It's like an outlier and yeah I maybe deserves its own metrics if you calculate the average ME for the entire data set. I mean the fact that it goes to I think it was around 38 meters on average from those samples. Here you can see This is about u the error so maybe when you leave those aside and you take a look at antennas, you have at least two antennas.
+גלעד בטאט: Things are getting much better here. these numbers are substantially better.
+גלעד בטאט: You can see this is the 34 versus the 14. So maybe this is also something that we should treat in some way.
+Alon Levin: Right. Right.
+גלעד בטאט: Let's see what in terms of precision comp.
+Alon Levin: Did you? So this is all for the CNN. what about the previous models? The XG Boost random forest.
+Alon Levin: 
+גלעד בטאט: I mostly did not continue with them but I think there is in section seven let's see wow it writes a lot yeah of course I will have to …
+Alon Levin: Yes. Yes.
+גלעד בטאט: how is it called shrink it to only the relevant parts let me find.
+Alon Levin: …
+גלעד בטאט: Yeah, there is in this section about XG boost here. this is the things we were talking about a few months ago with everything with those basic experiments and random forest XG boost still
+Alon Levin: I was looking at the data that's in the notebooks that you sent me in the GitHub repo and…
+Alon Levin: you saw for some reason there was a trial where history actually made XG boost and random forest worse. Do you know…
+גלעד בטאט: H I can find that one.
+Alon Levin: what happened there? was there any sort of analysis No,…
+גלעד בטאט: I know there is those plots about it that I've sent you. Let me look them. so we're talking about it was with this. Let's see. History sweep. no. This one's actually looks better through. Okay.
+Alon Levin: It might have been the August.
+00:10:00
+גלעד בטאט: So maybe it was what I'll just experiment fail maybe here August experiment are you sure about it I think it was live.
+Alon Levin: Maybe it was in the August experiments. Yes. Yeah.
+גלעד בטאט: Wait, is this empty? here the position error is actually increasing with time. it is surprising. Yeah, definitely.
+גלעד בטאט: Okay.
+Alon Levin: So I mean it's not outside of the realm of reason that we have outliers like that…
+Alon Levin: but we do want to know sort of what's causing this
+גלעד בטאט: Yeah. Here this XG boost for example it does decrease this is the same I think if you're going to look at this one 8.2 two is relatively good around eight. just that this XG boost it's hyperparameter set in a way that was initially very good.
+גלעד בטאט: So maybe just adding this to already a model that has its best already and…
+Alon Levin: Mhm. Okay.
+גלעד בטאט: maybe just I don't know fully to explain this but if you take a look at where the hyperparameters were set pretty bad so adding history did help but still
+גלעד בטאט: but still…
+גלעד בטאט: just suboptimal results. Maybe we have cases where it has even history even when it reaches 10, it actually values greater than 10. It is interesting to see because when you see this, you may wonder what if it can drop even further. but I'm not confident it will drop below 10 and…
+גלעד בטאט: even that we need it less than eight even seven to be actually comparable to CNN and JU that were able to get to those numbers. So it's still far away.
+Alon Levin: So that's the thing,…
+Alon Levin: right? that's where the question of how we're positioning this work arises, right? Are we positioning it as we are we're introducing a method to improve the accuracy of any such model yada right and…
+גלעד בטאט: That's true.
+Alon Levin: just do a local comparison which is where the delta MA comes in or are we looking at actually direct we are making the best model and we are doing this by adding history right I don't necessarily know if that's the position we want to put ourselves in, Because if you're claiming that you have the best model, if it has such low results, whatever, right? Somebody else can come in and say, okay, you're just creating one new model.
+Alon Levin: Everybody creates a new model every day, Whereas if you just suggest an improvement to the mechanism or rather a mechanism by which the accuracy improves, you don't necessarily need to show that you have the best results, just that you're improving the results for every single model. You see what I mean?
+גלעד בטאט: Yeah, …
+גלעד בטאט: we can take it to solving specific issues. maybe history would be very good at solving the…
+גלעד בטאט: how is it called disk ambiguity ring ambiguity maybe one case maybe I can find additional cases…
+Alon Levin: Mhm. Right.
+גלעד בטאט: because maybe saying that in general the more history the marrier maybe it's too strong I don't
+Alon Levin: 
+Alon Levin: It could be right. again we might see that plateau behavior …
+גלעד בטאט: I could think about ways like showing maybe I should even provide such settings history…
+Alon Levin: which I think will be So before doing that you have a lot of experiments already as is with a lot of use actually useful data.
+גלעד בטאט: which at least they would be easier to deal with instead of this huge 200 users that I tried but maybe I will think about environments where history
+00:15:00
+גלעד בטאט: could be very helpful versus regular the new sector
+Alon Levin: So maybe take some time to fully analyze that try to plot some figures across the different experiment like comparing different experiments against each other and such to see
+גלעד בטאט: is a lot of material but I think in terms of things that could be presented and there may be easier to justify claims maybe just find those cases where the history is useful, narrow it to just cases and hopefully cases that
+גלעד בטאט: are realistic and maybe even common it just depends on how much I will need because if I'm going to ex some use some complex environment like urban environment and I will show that X and Y's are getting better by history. It just depends on how much data I will have I will need to feed to a model for the history to get its benefit and actually worry that the longer the history the more data that I will need.
+גלעד בטאט: So it's kind of like the neural network the more data and computing power you will need to do CS was simulator with quadria.
+Alon Levin: Right. Right.
+Alon Levin: Or yeah, the data does add up a lot. are you currently generating all your data through simulator or do you have something already generated? and you're making it on the fly, not like you have a pre pre-generated data set that you're using. Okay.
+גלעד בטאט: So I have the flexibility to create anything that supports.
+Alon Levin: Great. …
+גלעד בטאט: All right.
+Alon Levin: So, that's not a bad direction to go into. I still think that you should try to sort of coales some analytics off of everything you already have right now just to see where we stand fully and I guess the best way to put it is to summarize concretely not huge document like this…
+Alon Levin: but the models against each other plot them what's going on see how the data actually compares and such and perhaps we might be able to reach some conclusions there and really refine not going to say what the additional experiments should be.
+גלעד בטאט: Okay.
+גלעד בטאט: Yeah, definitely. It should be distilled maybe.
+Alon Levin: You're In the end, there's a lot of useful material here. It's just a matter of actually figuring out what to do with it.
+גלעד בטאט: Mhm. Okay.
+גלעד בטאט: So in terms of next steps you're suggesting just analyze the current section 8 experiment results and simulate with u scenarios in general that are most where the history may play a beneficial role and…
+גלעד בטאט: I can test it with the faster models to see how it's like if I'm getting some sort of initial right direction.
+Alon Levin: Yeah. Mhm.
+Alon Levin: And if there are outliers, see what special cases there are. flag anything that might look either for better or…
+00:20:00
+Alon Levin: for worse, weird or interesting. Exactly.
+גלעד בטאט: Mhm. Okay.
+גלעד בטאט: I was also thinking what if we have a scenario of let's say a user walks in a straight line in a sidewalk and between the user and…
+Alon Levin: Mhm.
+גלעד בטאט: the base station. It first has a line of sight and then it crosses a building that directly blocks the user right and when it passes through after the building and once again it has a line of sight. So maybe times the building is blocking and you're in that step.
+גלעד בטאט: This could be even slightly different from what we did so far because I think detecting the location the user was I mean if you are okay with detecting where the user was in a time stem, let's say by using data from time step t + 5, because there's been enough time since then and you have that data and so the user already passed from this but you're still interested in that data.
+גלעד בטאט: So it may be beneficial if you will have the full history of that user passing my site then block then continues.
+Alon Levin: It's definitely use case. there's actually another student working with Julian. do you know Raz Weintock?
+גלעד בטאט: What I'm not in
+Alon Levin: If not, do you know Raz Weintock? He's a student also working on CSI project with Julian. that's fine. So he's doing something along those lines, but he's doing a hybrid model between kinematics and radio. So words, you've got on the one hand CSI based detection and then that's u compensated for a nonline of sight with the motion tracking.
+Alon Levin: which is a similar idea but it's a similar idea on the one hand but it's also very structurally different because here in your work you're specifically proposing increasing the parameter space of these existing models for regression for classification whereas in his case you're increasing the dimensionality of the inputs to your algorithm based on the history.
+גלעד בטאט: is here.
+גלעד בטאט: What do you mean by increasing the parameter base? Yeah.
+Alon Levin: Whereas in his case, it's more of a common balancing act between those two different fully separate mods.
+Alon Levin: And Both of them have their downsides. Both of them have their strong merits and arguments for. So I think you're right. This is an interesting path, but I think there's also a lot of value in staying with where we are and just looking at the pure impact of just adding history without starting to look at all those specific use cases.
+גלעד בטאט: What are Right.
+Alon Levin: You know what I mean?
+גלעד בטאט: So, you're saying that maybe diving into specific cases like this is something that is less …
+Alon Levin: It gets to be too hyper specific and you lose some of the benefit that you have right now.
+גלעד בטאט: because when …
+גלעד בטאט: what can I lose with This
+גלעד בטאט: this in terms of because I make it specific cases then it loses the generality.
+Alon Levin: I think that the general niche aspect of the claim that by adding history to all these different models we get some sort of improvement.
+Alon Levin: I think that's a fairly strong argument to be made…
+Alon Levin: if it can be shown.
+גלעד בטאט: I thought that just adding cases,…
+גלעד בטאט: just makes points that are realistic cases…
+גלעד בטאט: where this happens to be tested and working. Yeah,…
+Alon Levin: at that point we're talking about starting to change the simulation itself,…
+Alon Levin: Because you already have line of sight and nonline of sight regions represented in the quadrigus simulator, right?
+גלעד בטאט: it doesn't mean a lot of effort. Not at all.
+00:25:00
+גלעד בטאט: I just thinking about two different settings…
+גלעד בטאט: where one is a user with some straight line in the building between some area and the other one is it requires more thinking about something about this distance ring Okay. Yes. Let's see. First
+Alon Levin: So let's keep this under consideration for now I wouldn't say jump straight into it yet let's see of course…
+Alon Levin: what we have to work with already and the current plans and then we can come back to this and see how it will fit And once we see what we have with the rest of what's already completed.
+גלעד בטאט: Okay. …
+Alon Levin: Nice. Okay. is there anything else that we needed to discuss today or…
+גלעד בטאט: I think this is most of the things.
+גלעד בטאט: I did have something I wanted to say earlier but I wasn't sure on these findings.
+Alon Levin: Mhm.
+גלעד בטאט: It was kind of an u a recommendation about the single antenna cases.
+גלעד בטאט: But I don't want to waste too much time on locating this.
+Alon Levin: Yes. Yeah,…
+גלעד בטאט: So maybe I'll just come back to you with anything.
+Alon Levin: feel free to shoot me a message or an email and I'll take a look.
+גלעד בטאט: Okay. Mhm.
+Alon Levin: Yeah, the single incentive case is it is an outlier precisely because it has no AOA information available whatsoever. which also makes it an interesting point.
+גלעד בטאט: also. Yeah.
+Alon Levin: It also makes it interesting on the other hand, Precisely because to see how it compares to the other ones. So maybe the way around it is to instead of showing aggregate statistics across all the devices doing a per device statistic and then plotting them against each other something of that sort.
+גלעד בטאט: Can you repeat that? Mhm.
+Alon Levin: Precisely because it's such an interesting outlier. what could be done there is instead of doing an aggregate results across all these devices doing a per device class statistical summary and then plotting them against each other to show how well you could see sort of a trend as number of antennas increases you get better performance and…
+Alon Levin: then you have the one antenna case which is completely off the charts and then you explain it because it's missing this and this and this and this. Yeah.
+גלעד בטאט: Okay. Yeah.
+גלעד בטאט: Different metrics showing the average per number of antennas average.
+גלעד בטאט: Okay.
+Alon Levin: Right. Exactly.
+Alon Levin: Something that there are ways to play around with it. you're right that removing it from the aggregate is probably the best way to go. So then the question question is what's the best way to then present this data? We can think about that. Yeah. Okay.
+גלעד בטאט: Yeah, it seems better when you remove it and you get the around 14.
+גלעד בטאט: It's far better than the 38. And with the 38 of the one antenna, I think it increases the average overall MAE to around 20.
+Alon Levin: It would be interesting to actually plot the positions of those errors. In other words, where it thinks it is and where it actually is and to show that they lie on the same ring. That might be actually interesting the one antenna case…
+גלעד בטאט: on the same ring. Which one are we talking about?
+Alon Levin: because it can't differentiate the angle of arrival. In theory, we could imagine that I take it back. I need to think about that.
+גלעד בטאט: The base station has no clue…
+Alon Levin: I take it back.
+גלעד בטאט: what direction that E is Just turns it to a single dimension of distance only.
+00:30:00
+Alon Levin: deaths. Yes. Yes. Interesting. Yeah. I was going down the wrong thread when I was saying this is so just ignore whatever I just said. Sounds good. do you want to meet next week again or actually I'm not sure I'll be available next week. let's play it by your next week…
+Alon Levin: because I'm going to be out of town and so I'm not exactly sure what my schedule will exactly be.
+גלעד בטאט: I'll do some analyze on the current results and…
+Alon Levin: But, …
+גלעד בטאט: try to investigate those cases with the one antenna and…
+Alon Levin: Awesome.
+גלעד בטאט: I'll just update you and we'll see when you're available when we can meet.
+Alon Levin: Sounds good. Thank you, lad. Thank you.
+גלעד בטאט: So have a good one. Shalom. Bye.
+Alon Levin: Shalom. Take care. Bye.
+Meeting ended after 00:31:21 👋
+This editable transcript was computer generated and might contain errors. People can also change the text after it was created.
+

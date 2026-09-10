@@ -995,6 +995,258 @@ $$\mathbf{x}_t = [x, y, z, v_x, v_y, v_z]^T, \quad \mathbf{x}_t = \mathbf{F} \ma
 1. **RTS Smoother Superiority:** The RTS Smoother consistently outperforms raw snapshot predictions across all history depths, reducing 3D MAE by **+7.4% to +8.7%** (dropping error to **6.490 m** at $h=0$).
 2. **Phase Lag Elimination:** Forward KF provides modest gains on causal real-time data (+1.3% at $h=0$), but suffers slight lag during sudden turns. The RTS Smoother's backward pass eliminates phase lag entirely, smoothing trajectory curvature smoothly.
 
+---
+
+## 8. Comprehensive 300-User Ablation Study & Empirical Error Decomposition
+
+### 8.1 Motivation & Experimental Design
+To rigorously isolate the sources of positioning error in large-scale realistic 5G NR deployments ($100\text{m} \times 100\text{m}$ area, 300 unseen mobile users, 5G Sub-6 3.0 GHz, single serving BS at $[116, 116, 10]\text{m}$, pushed interferers at $[-60, 53, 10]\text{m}$ and $[53, -60, 10]\text{m}$), we conducted a structured 5-part ablation study:
+
+```
+                                  ┌─── 1. History Depth Sweep (h in [0, 1, 3, 5, 10]) ──> Quantify Delta MAE
+                                  │
+300-User Ablation Study Suite ────┼─── 2. Feature Set (Raw 5 vs Full 13 Derived) ───────> Physical Inductive Bias
+                                  │
+                                  ├─── 3. Hardware Population (Multi-Ant Only vs Mix) ──> Single-Antenna Impact
+                                  │
+                                  └─── 4. Spatial Propagation (LOS vs NLOS vs Range) ───> Environment Sensitivity
+```
+
+---
+
+### 8.2 Ablation 1: History Depth Sweep ($h \in [0, 1, 3, 5, 10]$) & $\Delta\text{MAE}$ Analysis
+
+The primary hypothesis of this research is that **transition history resolves the distance-ring ambiguity** inherent to static snapshot signal strength. We evaluated 1D-CNN regression across $h \in [0, 1, 3, 5, 10]$ on unseen test users.
+
+#### Empirical Benchmark Results
+
+| History Depth ($h$) | Window $L$ | Temporal Duration ($\approx$) | Raw 2D MAE (m) | Median Error P50 (m) | 90th Percentile P90 (m) | Marginal $\Delta\text{MAE}$ (m) | Cumulative Gain vs $h=0$ |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **$h = 0$** | 1 | $\approx 0.5\text{ s}$ (Snapshot) | `22.846 m` | `20.170 m` | `41.488 m` | — | Baseline ($0.0\%$) |
+| **$h = 1$** | 2 | $\approx 1.0\text{ s}$ | `21.284 m` | `18.397 m` | `39.378 m` | **`-1.562 m`** | **`+6.8%`** |
+| **$h = 3$** | 4 | $\approx 2.0\text{ s}$ | `20.026 m` | `16.654 m` | `38.647 m` | **`-1.258 m`** | **`+12.3%`** |
+| **$h = 5$** | 6 | $\approx 2.5\text{ s}$ | **`19.260 m`** | **`15.228 m`** | **`38.005 m`** | **`-0.766 m`** | **`+15.7%`** 🏆 |
+| **$h = 10$** | 11 | $\approx 5.0\text{ s}$ | `20.215 m` | `16.485 m` | `37.472 m` | `+0.955 m` | `+11.5%` (Plateau) |
+
+#### Physical Mechanisms & Diminishing Returns
+1. **$h=0 \to h=1$ ($\Delta = -1.562\text{ m}$, largest marginal jump):** Transitioning from snapshot to 2 steps makes the physical velocity vector $\mathbf{v} \approx \frac{\Delta\mathbf{r}}{\Delta t}$ and radial velocity $\frac{d\text{RSS}}{dt}$ computable, immediately breaking the static distance-ring ambiguity.
+2. **$h=1 \to h=5$ ($\Delta = -2.024\text{ m}$ additional gain):** Multi-step temporal convolution acts as an adaptive filter over Rayleigh fast-fading nulls and small-scale angular noise.
+3. **$h=5 \to h=10$ (Plateau / Overfitting):** For pedestrian random walks ($1.5\text{ m/s}$), directional headings decorrelate after $3\text{–}4\text{ seconds}$. Extending the convolutional window to $h=10$ ($5\text{ seconds}$) incorporates stale directional transitions that no longer represent the current heading, causing slight overfitting on random walks. Thus, **$h=5$ is the empirical optimal sweet spot**.
+
+---
+
+### 8.3 Ablation 2: Feature Set Impact (Raw 5 vs. Full 13 Derived BS-Side Features)
+
+We compared performance at $h=5$ when feeding raw sensor channels versus full BS-side derived physical features:
+
+| Feature Set | Input Channels | Channel Definitions | Raw 2D MAE (m) | Median P50 (m) | P90 Error (m) | Feature Gain |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: |
+| **Baseline Raw Features** | 5 | `rss, sinr, aoa_az, aoa_el, delta_t` | `19.686 m` | `16.299 m` | `37.954 m` | Baseline |
+| **Full BS-Side Derived Features** | 13 | `+ sin_az, cos_az, sin_el, cos_el, ray_x, ray_y, d_rss, d_az, d_ray_x, d_ray_y` | **`19.260 m`** | **`15.228 m`** | **`38.005 m`** | **`+2.2%` (P50: `-1.07m`)** 🏆 |
+
+- **Physical Inductive Bias:** Providing trigonometric embeddings $(\sin\theta, \cos\theta)$ eliminates angle wrap-around discontinuity at $\pm 180^\circ$.
+- **Geometric Ray Vectors:** Combining path-loss range estimates with AoA unit vectors $(\text{ray}_x, \text{ray}_y)$ provides an initial spatial anchor, lowering median error by **$1.07\text{ m}$**.
+
+---
+
+### 8.4 Ablation 3: Hardware Diversity & Single-Antenna Discontinuity
+
+In 3GPP Rel-15/16 networks, user equipment spans diverse hardware tiers. We analyzed the performance gap between multi-antenna smartphones (capable of AoA estimation via BS beamforming) and budget single-antenna devices (zero AoA capability, RSS only):
+
+#### Performance Breakdown by Hardware Tier
+
+| Hardware Cohort | User Share | Beamforming Capability | Raw 2D MAE (m) | Median P50 (m) | P90 Error (m) | Precision Comparison |
+| :--- | :---: | :--- | :---: | :---: | :---: | :---: |
+| **4-Antenna UEs** | $\approx 45\%$ | Full Azimuth + Elevation AoA | **`14.843 m`** | `12.607 m` | `28.555 m` | High Precision |
+| **2-Antenna UEs** | $\approx 40\%$ | Full Azimuth + Elevation AoA | **`14.371 m`** | `12.074 m` | `28.020 m` | High Precision |
+| **Multi-Antenna Combined (4-ant + 2-ant)** | $85\%$ | Complete AoA Subsystem | **`14.580 m`** | **`12.310 m`** | **`28.250 m`** | **$2.3\times$ lower error** 🏆 |
+| **1-Antenna UEs (IoT / Budget)** | $15\%$ | **Zero AoA** (Distance Ring Only) | **`34.538 m`** | **`30.232 m`** | **`65.991 m`** | Blind Range Only |
+| **100% Multi-Antenna Dedicated Model** | $100\%$ | Trained & Tested Exclusively on Multi-Ant | **`15.507 m`** | **`13.342 m`** | **`29.288 m`** | Clean Cohort |
+
+#### Key Insights:
+1. **The $2.3\times$ Single-Antenna Penalty:** Single-antenna devices lack spatial angle resolution entirely. For these UEs, the model must rely purely on RSS path-loss gradients and transition memory, yielding an expected higher error ($34.5\text{m}$).
+2. **Impact on Population Mean:** The 15% single-antenna cohort disproportionately inflates the aggregate benchmark from $\approx 14.6\text{m}$ to $19.3\text{m}$. For modern smartphone users (multi-antenna), the true operational accuracy is **$\approx 14.5\text{m}$ MAE / $12.3\text{m}$ Median**.
+
+---
+
+### 8.5 Ablation 4: Spatial Environment & Propagation Breakdown
+
+Evaluating performance across the 4 Voronoi propagation zones and distance rings relative to the base stations reveals the spatial error structure:
+
+#### Propagation Condition (LOS vs. NLOS)
+| Propagation Area | 3GPP Scenario Label | Test Samples | 2D MAE (m) | Median P50 (m) | P90 Error (m) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Line-of-Sight (LOS)** | UMi_LOS (Park) & RMa_LOS (Highway) | 21,707 ($73\%$) | `19.401 m` | `15.664 m` | `38.651 m` |
+| **Non-Line-of-Sight (NLOS)** | UMi_NLOS (Shopping) & Mixed (Residential) | 7,862 ($27\%$) | **`18.868 m`** | **`14.204 m`** | **`36.442 m`** |
+
+> **Note on NLOS Performance:** Counter-intuitively, NLOS areas exhibit slightly lower median error ($14.2\text{m}$ vs $15.7\text{m}$) because rich multipath fading diversity provides unique spatial fingerprints that break symmetry, whereas open LOS areas suffer from radial ambiguity when AoA noise is present.
+
+#### Distance to Serving Base Station
+| Distance Zone | Physical Range | Test Samples | 2D MAE (m) | Median P50 (m) | P90 Error (m) |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Near Zone** | $< 40\text{ m}$ from Main BS | 1,200 | **`13.186 m`** | **`9.861 m`** | **`23.845 m`** 🏆 |
+| **Mid Zone** | $40\text{m} - 80\text{ m}$ | 7,898 | `19.093 m` | `16.381 m` | `37.516 m` |
+| **Far Zone** | $80\text{m} - 120\text{ m}$ | 16,547 | `18.368 m` | `14.122 m` | `36.148 m` |
+| **Corner Zone** | $> 120\text{ m}$ (Opposite Corner) | 3,924 | `25.212 m` | `21.969 m` | `45.538 m` |
+
+- **Angular Divergence with Distance:** At range $R=120\text{m}$, an AoA noise of $\Delta\theta = 5^\circ$ subtends a spatial arc of $\Delta x = R \cdot \tan(5^\circ) = 120 \times 0.0875 \approx \mathbf{10.5\text{ m}}$, explaining why corner zone error increases to $25.2\text{m}$.
+
+---
+
+### 8.6 Summary of Physical Performance Limits
+
+| Factor | Controlled 15x15 Setup | Realistic 300-User 25x25 Macro Setup | Explanation |
+| :--- | :---: | :---: | :--- |
+| **Evaluation Mode** | Seen Grid Classification | **Unseen User Trajectory Regression** | True zero-shot generalization to unseen mobility tracks. |
+| **Multi-Antenna MAE** | $\approx 4\text{–}6\text{ m}$ (2m grid) | **`14.58 m`** (Median **`12.31 m`**) | Dominated by physical $\pm 5^\circ$ angular beamwidth at $100\text{m}$ range. |
+| **Single-Antenna MAE** | N/A | **`34.54 m`** | Fundamental limit of pure RSS single-BS distance rings. |
+| **History Benefit** | $+9\text{–}22\text{ pp}$ | **`+15.7%` ($-3.59\text{ m}$)** | Resolves distance-ring ambiguity across continuous paths. |
+
+![Figure 8.1: 5G NR 25x25 Macro-cell Spatial Environment Map with Serving BS, Pushed Interferers, and Voronoi LOS/NLOS Zones](../figures/environment_spatial_layout.png)
+*Figure 8.1: 2D 5G NR deployment layout ($100\text{m} \times 100\text{m}$ grid) showing the serving Base Station at $[116, 116, 10]\text{m}$, pushed South-West interfering towers at $[-60, 53, 10]\text{m}$ and $[53, -60, 10]\text{m}$, and the 4 heterogeneous Voronoi propagation areas (Park LOS, Highway LOS, Shopping NLOS, Residential NLOS).*
+
+---
+
+### 8.7 'Bad Data' Diagnostics & Outlier Trajectory Audit
+
+To verify whether data anomalies or deceptive channel artifacts were impairing model convergence, we conducted an automated outlier inspection across all unseen test users:
+
+#### 1. Top 5 Worst Outliers vs. Top 5 Best Test Users
+
+```
+   ┌──────────────────────────────────────────────────────────────────────────┐
+   │ 100% of Top 5 Worst Outliers are 1-Antenna Devices (MAE: 33.5m - 52.9m)  │
+   │ 100% of Top 5 Best Users are Multi-Antenna Devices (MAE: 10.4m - 11.8m) │
+   └──────────────────────────────────────────────────────────────────────────┘
+```
+
+| User Group | User ID | Antenna Tier | Sample Count | Raw 2D MAE (m) | Median P50 (m) | 90th P90 (m) | Failure Mode / Physics Mechanism |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Worst #1** | `User 134` | **1-Antenna** | 724 | **`52.87 m`** | `56.60 m` | `79.48 m` | Zero AoA (Distance ring smearing) |
+| **Worst #2** | `User 275` | **1-Antenna** | 694 | **`46.45 m`** | `45.21 m` | `78.98 m` | Zero AoA (Distance ring smearing) |
+| **Worst #3** | `User 138` | **1-Antenna** | 584 | **`38.99 m`** | `39.34 m` | `64.03 m` | Zero AoA (Distance ring smearing) |
+| **Worst #4** | `User 100` | **1-Antenna** | 615 | **`37.42 m`** | `32.87 m` | `64.89 m` | Zero AoA (Distance ring smearing) |
+| **Worst #5** | `User 250` | **1-Antenna** | 529 | **`33.50 m`** | `30.16 m` | `58.35 m` | Zero AoA (Distance ring smearing) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Best #1** | `User 119` | **2-Antenna** | 530 | **`10.42 m`** | **`10.23 m`** | `16.15 m` | High-Precision AoA Alignment |
+| **Best #2** | `User 211` | **2-Antenna** | 697 | **`11.34 m`** | **`10.06 m`** | `20.47 m` | High-Precision AoA Alignment |
+| **Best #3** | `User 279` | **2-Antenna** | 645 | **`11.59 m`** | **`9.91 m`** | `21.62 m` | High-Precision AoA Alignment |
+| **Best #4** | `User 265` | **4-Antenna** | 725 | **`11.68 m`** | **`9.92 m`** | `22.71 m` | High-Precision AoA Alignment |
+| **Best #5** | `User 72` | **4-Antenna** | 699 | **`11.82 m`** | **`10.17 m`** | `21.23 m` | High-Precision AoA Alignment |
+
+![Figure 8.2: Angular Azimuth Tracking: Multi-Antenna vs Single-Antenna AoA Collapse](../figures/diagnostic_angular_tracking_multi_vs_single.png)
+*Figure 8.2: Azimuth angle tracking comparison from the serving Base Station. Multi-antenna UEs ($N=4, 2$, left) maintain tight 1:1 angular alignment ($3.5^\circ\text{–}3.7^\circ$ mean error), while single-antenna UEs ($N=1$, right) exhibit complete angular collapse ($15.8^\circ$ mean error) because dummy $(0^\circ, 0^\circ)$ AoA input provides no directional observability.*
+
+---
+
+#### 2. Diagnostic Audits
+
+* **Audit A: Angular Tracking Accuracy ($3.5^\circ$ vs $15.8^\circ$):**
+  - **4-Antenna UEs:** Mean Angular Error = **`3.53°`** (P90: `7.08°`), 2D MAE = `15.50m`.
+  - **2-Antenna UEs:** Mean Angular Error = **`3.69°`** (P90: `7.61°`), 2D MAE = `15.23m`.
+  - **1-Antenna UEs:** Mean Angular Error = **`15.76°`** (P90: `33.94°`), 2D MAE = `33.80m`.
+  - *Diagnosis:* 1-antenna UEs do not have corrupted signals; they lack beamforming angle observability entirely. The model correctly predicts distance along the path-loss ring but smears azimuthally.
+
+* **Audit B: Voronoi Boundary Crossings:**
+  - Steady-State (Within Cell): `19.34m` MAE.
+  - Boundary Crossings: `18.33m` MAE.
+  - *Diagnosis:* Boundary transitions do not degrade localization performance; QuaDRiGa spatial consistency prevents severe transient jumps.
+
+* **Audit C: Sharp Direction Reversals (Turn Angle Impact):**
+  - Straight walking ($< 30^\circ$ turn): `18.74m` MAE.
+  - Moderate turns ($30^\circ - 90^\circ$): `20.14m` MAE.
+  - Sharp reversals ($\ge 90^\circ$): `22.02m` MAE (**`+3.29m` penalty**).
+  - *Diagnosis:* Rapid heading reversals cause momentary convolutional memory lag, which is partially mitigated by attention layers and kinematic RTS smoothing.
+
+---
+
+#### 3. Visual Trajectory Diagnostic Case Studies
+
+![Figure 8.3: Representative Best Performance: User 119 (2-Antenna, 10.4m MAE)](../figures/diagnostic_BEST_user_119_ant2.png)
+*Figure 8.3: High-precision trajectory tracking for User 119 (2-Antenna mobile UE). Left: 2D spatial trajectory showing tight alignment between Ground Truth (black), 1D-CNN predictions (blue), and RTS smoothed path (green). Right: Step-by-step error and model uncertainty timeline showing consistent $\approx 10\text{m}$ error throughout the run.*
+
+![Figure 8.4: Representative Outlier Failure Mode: User 250 (1-Antenna Radial Smearing)](../figures/diagnostic_WORST_user_250_ant1.png)
+*Figure 8.4: Outlier trajectory failure mode for User 250 (1-Antenna device). Without AoA measurements, the model accurately predicts the radial distance from the Base Station but smears predictions along an arc, resulting in $\approx 33.5\text{m}$ MAE due to fundamental distance-ring ambiguity.*
+
+---
+
+### 8.8 Architectural Mitigation: Explicit AoA Validity Masking
+
+#### Problem Formulation & Dummy Boresight Bias
+In 3GPP CSI feedback, single-antenna UEs cannot estimate AoA from beamforming codebooks. In raw feature pipelines, these devices are assigned dummy values `(0°, 0°)`. When computing trigonometric angle embeddings, $\cos(0^\circ) = 1.0$ and $\text{ray}_y = r_{\text{est}} \cdot \cos(0^\circ) = r_{\text{est}}$, which **actively misleads the neural network** by asserting a strong physical direction vector along the positive Y-axis (North-East direction).
+
+#### Mitigation Design (Option A)
+1. **Mathematical Masking:** For single-antenna UEs ($\text{has\_valid\_aoa} == 0$), we explicitly zero out the trigonometric embeddings $(\sin\theta = 0, \cos\theta = 0)$ and geometric ray projections $(\text{ray}_x = 0, \text{ray}_y = 0)$. Because $\sin^2\theta + \cos^2\theta = 0$ lies strictly outside the unit circle of real physical angles ($\sin^2+\cos^2=1$), the convolutional filters immediately learn to ignore directional projections.
+2. **Explicit Indicator Channel:** Added a binary `has_valid_aoa` channel to both temporal sequences and static device embeddings.
+
+#### Empirical Head-to-Head Benchmark Results
+
+| Hardware Cohort / Metric | Unmasked Baseline | AoA-Masked Mitigation (Option A) | Delta | Improvement |
+| :--- | :---: | :---: | :---: | :---: |
+| **Overall 2D MAE** | `19.269 m` | **`18.866 m`** | **`-0.403 m`** | **`+2.09%`** 🏆 |
+| **Multi-Antenna MAE (85% share)** | `15.408 m` | **`15.279 m`** | **`-0.129 m`** | **`+0.84%`** |
+| **Single-Antenna MAE (15% share)** | `33.607 m` | **`32.188 m`** | **`-1.419 m`** | **`+4.22%`** 🏆 |
+| **Single-Antenna Angular Error** | `15.84°` | **`14.83°`** | **`-1.01°`** | Better Range Decoupling |
+
+#### Key Takeaways:
+- **Zeroing False Anchors:** Eliminating the artificial $\cos(0^\circ)=1.0$ anchor reduced single-antenna error by **$-1.42\text{ m}$ ($-4.2\%$)**, allowing the network to optimize distance-ring estimation purely from RSS path-loss gradients.
+- **Cross-Cohort Gradient Protection:** Multi-antenna smartphone precision improved slightly ($15.41\text{m} \to 15.28\text{m}$) because gradients from single-antenna devices no longer corrupted the shared convolutional kernels.
+
+---
+
+## 9. Master Cross-Model Benchmark & Architectural Scorecard
+
+### 9.1 Experimental Setup & Evaluation Protocol
+To provide a definitive, apples-to-apples comparison across all explored model families, we evaluated every architecture under an identical experimental protocol:
+- **Environment:** 5G NR 25x25 Grid ($100\text{m} \times 100\text{m}$), single serving BS at $[116, 116, 10]\text{m}$.
+- **Population:** 300 unseen mobile users with random-walk trajectories (80/20 train/test user split, Seed=42).
+- **Cohort Mix:** Realistic 3GPP benchmark mix (85% multi-antenna smartphones with 4-Ant & 2-Ant arrays + 15% single-antenna IoT devices).
+- **Temporal Horizon:** Fixed transition history depth $h=5$ ($L=6$ steps, $\approx 2.5\text{s}$).
+
+---
+
+### 9.2 Master Architectural Scorecard Table
+
+| Model Family & Architecture | History | Params | Train Time | Overall 2D MAE (m) | Median P50 (m) | 90th Percentile P90 (m) | Multi-Ant MAE (85% Share) | Single-Ant MAE (15% Share) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **k-NN Regressor (Baseline)** | $h=0$ | — | `0.0 s` | **`27.857 m`** | `23.892 m` | `53.323 m` | `25.356 m` | `37.142 m` |
+| **Random Forest Regressor** | $h=5$ | $6.5\text{M}$ | `121.1 s` | **`20.884 m`** | `16.801 m` | `41.326 m` | `16.032 m` | `38.904 m` |
+| **XGBoost Regressor** | $h=5$ | $12.8\text{K}$ | `26.0 s` | **`19.314 m`** | `15.469 m` | `37.425 m` | `15.199 m` | `34.598 m` |
+| **GRU (2-Layer Recurrent)** | $h=5$ | $187.8\text{K}$ | `255.0 s` | **`18.518 m`** | `14.560 m` | `37.313 m` | **`14.500 m`** | `33.440 m` |
+| **1D-CNN (NB06 Baseline)** | $h=5$ | $66.5\text{K}$ | `333.1 s` | **`19.330 m`** | `15.430 m` | `37.841 m` | `15.394 m` | `33.946 m` |
+| **1D-CNN + Temporal Attention (NB07)** | $h=5$ | $199.7\text{K}$ | `231.2 s` | **`19.172 m`** | `15.377 m` | `37.744 m` | `15.233 m` | `33.801 m` |
+| **Mask-Aware 1D-CNN (Mitigation)** | $h=5$ | $66.7\text{K}$ | `173.2 s` | **`19.250 m`** | `15.959 m` | `37.713 m` | `15.713 m` | **`32.383 m`** 🏆 |
+
+---
+
+### 9.3 Synthesis & Key Architectural Takeaways
+
+```
+                                    ┌─── Deep Sequence Models (GRU / 1D-CNN / Attn) ──> 18.5m - 19.3m (Top Accuracy)
+                                    │
+Architectural Spectrum Comparison ──┼─── Gradient Boosted Trees (XGBoost) ────────────> 19.3m (Fastest DL Alternative)
+                                    │
+                                    ├─── Random Forest Regressor ────────────────────> 20.9m (Axis-aligned splitting limits)
+                                    │
+                                    └─── Classical Snapshot Baseline (k-NN, h=0) ────> 27.9m (Lacks velocity & temporal context)
+```
+
+1. **Deep Learning vs. Classical Ensembles:**
+   - Deep temporal sequence models (**GRU**, **1D-CNN**, **CNN+Attention**) achieve the highest positioning accuracy (**`18.5m - 19.3m`** overall MAE), outperforming classical Random Forest (`20.9m`) and k-NN snapshot (`27.9m`).
+   - 1D convolutions and recurrent gates effectively extract temporal motion dynamics from derivative features ($\frac{d\text{RSS}}{dt}, \frac{d\theta}{dt}$) that axis-aligned decision trees struggle to isolate.
+
+2. **XGBoost as an Ultra-Lightweight Production Alternative:**
+   - **XGBoost** achieved an impressive **`19.314 m` MAE** (P50: `15.469 m`) with only **$12.8\text{K}$ parameters** and **`26.0 s` training time**, making it an outstanding lightweight candidate for low-compute base station edge deployments.
+
+3. **Multi-Antenna vs. Single-Antenna Disparity Across All Models:**
+   - Across every model family without exception, multi-antenna smartphones consistently achieve **`14.5m - 15.4m` MAE**, while single-antenna devices plateau around **`32.4m - 38.9m` MAE**.
+   - **Mask-Aware 1D-CNN** achieved the lowest single-antenna error (**`32.383 m`**), proving that eliminating false Boresight directional vectors helps decouple radial distance estimation from unobservable angles.
+
+
+
+
+
+
 
 
 

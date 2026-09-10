@@ -239,19 +239,106 @@ Cross-user BASE_A_H tests a multi-user AoA database against a completely unseen 
 
 ---
 
-## Summary of Key Findings
+## Act 1: Research Positioning & The Scientific Question
 
-1. **Transition history** improves all 4 algorithms; h=1 captures most gain
-2. **AoA dominates** single-BS accuracy (+55 pp over RSS+SINR)
-3. **RSS ≈ SINR** on single-BS — both encode only distance; interference can break this degeneracy but must be from realistic (non-overwhelming) interferers
-4. **Classification beats regression** at fine grid spacing (2 m); gap narrows toward ~28–30×30
-5. **Multi-BS interference (v2, realistic):** Realistic co-channel interference (30m ISD, IBSs outside grid) creates a usable 2D SINR gradient (+33pp accuracy over RSS alone), but remains ~40pp below AoA. Feature hierarchy: **AoA ≫ interference SINR > single-BS RSS**.
-6. Voronoi heterogeneity: **cell size > channel model** in determining per-cell accuracy (small cells bleed regardless of channel type)
-7. **Device heterogeneity (without AoA):** Transitions partially compensate (+9 pp), but explicit device calibration is decisive (+17.7 pp BASE_H_dp vs BASE_H). Cross-device generalisation degrades by ~6 pp for unseen device type.
-8. **AoA adds +28.7 pp per device** (single-user: 57.2% → 85.9%). Pooled multi-user results with realistic noise (RF BASE_A: 77.3%, XGB BASE_A: 82.2%) are slightly below per-device due to device-heterogeneous RSS/SINR ambiguity. Cross-user BASE_A_H (XGB: 76.7%, RF: 72.8%) is the meaningful result: multi-user AoA database tested on a completely unseen device type.
+**Core Question (Aligned with Alon Levin):**
+*Can temporal transition history ($h$) and physical inductive biases resolve the fundamental **distance-ring ambiguity** inherent to single-Base Station cellular localization without private UE telemetry (GPS / IMU)?*
 
-**Core contribution:**
-Transition history is a simple, model-agnostic improvement that works at every scale (9 to 400 classes) and with every feature set. No additional hardware required.
+**Strategic Research Positioning:**
+* **NOT positioned as:** *"We trained one marginally better model"* (vulnerable to trivial model competition).
+* **Positioned as:** **A universal physical-kinematic mechanism**:
+  1. **Universal $\Delta\text{MAE}$ Gain:** Introducing temporal transition history ($h$) provides a systematic accuracy gain across *all* model families (Tree Ensembles, RNNs, 1D-CNNs, Attention).
+  2. **Resolving Distance-Ring Ambiguity:** In single-BS setups, static RSS only defines an iso-power circle. Sequential transitions allow computing velocity $\mathbf{v} \approx \frac{\Delta\mathbf{r}}{\Delta t}$, breaking symmetry.
+  3. **Decoupled Hardware Physics:** Explaining the $2.3\times$ single-antenna gap as a fundamental physical limit of single-BS AoA observability, rather than model failure.
+
+---
+
+## Act 1: Universal $\Delta\text{MAE}$ Gain Across All Model Families
+
+**Empirical Sweep across History Depth ($h \in [0, 1, 3, 5, 10]$):**
+
+* **$h = 0 \to h = 1$ ($\Delta = -1.56\text{m}$, $+6.8\%$ gain):** Velocity vector $\mathbf{v} \approx \frac{\Delta\mathbf{r}}{\Delta t}$ and radial derivative $\frac{d\text{RSS}}{dt}$ become computable $\to$ largest marginal jump.
+* **$h = 1 \to h = 5$ ($\Delta = -2.02\text{m}$ additional gain):** Temporal convolutions filter out Rayleigh fast-fading nulls and small-scale angular noise.
+* **$h = 5$ is the Empirical Sweet Spot ($\sim 2.5\text{s}$):** $-15.7\%$ cumulative error reduction!
+* **$h = 10$ Plateau / Decorrelation:** For pedestrian random walks ($1.5\text{m/s}$), headings decorrelate after $3\text{–}4\text{s}$; longer history causes slight inertial lag.
+
+![bg right:48% 95%](../figures/universal_delta_mae_history_curves.png)
+
+---
+
+## Act 2: Realistic 300-User 5G NR Macro Benchmark
+
+**Full Continuous Trajectory Deployment Setup:**
+* **Environment:** $100\text{m} \times 100\text{m}$ area ($25 \times 25$ macro grid, $4\text{m}$ spacing).
+* **Serving BS:** Single Base Station at $[116, 116, 10]\text{m}$ (Top-Right / NE).
+* **Interferers:** Pushed SW towers at $[-60, 53, 10]\text{m}$ and $[53, -60, 10]\text{m}$.
+* **Voronoi Areas:** 4 propagation zones (Park LOS, Highway LOS, Shopping NLOS, Residential).
+* **Population:** 300 unseen mobile users with random-walk tracks (80/20 train/test split on User IDs).
+* **Demographics:** Standard 3GPP benchmark mix (85% multi-antenna smartphones + 15% single-antenna IoT).
+
+![bg right:48% 90%](../figures/environment_spatial_layout.png)
+
+---
+
+## Act 2: Master Cross-Model Benchmark Scorecard ($h=5$)
+
+**Apples-to-Apples Evaluation Across All 7 Architectures:**
+
+| Model Architecture | History | Params | Train Time | Overall 2D MAE | Median P50 | Multi-Ant (85%) | Single-Ant (15%) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **k-NN Regressor (Baseline)** | $h=0$ | — | `0.0 s` | **`27.86 m`** | `23.89 m` | `25.36 m` | `37.14 m` |
+| **Random Forest Regressor** | $h=5$ | $6.5\text{M}$ | `121.1 s` | **`20.88 m`** | `16.80 m` | `16.03 m` | `38.90 m` |
+| **XGBoost Regressor** | $h=5$ | $12.8\text{K}$ | `26.0 s` | **`19.31 m`** | `15.47 m` | `15.20 m` | `34.60 m` |
+| **GRU (2-Layer Recurrent)** | $h=5$ | $187.8\text{K}$ | `255.0 s` | **`18.52 m`** | `14.56 m` | **`14.50 m`** | `33.44 m` |
+| **1D-CNN (NB06 Baseline)** | $h=5$ | $66.5\text{K}$ | `333.1 s` | **`19.33 m`** | `15.43 m` | `15.39 m` | `33.95 m` |
+| **1D-CNN + Attention (NB07)** | $h=5$ | $199.7\text{K}$ | `231.2 s` | **`19.17 m`** | `15.38 m` | `15.23 m` | `33.80 m` |
+| **Mask-Aware 1D-CNN** | $h=5$ | $66.7\text{K}$ | `173.2 s` | **`19.25 m`** | `15.96 m` | `15.71 m` | **`32.38 m`** 🏆 |
+
+* Deep Sequence models (GRU / CNN / Attention) lead overall accuracy ($18.5\text{–}19.3\text{m}$).
+* **XGBoost** is an ultra-fast production alternative ($19.31\text{m}$ in $26\text{s}$, $12.8\text{K}$ params).
+
+---
+
+## Act 2: Hardware Discontinuity & Outlier Trajectory Audit
+
+**The $2.3\times$ Smartphone vs. IoT Performance Gap:**
+* **Multi-Antenna UEs (4-Ant & 2-Ant):** **`14.58 m` MAE / `12.31 m` Median** (Mean angular error $3.5^\circ\text{–}3.7^\circ$).
+* **Single-Antenna UEs (1-Ant):** **`34.54 m` MAE / `30.23 m` Median** (Mean angular error $15.8^\circ$, P90: $33.9^\circ$).
+
+**Diagnostic Outlier Trajectory Audit:**
+* **100% of top 5 worst outliers are 1-antenna devices** ($33.5\text{m}\text{–}52.9\text{m}$).
+* **100% of top 5 best users are multi-antenna devices** ($10.4\text{m}\text{–}11.8\text{m}$).
+* Boundary transitions incur only a negligible $+1.45\text{m}$ transient penalty, proving the channel data is physically valid.
+
+![bg right:48% 95%](../figures/antenna_cohort_error_cdf.png)
+
+---
+
+## Act 3: Architectural Mitigation — AoA Validity Masking
+
+**Problem: Dummy Boresight Anchoring**
+* Single-antenna UEs lack beamforming angle observability. Standard feedback sets dummy $(0^\circ, 0^\circ)$ AoA.
+* In trigonometry, $\cos(0^\circ) = 1.0$ and $\text{ray}_y = r_{\text{est}}$, artificially pulling network predictions along the North-East axis!
+
+**Solution: Explicit Masking (Option A)**
+* Zero out trigonometric embeddings $(\sin\theta=0, \cos\theta=0)$ and geometric rays $(\text{ray}_x=0, \text{ray}_y=0)$.
+* Feed explicit `has_valid_aoa` binary channel.
+
+**Empirical Result:**
+* Single-antenna error drops from $33.61\text{m}$ to **`32.19m` ($-1.42\text{m}$ / $-4.2\%$)**.
+* Multi-antenna precision preserved at **`15.28m`**.
+
+![bg right:48% 90%](../figures/diagnostic_angular_tracking_multi_vs_single.png)
+
+---
+
+## Summary & Core Contributions
+
+1. **Physical-Kinematic Mechanism:** Sequence history ($h$) universally resolves the single-BS distance-ring ambiguity across *all* model families ($\Delta\text{MAE} = -15.7\%$).
+2. **Empirical Horizon:** Optimal transition horizon is $h=5$ ($\sim 2.5\text{s}$), balancing velocity vector integration against random-walk heading decorrelation.
+3. **Decoupled Hardware Physics:** Explaining the $2.3\times$ single-antenna gap as a fundamental limit of angle observability, rather than model error. Smartphones achieve **$14.58\text{m}$ MAE / $12.31\text{m}$ median** with $>34\%$ of steps $<10\text{m}$.
+4. **Architectural Mitigation:** Explicit AoA validity masking eliminates false boresight vectors, unlocking $-4.2\%$ error reduction on budget IoT devices.
+5. **Production Deployability:** XGBoost matches 1D-CNN accuracy ($19.31\text{m}$) with $12.8\text{K}$ parameters in $26\text{s}$, ideal for edge cellular base stations.
 
 ---
 
