@@ -163,6 +163,13 @@ class DerivedCSI1DDataset(Dataset):
         self.speed_mean = speed_mean if speed_mean is not None else float(df["speed_m_s"].mean())
         self.speed_std  = speed_std  if speed_std  is not None else float(df["speed_m_s"].std()) + 1e-6
 
+        # delta_t is both a model input (normalised, below) and the physical time
+        # step used downstream by the Kalman/RTS smoother. Keep the seconds value
+        # before SIGNAL_COLS is standardised in place, otherwise the smoother is
+        # handed z-scores - which are negative for most samples and get clamped to
+        # 0.01 s, destroying the state transition.
+        df["_delta_t_seconds"] = df["delta_t"].astype(float).values
+
         df[SIGNAL_COLS]    = (df[SIGNAL_COLS]   - self.sig_mean)   / self.sig_std
         df[STATIC_COLS]    = (df[STATIC_COLS]   - self.stat_mean)  / self.stat_std
         df[TARGET_COLS]    = (df[TARGET_COLS]   - self.targ_mean)  / self.targ_std
@@ -180,7 +187,7 @@ class DerivedCSI1DDataset(Dataset):
             targs    = udf[TARGET_COLS].values.astype(np.float32)
             speeds   = udf["norm_speed"].values.astype(np.float32)
             u_ids    = udf["user_id"].values
-            dts      = udf["delta_t"].values
+            dts      = udf["_delta_t_seconds"].values   # seconds, not the z-scored feature
             raw_ants = udf["raw_n_antennas"].values
 
             for i in range(h, n_steps):

@@ -443,7 +443,54 @@ Error grows with range as angular uncertainty translates into linear uncertainty
 
 Both cohorts improve. The single-antenna gain is the intended effect — with the false anchor removed the network optimizes range purely from path-loss gradients. The multi-antenna gain is a side effect worth naming: **cross-cohort gradient protection**, i.e. corrupted single-antenna gradients were degrading the shared kernels that multi-antenna devices also use. The cost is one extra input channel and $0.2\,\text{K}$ parameters.
 
-### 7.7 Kinematic post-processing: the smoother was mis-tuned
+### 7.7 Kinematic post-processing: a defective time base, not a useless filter
+
+> **Status: results being regenerated.** The investigation below uncovered a defect
+> in the feature pipeline that invalidates every smoothing number previously
+> recorded — including the master benchmark's, and including the re-tuning sweeps
+> described later in this section. The defect and its fix are documented here
+> because the diagnosis stands; the numeric tables are being re-run against the
+> corrected time base and must not be cited until they are replaced.
+
+**The defect.** `DerivedCSI1DDataset` standardises `SIGNAL_COLS` in place, and
+`delta_t` is one of those columns — it is legitimately a model input. But the
+per-sample `delta_t` handed downstream to the Kalman/RTS smoother was read out of
+the frame *after* that standardisation, so the smoother received z-scores rather
+than seconds:
+
+| | min | max | mean | negative |
+| :--- | ---: | ---: | ---: | ---: |
+| `delta_t` in the dataframe (seconds) | 0.267 | 32.491 | 3.231 | 0 |
+| `delta_t` handed to the smoother | −0.632 | 4.778 | 0.000 | **25,370 (85.8%)** |
+
+`run_kalman_and_rts_2d` guards with `dt = max(0.01, dt)`, so **85.8% of all steps
+were assigned a 0.01 s time step**. The state-transition matrix
+$F = \begin{psmallmatrix}1&0&dt&0\\0&1&0&dt\\0&0&1&0\\0&0&0&1\end{psmallmatrix}$
+and the process-noise term $Q = \operatorname{diag}(q\,dt^2, q\,dt^2, q, q)$ are
+both functions of $dt$, so the filter was propagating a motion model over
+essentially zero elapsed time while the UE actually moved metres between samples.
+That is sufficient on its own to explain a large, uniform degradation.
+
+**This also resolves the three-way discrepancy.** The July XGBoost and Random
+Forest sweeps did not use `DerivedCSI1DDataset`; they built features through
+`build_history_features` and read `delta_t` from an unnormalised frame, so their
+time base was correct — and they recorded smoothing behaving sanely ($+3.6\%$
+falling to $-0.1\%$ as the estimator improves, which is exactly what a smoother
+should do). The master benchmark went through the dataset class and recorded
+$-28\%$ to $-48\%$. The two pictures were never in conflict about the filter; they
+differed in whether the filter was given real seconds.
+
+**The fix** (`utils/csi_dataset.py`) captures `delta_t` in seconds before
+standardisation and hands that to the smoother, leaving the normalised channel
+untouched as a model input. Verified after the fix: time steps range 0.269–32.491 s
+with no negatives, and the 13-channel input tensor is unchanged.
+
+The remainder of this section records the pre-fix investigation. Its
+*qualitative* finding — that a single global process noise cannot serve a
+population spanning $0.1$ to $15\,\text{m/s}$ — is unaffected by the defect and is
+being re-tested directly, alongside a per-user $q_u \propto v_u$ variant.
+
+#### Pre-fix investigation (superseded)
 
 The master benchmark records a forward Kalman filter and RTS smoother applied to every model's predictions, and reports the smoothed track as *worse* than the raw one in every case — by $5.6\%$ for $k$-NN and by $37$–$48\%$ for the trained models. Taken at face value that would say kinematic post-processing is useless here.
 
@@ -458,9 +505,26 @@ It is a tuning artifact. The notebooks apply the smoother with `process_noise_st
 | 32.0 | 5.0 | 21.264 m | $+11.34\%$ |
 | 64.0 | 10.0 | **21.260 m** | **$+11.35\%$** |
 
-The curve is monotone, crosses zero near $Q \approx 8$, and plateaus around $Q \approx 32$. Re-tuned, smoothing turns a $15\%$ degradation into an $11\%$ improvement.
+The curve is monotone, crosses zero near $Q \approx 8$, and plateaus around $Q \approx 32$.
 
-Two caveats before this is relied upon. The sweep above was run on $k$-NN predictions; a sweep across all model families is in progress and its outcome governs whether this generalises. And a third picture exists in the record: the July XGBoost and Random Forest sweeps report RTS *helping* slightly ($+3.6\%$ down to $+2.2\%$) at the default settings, which is consistent with neither the master benchmark nor the sweep above. Until that discrepancy is resolved, **no smoothing result should enter the paper**, and the headline numbers in this report are all raw, unsmoothed predictions.
+Repeating the sweep across all six estimator families (each trained at $h=5$ under the Campaign B protocol, $10$ process-noise values $\times$ $6$ measurement-noise values) gives the same picture every time:
+
+| Model | Raw MAE | RTS at notebook default ($Q{=}0.5$, $R{=}15$) | Best RTS found |
+| :--- | ---: | ---: | ---: |
+| $k$-NN | 23.983 m | 28.788 m ($-20.03\%$) | 21.260 m ($+11.35\%$) |
+| Random Forest | 19.417 m | 27.826 m ($-43.31\%$) | 18.851 m ($+2.91\%$) |
+| XGBoost | 19.434 m | 27.809 m ($-43.10\%$) | 18.480 m ($+4.91\%$) |
+| 1D-CNN | 19.213 m | 27.692 m ($-44.13\%$) | 18.414 m ($+4.16\%$) |
+| GRU | 19.209 m | 27.763 m ($-44.53\%$) | 18.286 m ($+4.80\%$) |
+| 1D-CNN + attention | 18.813 m | 27.490 m ($-46.12\%$) | 17.979 m ($+4.43\%$) |
+
+**All six recover.** Every family follows the same trajectory as $Q$ rises — strongly negative at $Q \le 4$, crossing zero at $Q \approx 8$, flat from $Q \approx 16$ onward. The apparent "best" at $Q{=}128$ is noise on that plateau, not a located optimum. The benefit is modest for the trained models ($+2.9\%$ to $+4.9\%$) and large for $k$-NN ($+11.4\%$), which is expected: a smoother has more to remove from a noisier estimator.
+
+The reported degradation is therefore **entirely an artifact of one filter setting**, not evidence about kinematic post-processing.
+
+A caveat on interpretation, and a hypothesis worth testing before this is written up as a tuning fix. A constant-velocity filter with a *single* global $Q$ is being applied to a population spanning $0.1$ to $15\,\text{m/s}$ (§4.3). The same $q$ that is far too tight to track a manoeuvring vehicle is far too loose for a static user, so the value the sweep lands on is a compromise that fits neither end well. The physically-motivated alternative is to scale process noise per user, $q_u \propto v_u$, which would make the filter's assumed manoeuvre magnitude match each user's actual dynamics.
+
+One discrepancy remains unexplained. The July XGBoost and Random Forest sweeps report RTS *helping* slightly ($+3.6\%$ falling to $-0.1\%$ as the model improves) at exactly these default settings, on the same mobility model and with the same filter function. Their targets were 3D and their models substantially weaker (raw MAE $25$–$28\,\text{m}$), which plausibly explains a smaller effect but not a sign flip of this size. Until it is understood, **no smoothing result should enter the paper**; every headline number in this report is a raw, unsmoothed prediction.
 
 ---
 
