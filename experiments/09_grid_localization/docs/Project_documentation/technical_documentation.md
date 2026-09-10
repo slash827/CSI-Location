@@ -20,7 +20,7 @@ SINR with co-channel interference and Angle of Arrival break the ring ambiguity 
 
 ### 1.2 Central Thesis
 
-> **Transition history — the sequence of measurements observed as a UE moves — encodes richer positional information than any single static snapshot.**
+> **Transition history — the sequence of channel-state measurements observed as a UE moves — encodes richer positional information than any single static snapshot.**
 
 When a UE moves through space, consecutive measurements capture not just the current channel state but its *evolution along the path*. Two locations with identical instantaneous snapshots can be disambiguated by the pattern of measurement changes along their transitions — each position's channel neighborhood produces a distinct trajectory through measurement space, even when the endpoints appear identical.
 
@@ -44,6 +44,10 @@ This work tests the thesis through simulation under controlled but diverse condi
 ---
 
 ## 2. System Architecture
+
+> **TODO (attribution):** based on Omri's files with adjustments — add citation.
+
+The QuaDRiGa integration builds on a simulation framework by [Omri, ref]; see [ref] for full channel setup details.
 
 ### 2.1 Pipeline Overview
 
@@ -291,6 +295,8 @@ Device params enable the model to implicitly learn per-device fingerprint correc
 
 ### 4.4 Experiment Registry
 
+> **TODO (scope):** extend with multi-user localization variants.
+
 All experiments are defined in a single Python registry. Each entry specifies the complete feature configuration:
 
 | Key | h | AoA | Extra | What it isolates |
@@ -315,7 +321,7 @@ The registry also includes h=1 and h=2 depth-sweep variants (`BASE_H1`, `BASE_H2
 
 ### 5.1 Task Formulation
 
-Localization is treated as a **225-class classification problem** (one class per grid point). This is appropriate because:
+Localization is treated as a **225-class classification problem** (one class per grid point of the 15×15 grid). This is appropriate because:
 
 - **Grid spacing (2 m) >> position jitter (±0.1 m)** — discrete labels are unambiguous
 - **Classification error is spatially meaningful** — predicting an adjacent cell is qualitatively better than predicting a far cell
@@ -379,6 +385,8 @@ Both models are trained on 0-indexed labels for XGBoost compatibility, then mapp
 ---
 
 ## 6. Summary of Findings
+
+> **TODO (length):** target half a page in the final write-up.
 
 **Core thesis confirmed:** Transition history improves localization accuracy at every scale tested — 6 grid sizes (9–400 classes), 4 ML algorithms, and 2 BS placements — with a consistent gain of **+22 pp to +29 pp** (XGBoost, RSS+SINR).
 
@@ -1242,14 +1250,19 @@ Architectural Spectrum Comparison ──┼─── Gradient Boosted Trees (XGB
    - Across every model family without exception, multi-antenna smartphones consistently achieve **`14.5m - 15.4m` MAE**, while single-antenna devices plateau around **`32.4m - 38.9m` MAE**.
    - **Mask-Aware 1D-CNN** achieved the lowest single-antenna error (**`32.383 m`**), proving that eliminating false Boresight directional vectors helps decouple radial distance estimation from unobservable angles.
 
+---
 
+## 10. Related Work
 
+> **TODO:** to be written. Cover classical RSS fingerprinting, geometric ToA/TDoA/AoA
+> multilateration, sequence models for CSI, and hybrid kinematic/radio fusion
+> (including concurrent work by Raz Weintock under Julian's supervision, which
+> balances two separate estimators rather than enlarging the input of one).
 
+---
 
+## 11. References
 
+[1] Omri's work (add article)
 
-
-
-
-
-
+[GitHub Link to Repository](https://github.com/slash827/CSI-Location)
