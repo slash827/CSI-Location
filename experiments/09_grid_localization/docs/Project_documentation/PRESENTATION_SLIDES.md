@@ -68,7 +68,7 @@ h=2:             [rss_t, rss_{t-1}, rss_{t-2}]
 
 - Static model sees one snapshot — no movement context
 - Transition model sees a short trajectory — direction and Doppler encoded implicitly
-- History length h is a hyperparameter; h=1 captures most of the gain
+- History length h is a hyperparameter; h=1 delivers the largest single jump, but depth keeps paying to h=5 (deep models) or beyond h=10 (tree ensembles)
 
 ---
 
@@ -80,12 +80,12 @@ h=2:             [rss_t, rss_{t-1}, rss_{t-2}]
 |---|---|---|---|---|
 | Gaussian | 10.9% | 15.5% | 5.03 m | 4.37 m |
 | Random Forest | 28.0% | 43.6% | 3.90 m | 2.51 m |
-| **XGBoost** | **26.8%** | **45.4%** | **3.93 m** | **2.39 m** |
+| **XGBoost** | **26.9%** | **45.1%** | **3.93 m** | **2.39 m** |
 | MLP | 24.8% | 41.6% | 4.16 m | 2.62 m |
 
 **All 4 algorithms improve with transition history.**
 Effect verified across all 6 grid sizes (9 to 400 classes), both feature sets.
-h=1 provides most of the gain; h>1 yields diminishing returns.
+h=1 delivers the largest single jump; depth continues to pay, with h=3 beating h=1 at every grid size below.
 
 ---
 
@@ -106,7 +106,7 @@ Without AoA: concentric rings (distance only) → ambiguous predictions.
 With AoA azimuth: range × bearing → near-unique position.
 With AoA elevation: 3D ranging → further disambiguates.
 
-**RSS ≈ SINR on single-BS:** Both encode distance under free-space propagation.
+**RSS ≈ SINR on single-BS:** With no interference, both are driven by the same path loss, so SINR adds no independent spatial information.
 Adding interference (multi-BS scenario) breaks this degeneracy.
 
 ---
@@ -260,7 +260,7 @@ Cross-user BASE_A_H tests a multi-user AoA database against a completely unseen 
 * **$h = 0 \to h = 1$ ($\Delta = -1.56\text{m}$, $+6.8\%$ gain):** Velocity vector $\mathbf{v} \approx \frac{\Delta\mathbf{r}}{\Delta t}$ and radial derivative $\frac{d\text{RSS}}{dt}$ become computable $\to$ largest marginal jump.
 * **$h = 1 \to h = 5$ ($\Delta = -2.02\text{m}$ additional gain):** Temporal convolutions filter out Rayleigh fast-fading nulls and small-scale angular noise.
 * **$h = 5$ is the Empirical Sweet Spot ($\sim 2.5\text{s}$):** $-15.7\%$ cumulative error reduction!
-* **$h = 10$ Plateau / Decorrelation:** For pedestrian random walks ($1.5\text{m/s}$), headings decorrelate after $3\text{–}4\text{s}$; longer history causes slight inertial lag.
+* **$h = 10$ regresses for the 1D-CNN** ($+0.955\text{m}$) — but **not universally**: XGBoost and Random Forest keep improving through $h=10$ on identical data. Fixed-window models must consume every lag; tree ensembles can decline to split on a stale one.
 
 ![bg right:48% 95%](../figures/universal_delta_mae_history_curves.png)
 
