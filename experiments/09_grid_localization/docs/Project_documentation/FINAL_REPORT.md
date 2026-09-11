@@ -413,14 +413,63 @@ Two further audits confirm the data is sound:
 
 Error grows with range as angular uncertainty translates into linear uncertainty: at $R=120\,\text{m}$, a $5^\circ$ AoA error subtends $R\tan5^\circ \approx 10.5\,\text{m}$ of cross-range displacement. The corner zone's $25.2\,\text{m}$ is therefore close to a geometric floor for this BS placement, not a modelling failure. (Mid slightly exceeding Far is likely a composition effect of unequal sample counts and zone mix; worth confirming before publication.)
 
-### 7.5 Summary of physical limits
+### 7.5 Why Campaign B is two orders of magnitude harder than Campaign A
 
-| Factor | Campaign A ($15\times15$, 2 m) | Campaign B (300-user macro) | Explanation |
-| :--- | :---: | :---: | :--- |
-| Evaluation mode | seen-grid classification | **unseen-user regression** | zero-shot over trajectories and devices |
-| Multi-antenna MAE | $\approx4$–$6\,$m | **14.58 m** (P50 12.31 m) | dominated by $\pm5^\circ$ angular quantization at $100\,$m range |
-| Single-antenna MAE | n/a | **34.54 m** | fundamental limit of RSS-only single-BS ranging |
-| History benefit | $+22$–$29$ pp | **$-3.59\,$m ($15.7\%$)** | resolves ring ambiguity in both formulations |
+The two campaigns report wildly different numbers — Campaign A reaches $0.39\,\text{m}$ MAE with its best configuration, Campaign B's best model reaches $18.5\,\text{m}$. Taken side by side without explanation that looks like a collapse. It is not: the two are measuring different tasks at different scales under different generalization demands. This section enumerates the gaps and then shows, by decomposing the error geometrically, which of them actually account for the difference.
+
+#### The eight differences
+
+| # | Axis | Campaign A | Campaign B | Factor |
+| :---: | :--- | :--- | :--- | :--- |
+| 1 | Task | classification, 225 cells | continuous regression | error quantised vs. not |
+| 2 | Service area | $28 \times 28\,\text{m}$ = $784\,\text{m}^2$ | $96 \times 96\,\text{m}$ = $9{,}216\,\text{m}^2$ | $\mathbf{11.8\times}$ |
+| 3 | Range to serving BS | $0$–$19.8\,\text{m}$ (centre BS) | $21.2$–$157.0\,\text{m}$, mean $93.2$ | $\mathbf{\approx 9\times}$ |
+| 4 | Grid pitch | $2\,\text{m}$ | $4\,\text{m}$ | $2\times$ coarser |
+| 5 | Generalization | same users, same cells, later timesteps | **disjoint users**, unseen trajectories and devices | zero-shot |
+| 6 | Device population | 5 fixed profiles, all seen in training | 232 users, gain $-3.97$ to $+1.99\,\text{dB}$, height $0.80$–$1.80\,\text{m}$, $N_{ant} \in \{1,2,4\}$ | continuous, unseen |
+| 7 | Training density | $\approx1{,}600$ samples per cell | $178$ samples per cell (median) | $\mathbf{9\times}$ sparser |
+| 8 | Mobility | uniform $1.5\,\text{m/s}$ random walk | 4 patterns, $0.12$–$14.89\,\text{m/s}$ | $\Delta t$ spans $0.27$–$32.5\,\text{s}$ |
+
+Two further differences work *in Campaign B's favour* and so cannot explain the gap: its AoA impairment is milder (fixed $4^\circ$ + $5^\circ$ quantisation, against Campaign A's SINR-dependent $1$–$20^\circ$), and all 625 cells are covered in training with no test sample falling in an unvisited cell.
+
+#### Decomposing the error: it is range, not bearing
+
+Splitting Campaign B's XGBoost error into the component along the BS bearing (range error) and the component perpendicular to it (bearing error) separates the two cohorts cleanly:
+
+| Cohort | Total | Radial (range) | Tangential (bearing) | Radial share of variance |
+| :--- | ---: | ---: | ---: | ---: |
+| All users | 19.43 m | 14.93 m | 9.14 m | 73% |
+| **Multi-antenna** | 15.29 m | **13.69 m** | 4.71 m | **89%** |
+| **Single-antenna** | 34.81 m | 19.53 m | **25.60 m** | 37% |
+
+This is the central diagnostic of the whole study, and it reverses the naive reading:
+
+* **For the 85% multi-antenna cohort, bearing is essentially solved.** Tangential error is $4.71\,\text{m}$, which matches the geometric prediction from the measured $3.5^\circ$ angular error at the mean range of $93.2\,\text{m}$: $R\tan(3.5^\circ) = 5.70\,\text{m}$. The distance-ring ambiguity is *not* what limits modern handsets. **$89\%$ of their error is range error.**
+* **For the 15% single-antenna cohort the opposite holds.** Tangential error is $25.60\,\text{m}$, against a geometric prediction of $R\tan(15.8^\circ) = 26.36\,\text{m}$. The agreement is close enough to say the failure is purely geometric: these devices estimate range acceptably and have no bearing information at all. This is the distance-ring ambiguity, isolated.
+
+#### Why range error explodes with scale
+
+Range is inferred from path loss, and the sensitivity of RSS to range falls off as $1/r$:
+
+$$\frac{d\,\text{RSS}}{dr} = \frac{10\gamma}{r \ln 10} \quad \text{dB/m}$$
+
+Under $\gamma = 4$ and $6\,\text{dB}$ shadow fading, the implied $1\sigma$ range uncertainty is:
+
+| Operating range | dB per metre | $\sigma_{\text{range}}$ |
+| :--- | ---: | ---: |
+| Campaign A, centre BS (~$10\,\text{m}$) | 1.737 | $3.5\,\text{m}$ |
+| Campaign A, NE BS (~$40\,\text{m}$) | 0.434 | $13.8\,\text{m}$ |
+| Campaign B, $p_{10}$ ($56\,\text{m}$) | 0.309 | $19.4\,\text{m}$ |
+| **Campaign B, median ($95\,\text{m}$)** | **0.182** | **$32.9\,\text{m}$** |
+| Campaign B, $p_{90}$ ($126\,\text{m}$) | 0.138 | $43.6\,\text{m}$ |
+
+At Campaign B's median range, one metre of displacement changes RSS by $0.18\,\text{dB}$ — far below the shadow-fading noise floor. The measured multi-antenna radial error of $13.69\,\text{m}$ is in fact *substantially better* than the $32.9\,\text{m}$ this naive bound predicts, which is itself evidence that history, SINR and elevation are contributing real range information beyond raw path loss.
+
+#### What this means for the history result
+
+The $9\times$ range increase and the switch to continuous regression account for most of the absolute gap; the zero-shot user split and the $9\times$ sparser training density account for much of the rest. None of them undermine the mechanism claim, because **$\Delta\text{MAE}$ is measured within each campaign against that campaign's own $h=0$ baseline**. History delivers $+22$ to $+29$ pp in Campaign A and $13$–$15\%$ in Campaign B; the two are not expected to be equal, and the comparison that matters is each against its own control.
+
+It does, however, sharpen the framing. The mechanism is introduced as resolving the distance-ring ambiguity, and for AoA-blind devices that is exactly what the decomposition shows it doing. For AoA-capable devices at macro range, bearing is already resolved and history's contribution is mostly to **range** estimation — through the radial path-loss derivative $d\text{RSS}/dt$, which is observable from a sequence and not from a snapshot. Both are the same mechanism supplying the missing degree of freedom; which degree of freedom is missing depends on the hardware.
 
 ### 7.6 Architectural mitigation: explicit AoA validity masking
 
