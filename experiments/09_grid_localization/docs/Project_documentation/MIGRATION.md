@@ -57,7 +57,26 @@ stall the run overnight.
 
 Alternatively clone from GitHub for everything tracked, and robocopy only
 `results\` and `ml_training\` — it amounts to the same bytes, since the tracked
-part is tiny.
+part is tiny. **If you take that selective route, note there are five directories
+named `results` in this repo**, and the gitignore pattern `results/` has no
+leading slash, so it matches every one of them:
+
+| Path | Size | |
+| :--- | ---: | :--- |
+| `results/` | 16 GB | the main one |
+| `ml_training/results/` | 776 MB | |
+| `ml_training/output/results/` | 666 MB | |
+| `experiments/results/` | 28 KB | stray output from scripts run with the wrong working directory — but its 3 files are **unique**, not duplicates of the main tree |
+| `experiments/09_grid_localization/docs/results/` | 60 KB | three committed documents; already tracked, so a clone provides them |
+
+The whole-tree robocopy above picks all of these up. A selective copy can miss
+`experiments/results/`.
+
+> **Latent trap:** because `results/` matches at any depth, any *new* file added
+> to `experiments/09_grid_localization/docs/results/` is silently gitignored. The
+> three documents already there survive only because git keeps tracking files
+> added before an ignore rule started matching them. Put new documentation
+> elsewhere, or force-add it with `git add -f`.
 
 ## Verify before trusting
 
