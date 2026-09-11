@@ -1,0 +1,132 @@
+{
+  "history_sweep": {
+    "h=0": {
+      "raw_mae": 22.846,
+      "raw_p50": 20.17,
+      "raw_p90": 41.488,
+      "rts_mae": 29.267,
+      "rts_gain_pct": -28.1,
+      "best_epoch": 5
+    },
+    "h=1": {
+      "raw_mae": 21.284,
+      "raw_p50": 18.397,
+      "raw_p90": 39.378,
+      "rts_mae": 28.461,
+      "rts_gain_pct": -33.7,
+      "best_epoch": 4
+    },
+    "h=3": {
+      "raw_mae": 20.026,
+      "raw_p50": 16.654,
+      "raw_p90": 38.647,
+      "rts_mae": 28.12,
+      "rts_gain_pct": -40.4,
+      "best_epoch": 7
+    },
+    "h=5": {
+      "raw_mae": 19.26,
+      "raw_p50": 15.228,
+      "raw_p90": 38.005,
+      "rts_mae": 27.687,
+      "rts_gain_pct": -43.8,
+      "best_epoch": 9
+    },
+    "h=10": {
+      "raw_mae": 20.215,
+      "raw_p50": 16.485,
+      "raw_p90": 37.472,
+      "rts_mae": 28.323,
+      "rts_gain_pct": -40.1,
+      "best_epoch": 4
+    }
+  },
+  "feature_ablation": {
+    "raw_5_features": {
+      "raw_mae": 19.686,
+      "raw_p50": 16.299,
+      "raw_p90": 37.954,
+      "rts_mae": 27.895,
+      "best_epoch": 6
+    },
+    "full_13_derived_features": {
+      "raw_mae": 19.26,
+      "raw_p50": 15.228,
+      "raw_p90": 38.005,
+      "rts_mae": 27.687,
+      "best_epoch": 9
+    }
+  },
+  "hardware_ablation": {
+    "multi_antenna_only_100pct": {
+      "raw_mae": 15.507,
+      "raw_p50": 13.342,
+      "raw_p90": 29.288,
+      "rts_mae": 26.728,
+      "best_epoch": 6
+    },
+    "realistic_15pct_single_mix": {
+      "raw_mae": 19.26,
+      "raw_p50": 15.228,
+      "raw_p90": 38.005,
+      "rts_mae": 27.687,
+      "best_epoch": 9
+    }
+  },
+  "antenna_cohort_breakdown": {
+    "4_antenna": {
+      "raw_mae": 14.843,
+      "raw_p50": 12.607,
+      "raw_p90": 28.555
+    },
+    "2_antenna": {
+      "raw_mae": 14.371,
+      "raw_p50": 12.074,
+      "raw_p90": 28.02
+    },
+    "multi_combined": {
+      "raw_mae": 14.58,
+      "raw_p50": 12.31,
+      "raw_p90": 28.25
+    },
+    "1_antenna": {
+      "raw_mae": 34.538,
+      "raw_p50": 30.232,
+      "raw_p90": 65.991
+    }
+  },
+  "propagation_breakdown": {
+    "los": {
+      "raw_mae": 19.401,
+      "raw_p50": 15.664,
+      "raw_p90": 38.651
+    },
+    "nlos": {
+      "raw_mae": 18.868,
+      "raw_p50": 14.204,
+      "raw_p90": 36.442
+    }
+  },
+  "bs_distance_breakdown": {
+    "near_under_40m": {
+      "raw_mae": 13.186,
+      "raw_p50": 9.861,
+      "raw_p90": 23.845
+    },
+    "mid_40_to_80m": {
+      "raw_mae": 19.093,
+      "raw_p50": 16.381,
+      "raw_p90": 37.516
+    },
+    "far_80_to_120m": {
+      "raw_mae": 18.368,
+      "raw_p50": 14.122,
+      "raw_p90": 36.148
+    },
+    "corner_over_120m": {
+      "raw_mae": 25.212,
+      "raw_p50": 21.969,
+      "raw_p90": 45.538
+    }
+  }
+}
