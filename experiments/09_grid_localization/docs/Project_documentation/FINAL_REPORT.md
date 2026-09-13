@@ -132,16 +132,38 @@ For a UE moving at roughly constant speed, the pair $(\dot r, \dot\theta)$ const
 
 All data is generated with **QuaDRiGa v2.8.1** implementing 3GPP TR 38.901, $100\,\text{MHz}$ bandwidth, 256 OFDM subcarriers, $30\,\text{dBm}$ TX power for serving and interfering sites, omnidirectional BS element. QuaDRiGa's **spatial consistency** is essential to this study: the channel evolves continuously along the trajectory rather than being redrawn independently per step, which is the physical precondition for transition features to carry information at all.
 
-The service area is partitioned into **four Voronoi propagation zones**, each assigned a distinct 3GPP scenario, so a single grid spans the indoor-like-NLOS to open-LOS spectrum:
+**Infrastructure provenance.** The simulation layer builds on the *5G Massive MIMO
+Time-Aware Simulator* developed by Omri Israeli under the same supervision
+([repository](https://github.com/Omri154/5G-Massive-MIMO-Simulator), MIT licence).
+The Voronoi propagation-zone design, the `AreaGenerator` and `GeometryUtils`
+classes, and the QuaDRiGa layout conventions derive from that work. This project
+extends it with grid-constrained trajectory generation, the device-heterogeneity
+model (§4.4), and the multi-user batching used for Campaign B.
 
-| Zone | Scenario | Character |
+The service area is **configured** as four Voronoi propagation zones, each mapped to
+a 3GPP scenario, intended to span the NLOS-to-LOS spectrum within a single grid:
+
+| Zone | Configured scenario | Character |
 | :--- | :--- | :--- |
-| Highway | RMa_LOS | Rural macro, line of sight |
-| Shopping district | UMi_NLOS | Dense NLOS, rich multipath |
-| Residential | UMi mixed LOS/NLOS | Suburban transition |
+| Highway | UMi_LOS | Line of sight, open road |
 | Park | UMi_LOS | Urban micro, line of sight |
+| Shopping district | UMi_NLOS | Dense NLOS, rich multipath |
+| Residential | UMi_NLOS | Suburban, obstructed |
 
-Zone boundaries are generated at simulation time from a fixed seed.
+> **This configuration was not applied in the Campaign B data.** The runner reads
+> only the scalar `channel.scenario` and assigns it to every track, so all 300
+> users were simulated under a uniform `3GPP_38.901_UMi_NLOS` profile; the
+> `mixed_scenario` block was silently ignored. The zone labels used in the
+> analysis are therefore geometric regions of a homogeneous map, not propagation
+> classes. §5.6 sets out the consequences and the fix. Campaign A is unaffected:
+> it runs through `core/generate_simulation_data.m`, which reads the block —
+> though note that file assigns one scenario per *track segment* without ever
+> setting `segment_index`, so a track carries its default single segment and
+> inherits the scenario of its first position. Per-position mixing requires the
+> explicit segmentation added in `run_multi_user_300_25x25_mixed.m`.
+
+Zone centres are fixed in the config; boundaries follow from nearest-centre
+assignment.
 
 **What "interference" means here.** Campaign B's 300 users are generated in shared QuaDRiGa layouts of 25 users each, with three transmitters per layout: the serving BS and the two interfering sites. SINR is computed as
 
@@ -326,103 +348,164 @@ Earlier runs contained configurations where added history made tree ensembles wo
 
 **The confound does not materialise.** History helps monotonically under both regimes, and per-depth tuning buys at most $0.44\,\text{m}$ — at $h=1$ it is slightly negative, which is tuning noise (the tuned configuration won on validation users and lost on test users). The history gain is therefore not a capacity artifact, and no "provided the model is re-tuned" qualifier is needed for this campaign.
 
-### 5.6 A falsifiable prediction: the gain should be largest where the ambiguity is worst
+### 5.6 A falsifiable prediction, and why this dataset cannot test it
 
-Everything so far establishes *that* history helps. This section tests a
-prediction the mechanism makes about *where*.
+Everything so far establishes *that* history helps. The mechanism also makes a
+prediction about *where*, and this section is a report of a test that failed to
+run, not of a result.
 
-If history works by resolving the distance-ring ambiguity, its benefit should be
-largest exactly where that ambiguity bites hardest — in **LOS**, where the
-range-to-RSS map is clean and monotone and there is no multipath diversity to
-break the tie between equidistant points. In NLOS, rich scattering already gives
-each position a distinctive signature, so there is less symmetry left to break.
+The prediction: if history works by resolving the distance-ring ambiguity, its
+benefit should be largest exactly where that ambiguity bites hardest — in **LOS**,
+where the range-to-RSS map is clean and monotone and there is no multipath
+diversity to break the tie between equidistant points. In NLOS, rich scattering
+already gives each position a distinctive signature, so there is less symmetry
+left to break.
 
-One XGBoost model per depth, trained on all training users, evaluated by
-propagation zone (zones assigned by nearest Voronoi centre, matching every other
-analysis in the project):
+> **This prediction is untested. Campaign B contains no LOS.**
+>
+> The generating config, `ne_bs_voronoi_25x25_config.jsonc`, declares
+> `channel.mixed_scenario.enabled = true` with four Voronoi cells — highway and
+> park as `3GPP_38.901_UMi_LOS`, shopping centre and residential as
+> `3GPP_38.901_UMi_NLOS`. The runner that produced the data,
+> `run_multi_user_300_25x25.m`, never reads that block. It calls
+> `l.set_scenario(config.channel.scenario)` and assigns
+> `trk.scenario = {config.channel.scenario}` to every track, so all 300 users were
+> simulated under a single uniform `UMi_NLOS` profile. The run's own saved
+> `simulation_config.json` records `quadriga_scenario: 3GPP_38.901_UMi_NLOS`.
+>
+> The four "zones" therefore exist only as labels applied afterwards by nearest
+> Voronoi centre — in `environment_viz.py` as a drawing, and in
+> `history_gain_by_zone.py` as a lookup table copied from it. Two regions of a
+> homogeneous NLOS map were being called LOS. The defect was found while comparing
+> this pipeline against the `TransitionManager` in the upstream simulator (§4.2),
+> and is fixed in `run_multi_user_300_25x25_mixed.m`, which
+> assigns scenarios per track segment. Re-running Campaign B under genuinely mixed
+> propagation is the first item in §11.
 
-| Zone | Scenario | $n$ | Mean BS range | $h{=}0$ | $h{=}1$ | $h{=}3$ | $h{=}5$ | Best gain |
-| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Park | UMi_LOS | 14,429 | 74.9 m | 22.145 | 20.521 | 18.458 | **17.993** | **+18.75%** |
-| Highway | RMa_LOS | 7,437 | 119.4 m | 23.833 | 22.934 | 21.884 | **21.228** | **+10.93%** |
-| Residential | mixed NLOS | 3,416 | 106.9 m | 20.664 | 20.003 | 19.392 | **19.378** | +6.22% |
-| Shopping | UMi_NLOS | 4,522 | 89.1 m | 21.832 | **20.876** | 20.980 | 21.143 | +4.38% |
-| **LOS combined** | | 21,866 | 90.1 m | 22.719 | 21.341 | 19.620 | **19.090** | **+15.98%** |
-| **NLOS combined** | | 7,938 | 96.8 m | 21.329 | **20.500** | 20.297 | 20.385 | +4.84% |
+What the measurement actually shows, read correctly, is still worth recording. One
+XGBoost model per depth, evaluated over the four geometric regions of a uniformly
+NLOS map:
 
-**The prediction is supported, and by a wide margin.** History is worth
-$+15.98\%$ in LOS against $+4.84\%$ in NLOS — a **$3.3\times$ difference**, and
-both LOS zones outperform both NLOS zones with no overlap.
+| Region | $n$ | Mean BS range | $h{=}0$ | $h{=}1$ | $h{=}3$ | $h{=}5$ | Best gain |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Park | 14,429 | 74.9 m | 22.145 | 20.521 | 18.458 | **17.993** | **+18.75%** |
+| Highway | 7,437 | 119.4 m | 23.833 | 22.934 | 21.884 | **21.228** | **+10.93%** |
+| Residential | 3,416 | 106.9 m | 20.664 | 20.003 | 19.392 | **19.378** | +6.22% |
+| Shopping | 4,522 | 89.1 m | 21.832 | **20.876** | 20.980 | 21.143 | +4.38% |
 
-Two details strengthen the reading:
+Every one of these regions has identical propagation physics. The gain
+nevertheless ranges from $+4.38\%$ to $+18.75\%$ — a $4.3\times$ spread driven
+entirely by **geometry**: where a region sits relative to the serving base
+station, how much of it is ring-ambiguous from that vantage, and how the
+trajectory generator distributes samples through it. That is a real finding, and
+arguably a cleaner one than the original: it isolates a purely geometric
+contribution to history's value, with propagation held constant by accident.
 
-* **The range confound points the wrong way.** Error grows with range (§7.5), so
-  if range drove this we would expect the longer-range stratum to show the larger
-  gain. It is the opposite: LOS sits at a *shorter* mean range (90.1 m vs 96.8 m)
-  and gains more. Highway is the most distant zone of all at 119.4 m and still
-  beats both NLOS zones.
-* **NLOS saturates almost immediately.** It takes its entire gain at $h=1$
-  (20.500 m) and then flattens or reverses, while LOS keeps improving all the way
-  to $h=5$. That is what the mechanism predicts: one extra frame supplies velocity
-  and that is most of what a well-fingerprinted NLOS position needs, whereas
-  breaking a clean LOS ring benefits from a longer motion-consistent arc.
+It is also a warning about the confound the original reading walked into. The
+earlier version of this section argued the range confound "points the wrong way"
+because the LOS stratum had shorter mean range. With propagation uniform, range
+and geometry are all that is left, so that argument was comparing two geometric
+strata and attributing the difference to physics that was never simulated.
 
-This also resolves the apparent paradox in §7.4, where NLOS posts *lower absolute*
-error than LOS. Both facts have the same cause. NLOS positions are individually
-more identifiable from a snapshot, so they start better and have less to gain;
-LOS positions start worse and are precisely the ones history rescues.
+The LOS/NLOS prediction remains the sharpest available test of the mechanism, and
+it remains open.
 
 ### 5.7 How large does a difference have to be before it means anything?
 
 Every result above is a single-seed point estimate, and the seed drives both the
 train/test user split and model initialisation. With only 47 test users, split
-variance is expected to dominate. Five seeds $\{42, 1, 7, 13, 99\}$ on the two
-cheap models:
+variance is expected to dominate. Five seeds $\{42, 1, 7, 13, 99\}$ across **all
+seven model families**, at $h=0$ and $h=5$ — 70 training runs in total:
 
-| Model | $h$ | Mean MAE | 95% CI | Min | Max | Spread |
-| :--- | :---: | ---: | ---: | ---: | ---: | ---: |
-| $k$-NN | 0 | 27.074 m | ±0.640 | 26.192 | 28.042 | **1.850 m** |
-| $k$-NN | 5 | 23.855 m | ±0.852 | 22.832 | 25.360 | **2.528 m** |
-| XGBoost | 0 | 21.513 m | ±0.502 | 20.996 | 22.349 | **1.353 m** |
-| XGBoost | 5 | 18.866 m | ±0.459 | 18.317 | 19.434 | **1.117 m** |
+| Model | $h{=}0$ mean | 95% CI | spread | $h{=}5$ mean | 95% CI | spread |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| $k$-NN | 27.074 m | ±0.640 | **1.850** | 23.855 m | ±0.852 | **2.528** |
+| Random Forest | 21.660 m | ±0.458 | 1.242 | 19.275 m | ±0.394 | 1.194 |
+| XGBoost | 21.513 m | ±0.502 | 1.353 | 18.866 m | ±0.459 | 1.117 |
+| GRU | 22.032 m | ±0.558 | 1.265 | 19.085 m | ±0.491 | 1.361 |
+| 1D-CNN | 22.098 m | ±0.619 | 1.460 | 19.123 m | ±0.515 | 1.310 |
+| CNN + attention | 22.081 m | ±0.611 | 1.609 | 18.844 m | ±0.439 | 1.304 |
+| Mask-aware CNN | 21.743 m | ±0.589 | 1.556 | 18.810 m | ±0.521 | 1.457 |
 
 **Two different uncertainties matter, and conflating them would be a mistake.**
 
 *Marginal* spread — what you get re-running with a new seed — reaches
-$1.85\,\text{m}$. But every ablation in this report compares two arms **on the
-same split**, and that comparison is far tighter. Pairing by seed:
+$1.85\,\text{m}$ and is remarkably uniform across families ($1.1$–$1.6\,\text{m}$
+for everything except $k$-NN). That uniformity is itself informative: the variance
+is a property of *which 47 users land in the test set*, not of the model. But every
+ablation in this report compares two arms **on the same split**, and that
+comparison is far tighter. Pairing by seed:
 
-| Comparison | Gain | Paired 95% CI | Verdict |
-| :--- | ---: | ---: | :--- |
-| $k$-NN, $h{=}0 \to h{=}5$ | $+3.219\,\text{m}$ | ±0.272 | **significant** |
-| XGBoost, $h{=}0 \to h{=}5$ | $+2.648\,\text{m}$ | ±0.294 | **significant** |
+| Model | Gain, $h{=}0 \to h{=}5$ | Paired 95% CI | Relative | Verdict |
+| :--- | ---: | ---: | ---: | :--- |
+| $k$-NN | $+3.219\,\text{m}$ | ±0.272 | 11.89% | **significant** |
+| Random Forest | $+2.385\,\text{m}$ | ±0.203 | 11.01% | **significant** |
+| XGBoost | $+2.648\,\text{m}$ | ±0.294 | 12.31% | **significant** |
+| GRU | $+2.946\,\text{m}$ | ±0.494 | 13.37% | **significant** |
+| 1D-CNN | $+2.975\,\text{m}$ | ±0.632 | 13.46% | **significant** |
+| CNN + attention | $+3.236\,\text{m}$ | ±0.626 | 14.66% | **significant** |
+| Mask-aware CNN | $+2.932\,\text{m}$ | ±0.575 | 13.49% | **significant** |
 
-The history gain clears both bars comfortably, and so does the §5.6 LOS/NLOS
-difference ($11.14$ pp). Those results are safe.
+**This is the strongest form of the central claim in the report.** Seven families
+spanning five learning paradigms, five splits each, and the gain is positive and
+significant in all seven — never below $11\%$, never above $15\%$, and in every
+case several times the paired CI. The falsification test set out in §1 was a single
+family where history does not help; thirty-five paired trials produced none.
+
+The gains are also strikingly *similar* across families — $11.0\%$ to $14.7\%$,
+with overlapping CIs almost everywhere. History is not a trick that suits one
+architecture. It supplies information the input was missing, and any model able to
+use that information recovers about the same amount of it.
+
+**The scorecard ranking, however, does not survive.** At $h=5$, ordering the seven
+by mean MAE and testing adjacent pairs:
+
+| Rank | Model | Mean MAE | 95% CI |
+| ---: | :--- | ---: | :--- |
+| 1 | Mask-aware CNN | 18.810 m | [18.290, 19.331] |
+| 2 | CNN + attention | 18.844 m | [18.405, 19.284] |
+| 3 | XGBoost | 18.866 m | [18.407, 19.325] |
+| 4 | GRU | 19.085 m | [18.594, 19.576] |
+| 5 | 1D-CNN | 19.123 m | [18.608, 19.638] |
+| 6 | Random Forest | 19.275 m | [18.881, 19.669] |
+| 7 | $k$-NN | 23.855 m | [23.003, 24.708] |
+
+Every one of the five adjacent pairs among ranks 1–6 has overlapping intervals.
+**Ranks 1 through 6 are a single statistical tie**, spanning $0.47\,\text{m}$ —
+less than a third of the marginal seed spread. Only $k$-NN separates, and only
+because it is far worse. The top three sit within $0.056\,\text{m}$ of each other,
+which is noise by any reading.
+
+So the honest statement is: *given history, a $66\,\text{K}$-parameter CNN, a
+gradient-boosted tree ensemble and a recurrent network are indistinguishable on
+this task.* That is a more interesting result than a winner would have been, and it
+is the same point the §6 scorecard makes about parameter counts — the architecture
+is not where the leverage is.
 
 **Smaller claims in this report are not all safe, and are flagged here rather than
 left for a reviewer to find:**
 
 | Claim | Magnitude | Status |
 | :--- | ---: | :--- |
-| History gain, $h{=}0 \to h{=}5$ | 2.648 m | **established** — clears marginal spread |
-| AoA masking, single-antenna (§7.6) | 1.419 m | clears the paired CI, within marginal spread |
+| Claim | Magnitude | Status |
+| :--- | ---: | :--- |
+| History gain, all seven families | 2.4–3.2 m | **established** — measured with paired CIs, clears marginal spread |
+| AoA masking, single-antenna (§7.6) | 1.419 m | clears the history paired CI, within marginal spread |
 | RTS smoothing, best case (§7.7) | ~0.893 m | clears the paired CI only |
-| Scorecard gap, GRU vs 1D-CNN (§6) | 0.812 m | clears the paired CI only — **"GRU is best" is not established** |
+| Scorecard gap, rank 1 vs rank 6 (§6) | 0.465 m | **refuted** — measured CIs overlap across all of ranks 1–6 |
 | Per-depth tuning, best case (§5.5) | 0.444 m | clears the paired CI only |
 | Feature ablation, raw → derived (§5.2) | 0.426 m | clears the paired CI only |
 | AoA masking, multi-antenna (§7.6) | 0.129 m | **below both** — not resolved |
 | $h{=}10$ vs $h{=}15$ (§5.4) | 0.053 m | **below both** — not resolved |
 
-The paired CI above was measured for the *history* comparison specifically; each
-of the other ablations would need its own seed-paired repeat to earn a CI. Treating
-the ±0.29 m figure as a universal threshold is an approximation, and the honest
+The history comparison now has directly measured CIs for every family. The other
+ablations do not: each would need its own seed-paired repeat to earn one, and
+borrowing the history CI as a universal threshold is an approximation. The honest
 reading is that everything below roughly half a metre in this report is
 **suggestive rather than demonstrated** until repeated.
 
-This does not touch the central claim. It does mean the *ranking* of the top four
-models in §6 should be read as a tie, and the two sub-metre contributions (feature
-ablation, multi-antenna masking gain) should be presented as directional.
+None of this touches the central claim, which is stronger after this section than
+before it. What it does retire is any claim that one architecture wins.
 
 ### 5.8 Six samples or two and a half seconds? Neither — twenty metres
 
@@ -863,7 +946,8 @@ It also reinforces the report's central theme from a second direction: populatio
 4. **Cohort mix is assumed, not measured.** The $85/15$ split is a 3GPP-representative assumption; results are sensitive to it, which is exactly why §7.1 reports the components separately.
 5. **Two campaigns differ in more than scale.** Carrier frequency, grid spacing, task formulation, and split protocol all differ between A and B, so cross-campaign numbers are not directly comparable — only within-campaign $\Delta$'s are.
 6. **Single interference geometry per campaign.** SINR informativeness depends on interferer placement; only one configuration per campaign was swept.
-7. **Statistical reporting.** The noise floor is now measured (§5.7): marginal seed spread reaches $1.85\,	ext{m}$ and the paired 95% CI on the history gain is $\pm0.29\,	ext{m}$. The central claim clears both. Several sub-metre claims clear only the paired bar and are flagged as directional in §5.7; each needs its own seed-paired repeat, and the deep models have not been repeated at all.
+7. **Statistical reporting.** The noise floor is measured for all seven families (§5.7): marginal seed spread reaches $1.85\,\text{m}$ and the paired 95% CI on the history gain runs $\pm0.20$ to $\pm0.63\,\text{m}$. The central claim clears both in every family. Several sub-metre claims clear only the paired bar and are flagged as directional in §5.7; each still needs its own seed-paired repeat.
+8. **Campaign B has uniform NLOS propagation, not the mixed LOS/NLOS map its config declares.** The generating runner ignores the `mixed_scenario` block (§5.6), so every user was simulated under a single `UMi_NLOS` profile. Two consequences: the LOS/NLOS prediction in §5.6 is untested rather than confirmed, and the per-zone path-loss fits in §7.5 describe geometry within one propagation class rather than differences between classes. A corrected runner exists; the re-run is pending.
 
 ---
 
@@ -875,12 +959,13 @@ The same lens explains the population's error structure. Devices that can observ
 
 **Priority follow-ups, in order:**
 
-1. **Disentangle history depth from elapsed time.** Sweep $h$ *within* each speed class, so that "six samples" and "thirteen seconds" stop being confounded (§9.3). This is now the highest-value experiment, because every history number in the report is currently averaged over a $1.3$–$162\,\text{s}$ spread of temporal horizons.
-2. **Resolve the smoothing discrepancy** (§7.7) across all model families, then either adopt re-tuned kinematic post-processing or report it as a clean negative result. Three inconsistent pictures currently exist in the record.
-3. **A targeted LOS→blocked→LOS scenario**: a UE walking a straight sidewalk past a blocking building. This isolates the case where history should be decisive — the estimator can localize the blocked interval using evidence from $t\pm k$. It also connects naturally to non-causal (smoothed) operation, which is legitimate for many use cases.
-4. **Seed-paired repeats for the remaining ablations.** §5.7 measures the noise floor and establishes the history gain, but the feature ablation, the masking result, the smoothing gain and the model ranking each need their own paired repeat before being stated as demonstrated. The deep models have not been repeated at all.
-5. **Extend the depth sweep past $h=10$ for tree ensembles**, which had not saturated at the deepest window tested (§5.4) — the true optimum for that family is still unknown.
-6. **Field or measured-trace validation.**
+1. **Re-run Campaign B with genuinely mixed LOS/NLOS propagation.** The corrected runner (`run_multi_user_300_25x25_mixed.m`) assigns a QuaDRiGa scenario per track segment from the config's four Voronoi cells, keeping the user manifest identical so the two runs stay comparable user by user. This turns §5.6 from a retracted claim into the mechanism's sharpest available test, and lets §7.5 separate propagation class from range.
+2. **A targeted LOS→blocked→LOS scenario**: a UE walking a straight sidewalk past a blocking building. This isolates the case where history should be decisive — the estimator can localize the blocked interval using evidence from $t\pm k$. It also connects naturally to non-causal (smoothed) operation, which is legitimate for many use cases. The trace-based mobility model in the upstream simulator (§4.2) drives UEs from a waypoint CSV and is the natural vehicle for it.
+3. **Separate sample count from distance travelled** (Limitation 3). Every walk step covers exactly one grid cell, so $h$ is simultaneously a sample count and a path length. Decoupling position update rate from CSI reporting rate — which the upstream simulator already exposes as independent parameters — varies distance per sample while holding the walk fixed.
+4. **Seed-paired repeats for the remaining ablations.** §5.7 now covers all seven families for the history comparison, but the feature ablation, the masking result and the smoothing gain each need their own paired repeat before being stated as demonstrated.
+5. **Per-depth re-tuning for Random Forest**, the one family whose single-antenna error exceeds the $h{=}0$ $k$-NN baseline (§6). §5.5 re-tuned XGBoost only.
+6. **Physical antenna heterogeneity.** The $85/15$ cohort split is currently a feature-level construct: every UE is simulated with an omni array and the cohort is imposed downstream. Giving QuaDRiGa genuinely different `rx_array` objects per UE would make the $2.3\times$ cohort discontinuity a physical result rather than an encoded one.
+7. **Field or measured-trace validation.**
 
 ---
 
