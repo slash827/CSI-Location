@@ -391,6 +391,31 @@ Earlier runs contained configurations where added history made tree ensembles wo
 
 **The confound does not materialise.** History helps monotonically under both regimes, and per-depth tuning buys at most $0.44\,\text{m}$ — at $h=1$ it is slightly negative, which is tuning noise (the tuned configuration won on validation users and lost on test users). The history gain is therefore not a capacity artifact, and no "provided the model is re-tuned" qualifier is needed for this campaign.
 
+**Random Forest, the family most likely to break this.** XGBoost alone is thin
+evidence, so the identical protocol was run on Random Forest — the family with the
+smallest history gain in §5.4 and the one where an earlier draft believed history
+was actively harmful:
+
+| $h$ | Fixed defaults | Per-depth tuned | Tuning bought | Gain, defaults | Gain, tuned |
+| :---: | :---: | :---: | ---: | :---: | :---: |
+| 0 | 22.110 m | 22.050 m | $+0.060$ m | — | — |
+| 1 | 20.906 m | 20.840 m | $+0.066$ m | $+5.45\%$ | $+5.49\%$ |
+| 3 | 19.766 m | 19.812 m | $-0.046$ m | $+10.60\%$ | $+10.15\%$ |
+| 5 | 19.417 m | 19.399 m | $+0.018$ m | $+12.18\%$ | $+12.02\%$ |
+| 10 | **19.338 m** | **19.304 m** | $+0.034$ m | $+12.54\%$ | $+12.46\%$ |
+
+The result is emphatically negative, which is what makes it useful: **20 Optuna
+trials per depth move Random Forest by between $-0.046$ and $+0.066\,\text{m}$** —
+two orders of magnitude below the marginal seed spread, and smaller even than the
+XGBoost tuning effect. The two history curves are indistinguishable. Whatever the
+master benchmark's Random Forest row was measuring, it was not a hyperparameter
+problem, and the history gain is not one either.
+
+Worth noting what the tuner chose: at $h=3$ and $h=5$ it converged on the same
+configuration (350 trees, depth 18, `max_features='sqrt'`), and at every depth it
+landed close to the hand-set defaults. The defaults were already in the right
+region, which is the most economical explanation for a null result of this size.
+
 ### 5.6 A falsifiable prediction, and why this dataset cannot test it
 
 Everything so far establishes *that* history helps. The mechanism also makes a
@@ -488,6 +513,29 @@ comparison is far tighter. Pairing by seed:
 | 1D-CNN | $+2.975\,\text{m}$ | ±0.632 | 13.46% | **significant** |
 | CNN + attention | $+3.236\,\text{m}$ | ±0.626 | 14.66% | **significant** |
 | Mask-aware CNN | $+2.932\,\text{m}$ | ±0.575 | 13.49% | **significant** |
+
+**The single-antenna column is far noisier than anything else in the report, and
+several claims rest on it.** The $15\%$ AoA-blind cohort is about seven test users,
+and its MAE moves accordingly:
+
+| Model | Single-ant MAE at $h{=}5$ | 95% CI | Min | Max | Spread |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Mask-aware CNN | 34.518 m | ±1.970 | 32.395 | 37.287 | 4.892 |
+| XGBoost | 35.772 m | ±2.323 | 33.658 | 39.952 | 6.294 |
+| Random Forest | 36.269 m | ±2.345 | 33.069 | 39.306 | 6.237 |
+| GRU | 36.959 m | ±3.153 | 33.858 | 42.911 | 9.053 |
+| 1D-CNN | 37.194 m | ±4.172 | 33.586 | 45.364 | 11.778 |
+| CNN + attention | 37.243 m | ±5.024 | 33.434 | 47.266 | 13.832 |
+| $k$-NN ($h{=}0$ baseline) | 46.279 m | ±5.124 | 39.968 | 54.504 | 14.535 |
+
+A single run can land $14\,\text{m}$ from another run of the same configuration.
+**No difference under roughly $5\,\text{m}$ in a single-antenna figure is
+interpretable**, which retires the §6 claim that Random Forest trails the $k$-NN
+baseline on this cohort (it leads it by about $10\,\text{m}$ once repeated) and
+puts the $1.42\,\text{m}$ AoA-masking gain of §7.6 well inside the noise as a
+marginal comparison. The masking result survives only as a *paired* comparison, on
+identical splits — which is how it was measured, and why the distinction between
+the two uncertainties matters so much here.
 
 **This is the strongest form of the central claim in the report.** Seven families
 spanning five learning paradigms, five splits each, and the gain is positive and
@@ -636,6 +684,25 @@ merits its own investigation.
 
 All models below are evaluated under one identical protocol: Campaign B, $h=5$, 300 users, user-disjoint 80/20 split, seed 42, realistic $85/15$ hardware mix.
 
+> **Read this table with §5.7 open.** Every cell is a single-seed point estimate.
+> Repeating the protocol over five seeds puts ranks 1–6 in a statistical tie
+> (overall MAE spans $0.47\,\text{m}$ against a marginal seed spread of
+> $1.85\,\text{m}$), so the *ordering* here is not a result. The single-antenna
+> column is worse still: it rests on roughly seven test users and carries 95%
+> intervals of $\pm1.7$ to $\pm5.1\,\text{m}$, with run-to-run spreads up to
+> $14.5\,\text{m}$. No difference under about $5\,\text{m}$ in that column means
+> anything.
+>
+> Two rows also fail to reproduce under the current pipeline and are retained only
+> because they are what the master benchmark recorded. Re-running seed 42 today
+> gives Random Forest $19.417\,\text{m}$ overall and $33.069\,\text{m}$
+> single-antenna (against $20.884$ and $38.904$ below), reproduced identically by
+> three independent scripts (§5.4, §5.7, §5.5-RF); and the $k$-NN baseline's
+> single-antenna error comes out at $46.17 \pm 3.13\,\text{m}$ across five seeds,
+> with $37.142$ falling outside the observed range entirely. The master benchmark
+> predates several pipeline changes and its per-cohort figures should not be cited
+> without a re-run.
+
 | Model | History | Params | Train time | 2D MAE | P50 | P90 | Multi-ant (85%) | Single-ant (15%) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | $k$-NN regressor (baseline) | $h=0$ | — | 0.0 s | 27.857 m | 23.892 m | 53.323 m | 25.356 m | 37.142 m |
@@ -650,7 +717,17 @@ All models below are evaluated under one identical protocol: Campaign B, $h=5$, 
 
 1. **Deep temporal models lead, but not by much.** GRU is best overall at $18.518\,\text{m}$; the CNN variants cluster at $19.2$–$19.3\,\text{m}$. Recurrent gates and 1D convolutions extract motion derivatives that axis-aligned tree splits struggle to express.
 2. **XGBoost is the deployment recommendation.** $19.314\,\text{m}$ MAE with **12.8 K parameters and 26 s of training** — within $4\%$ of the best deep model at roughly $1/15$ the parameters and $1/10$ the training time. For BS-edge compute this is the operating point that matters. This is also the practical form of the universality claim: you do not need a large model to collect the history gain.
-3. **Random Forest is the outlier.** At $20.884\,\text{m}$ with 6.5 M parameters it is both the largest and the weakest of the $h=5$ models, and it is the *only* model whose single-antenna error ($38.904\,\text{m}$) is worse than the $h=0$ $k$-NN baseline's ($37.142\,\text{m}$). Axis-aligned splits on stacked lag features apparently fragment rather than integrate the temporal signal.
+3. **Random Forest is the largest model here, but the "outlier" reading is
+   withdrawn.** An earlier version of this section called it the only model whose
+   single-antenna error ($38.904\,\text{m}$) exceeds the $h=0$ $k$-NN baseline's
+   ($37.142\,\text{m}$), and inferred that axis-aligned splits fragment the
+   temporal signal. Both numbers are single-seed point estimates of the noisiest
+   quantity in the study, and neither survives repetition. Across five seeds
+   (§5.7) Random Forest's single-antenna MAE is $36.27 \pm 2.35\,\text{m}$ and the
+   $k$-NN baseline's is $46.17 \pm 3.13\,\text{m}$ — Random Forest is roughly
+   $10\,\text{m}$ *better* than the baseline on that cohort, not worse. It remains
+   the largest model (6.5 M parameters) for the least return, which is the reading
+   that holds.
 4. **The snapshot baseline is far behind.** $k$-NN at $h=0$ gives $27.857\,\text{m}$; every $h=5$ model beats it by $7$–$9\,\text{m}$. Part of that is model capacity, but §5.1 isolates the history component within a single fixed architecture.
 5. **The cohort columns diverge everywhere.** In every row, multi-antenna error is $14.5$–$16.0\,\text{m}$ and single-antenna error is $32.4$–$38.9\,\text{m}$. No architecture closes this gap, because it is not an architectural gap. That is §7.
 
@@ -1037,7 +1114,7 @@ The same lens explains the population's error structure. Devices that can observ
 2. **A targeted LOS→blocked→LOS scenario**: a UE walking a straight sidewalk past a blocking building. This isolates the case where history should be decisive — the estimator can localize the blocked interval using evidence from $t\pm k$. It also connects naturally to non-causal (smoothed) operation, which is legitimate for many use cases. The trace-based mobility model in the upstream simulator (§4.2) drives UEs from a waypoint CSV and is the natural vehicle for it.
 3. **Separate sample count from distance travelled** (Limitation 3). Every walk step covers exactly one grid cell, so $h$ is simultaneously a sample count and a path length. Decoupling position update rate from CSI reporting rate — which the upstream simulator already exposes as independent parameters — varies distance per sample while holding the walk fixed.
 4. **Seed-paired repeats for the remaining ablations.** §5.7 now covers all seven families for the history comparison, but the feature ablation, the masking result and the smoothing gain each need their own paired repeat before being stated as demonstrated.
-5. **Per-depth re-tuning for Random Forest**, the one family whose single-antenna error exceeds the $h{=}0$ $k$-NN baseline (§6). §5.5 re-tuned XGBoost only.
+5. **Re-run the master benchmark.** Its per-cohort figures do not reproduce under the current pipeline (§6), and it is the source of several numbers the report still quotes. One clean re-run under the present code, with seed repeats, would replace the last block of results whose provenance is uncertain.
 6. **Physical antenna heterogeneity.** The $85/15$ cohort split is currently a feature-level construct: every UE is simulated with an omni array and the cohort is imposed downstream. Giving QuaDRiGa genuinely different `rx_array` objects per UE would make the $2.3\times$ cohort discontinuity a physical result rather than an encoded one.
 7. **Field or measured-trace validation.**
 

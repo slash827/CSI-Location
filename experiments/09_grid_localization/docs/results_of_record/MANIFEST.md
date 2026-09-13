@@ -41,6 +41,7 @@ by hand — full float precision is preserved.
 | :--- | :--- |
 | `knn_sweep_rts_retune_summary.json` | k-NN history sweep, h ∈ {0,1,3,5,10}. **The `rts_retune` block is pre-fix and invalid**; the `knn_history_sweep` block is correct and is what §5.4 cites |
 | `xgb_per_h_retune_summary.json` | Per-depth Optuna re-tuning of XGBoost (§5.5). Tuned on training users only; test users evaluated once |
+| `rf_per_h_retune_summary.json` | **B5** — the same per-depth Optuna protocol on Random Forest (§5.5). Null result: 20 trials per depth move it by −0.046 to +0.066 m |
 | `rts_retune_all_models_summary.json` | Cross-model Kalman/RTS sweep, **post-fix**. Backs the §7.7 table |
 | `rts_retune_report.md` | Human-readable rendering of the same run |
 | `per_user_process_noise_summary.json` | Global vs per-user process noise, `q_u = k·v_u`, wide grids (§7.7) |
@@ -58,6 +59,7 @@ by hand — full float precision is preserved.
 
 ```bash
 E=experiments/09_grid_localization/src/python/experiments_ablation
+.venv/Scripts/python $E/rf_per_h_retune.py               # B5, ~2 h (CPU)
 .venv/Scripts/python $E/regenerate_trajectory_diagnostics.py  # B4, ~6 min (GPU)
 .venv/Scripts/python $E/seed_repeats_all_models.py       # B2, ~95 min (GPU)
 .venv/Scripts/python $E/history_sweep_all_models.py      # B3, ~50 min (GPU)
