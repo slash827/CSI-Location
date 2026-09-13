@@ -424,6 +424,82 @@ This does not touch the central claim. It does mean the *ranking* of the top fou
 models in §6 should be read as a tie, and the two sub-metre contributions (feature
 ablation, multi-antenna masking gain) should be presented as directional.
 
+### 5.8 Six samples or two and a half seconds? Neither — twenty metres
+
+§4.3 flagged the study's largest confound: step duration is $\text{spacing}/v$, so
+a fixed $h$ covers $1.3\,\text{s}$ for a vehicle and $162\,\text{s}$ for a
+near-static user. "$h=5$ is optimal" could mean *six samples* or *two and a half
+seconds*, and no history result was physically interpretable until the two were
+separated.
+
+We swept $h$ **within each speed class**, with a success criterion fixed before
+running: optima aligning in samples would indicate an architectural effect, optima
+aligning in seconds a physical one.
+
+**1D-CNN**, evaluated per class (the model that genuinely turns, so it has an
+optimum to locate):
+
+| Class | $n$ | median $\Delta t$ | $h{=}0$ | $h{=}1$ | $h{=}3$ | $h{=}5$ | $h{=}10$ | Best $h$ | Best window |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Static | 4,164 | 13.47 s | 22.857 | 19.419 | 17.797 | 17.270 | **16.399** | 10 | 134.7 s |
+| Pedestrian | 11,083 | 3.10 s | 23.962 | 21.474 | 20.009 | 20.052 | **19.924** | 10 | 31.0 s |
+| Jogger | 8,309 | 1.41 s | 19.900 | 17.760 | 16.358 | **15.519** | 15.820 | 5 | 7.1 s |
+| Vehicle | 5,888 | 0.32 s | 24.776 | 24.139 | 24.156 | **23.686** | 24.007 | 5 | 1.6 s |
+
+The optimal *window duration* ranges from $1.6\,\text{s}$ to $134.7\,\text{s}$ — a
+relative spread of $3.05$. **The optimum is emphatically not a fixed time.**
+
+XGBoost gives the same verdict more bluntly: every class optimises at $h=10$, the
+deepest depth tested, across windows from $3.2\,\text{s}$ to $134.7\,\text{s}$.
+(That model saturates rather than turns, per §5.4, so its argmin sits at the grid
+boundary and carries less weight.)
+
+#### What the window actually is
+
+The pre-registered criterion returns "inconclusive" for the CNN, because the
+per-class optima differ in samples too ($10, 10, 5, 5$). But a structural fact
+about the simulator resolves it.
+
+Step duration is $\text{spacing}/v$ **and every walk step moves exactly one grid
+cell.** So distance per step is $4\,\text{m}$ — $5.66\,\text{m}$ diagonally —
+*independent of speed*:
+
+| Class | $\Delta t$ | $h{=}5$ window in time | $h{=}5$ window in path |
+| :--- | ---: | ---: | ---: |
+| Static | 13.47 s | 67.4 s | **20 m** |
+| Pedestrian | 3.10 s | 15.5 s | **20 m** |
+| Jogger | 1.41 s | 7.0 s | **20 m** |
+| Vehicle | 0.32 s | 1.6 s | **20 m** |
+
+In this dataset a fixed $h$ **is** a fixed spatial window, by construction. Samples
+and distance are perfectly confounded; only time varies. The experiment therefore
+answers the question it was built to answer:
+
+> **The useful window is spatial, not temporal.** What matters is how far the UE
+> has travelled — equivalently, how many channel transitions it has traversed —
+> not how long it took.
+
+That is exactly what a *spatially consistent* channel implies. The information
+history adds comes from traversing the spatial channel, and a static user parked
+in one place for two minutes learns nothing a jogger does not learn in seven
+seconds. It also retires the "$h=5 \approx 2.5\,\text{s}$" gloss for good: the
+honest statement is $h=5 \approx 20\,\text{m}$ of path.
+
+#### What this experiment cannot settle, and how to settle it
+
+Because step length is constant by construction, **samples and distance cannot be
+separated in this data.** Distinguishing them needs a simulation this project does
+not yet have — either variable step length at fixed speed, or fixed step length
+with a variable sampling rate. That is now the sharpest open question about the
+mechanism, and it is a simulation task rather than an analysis one.
+
+Two caveats on the numbers above. Each class rests on 7–18 test users, well below
+the 47 that produced §5.7's $1.85\,\text{m}$ marginal spread, so per-class noise is
+substantially larger than that figure and the $10$-vs-$5$ split between classes
+should not be over-read. And the vehicle class is the weakest throughout
+($23.7\,\text{m}$ at best, $4.40\%$ gain against $16$–$28\%$ elsewhere), which
+merits its own investigation.
+
 ---
 
 ## 6. Results II — The Cross-Model Scorecard
@@ -783,7 +859,7 @@ It also reinforces the report's central theme from a second direction: populatio
 
 1. **Simulation only.** All results are QuaDRiGa TR 38.901. Spatial consistency — the precondition for the entire mechanism — is a model property here; real channels exhibit it but with additional non-stationarity, hardware impairments, and calibration drift. Field validation is not yet performed.
 2. **Synthetic mobility.** Campaign B's four patterns (§4.3) are heading-persistent and speed-diverse, so unlike Campaign A they are not adversarial to history — but they are still generated on an 8-connected grid graph, not drawn from measured traces. Real mobility has road geometry, stop-and-go dynamics, and dwell behaviour that none of the four patterns reproduce.
-3. **A fixed $h$ is not a fixed time window.** Because speed varies by two orders of magnitude and step duration is $\text{spacing}/v$, the $h=5$ window spans $1.3\,\text{s}$ to $162\,\text{s}$ across users (§4.3). Every history result is therefore an average over widely different temporal horizons, and per-speed-class sweeps would be needed to separate "how many samples" from "how much elapsed time". This is the most significant unexamined confound in the study.
+3. **A fixed $h$ is a fixed *spatial* window, not a temporal one — and samples cannot be separated from distance.** §5.8 resolves the time confound: the optimum tracks path length, not elapsed time. But because every walk step moves exactly one grid cell, sample count and distance travelled are perfectly correlated in this data, so which of the two governs the optimum remains open. Settling it needs a new simulation with either variable step length at fixed speed or a variable sampling rate.
 4. **Cohort mix is assumed, not measured.** The $85/15$ split is a 3GPP-representative assumption; results are sensitive to it, which is exactly why §7.1 reports the components separately.
 5. **Two campaigns differ in more than scale.** Carrier frequency, grid spacing, task formulation, and split protocol all differ between A and B, so cross-campaign numbers are not directly comparable — only within-campaign $\Delta$'s are.
 6. **Single interference geometry per campaign.** SINR informativeness depends on interferer placement; only one configuration per campaign was swept.

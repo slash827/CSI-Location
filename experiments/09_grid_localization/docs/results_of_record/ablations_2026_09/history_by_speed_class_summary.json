@@ -1,0 +1,496 @@
+{
+ "meta": {
+  "dataset": "D:\\gilad\\projects\\Academy\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_300users_2026-07-25_11-46-11",
+  "seed": 42,
+  "depths": [
+   0,
+   1,
+   3,
+   5,
+   10
+  ],
+  "models": [
+   "xgboost",
+   "cnn"
+  ],
+  "speed_classes": [
+   {
+    "lo": 0.0,
+    "hi": 0.8,
+    "name": "static"
+   },
+   {
+    "lo": 0.8,
+    "hi": 2.0,
+    "name": "pedestrian"
+   },
+   {
+    "lo": 2.0,
+    "hi": 6.0,
+    "name": "jogger"
+   },
+   {
+    "lo": 6.0,
+    "hi": 999.0,
+    "name": "vehicle"
+   }
+  ],
+  "criterion": "optima aligned in samples => architectural; aligned in seconds => physical"
+ },
+ "by_model": {
+  "xgboost": {
+   "per_depth": {
+    "h=0": {
+     "overall_mae": 22.3491268157959,
+     "elapsed_sec": 2.2,
+     "classes": {
+      "static": {
+       "mae": 21.102163314819336,
+       "n": 4234,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 0.0
+      },
+      "pedestrian": {
+       "mae": 23.39267921447754,
+       "n": 11263,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 0.0
+      },
+      "jogger": {
+       "mae": 18.544666290283203,
+       "n": 8374,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 0.0
+      },
+      "vehicle": {
+       "mae": 26.6276912689209,
+       "n": 5933,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 0.0
+      }
+     }
+    },
+    "h=1": {
+     "overall_mae": 21.11724853515625,
+     "elapsed_sec": 2.5,
+     "classes": {
+      "static": {
+       "mae": 20.3814754486084,
+       "n": 4227,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 13.47
+      },
+      "pedestrian": {
+       "mae": 22.03055191040039,
+       "n": 11245,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 3.1
+      },
+      "jogger": {
+       "mae": 17.266965866088867,
+       "n": 8361,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 1.41
+      },
+      "vehicle": {
+       "mae": 25.342805862426758,
+       "n": 5924,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 0.32
+      }
+     }
+    },
+    "h=3": {
+     "overall_mae": 19.80055046081543,
+     "elapsed_sec": 3.2,
+     "classes": {
+      "static": {
+       "mae": 18.473812103271484,
+       "n": 4213,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 40.4
+      },
+      "pedestrian": {
+       "mae": 20.280683517456055,
+       "n": 11209,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 9.29
+      },
+      "jogger": {
+       "mae": 16.574966430664062,
+       "n": 8335,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 4.24
+      },
+      "vehicle": {
+       "mae": 24.387920379638672,
+       "n": 5906,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 0.96
+      }
+     }
+    },
+    "h=5": {
+     "overall_mae": 19.433944702148438,
+     "elapsed_sec": 3.9,
+     "classes": {
+      "static": {
+       "mae": 17.428119659423828,
+       "n": 4199,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 67.33
+      },
+      "pedestrian": {
+       "mae": 20.023761749267578,
+       "n": 11173,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 15.49
+      },
+      "jogger": {
+       "mae": 15.82014274597168,
+       "n": 8309,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 7.07
+      },
+      "vehicle": {
+       "mae": 24.84486961364746,
+       "n": 5888,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 1.6
+      }
+     }
+    },
+    "h=10": {
+     "overall_mae": 19.026718139648438,
+     "elapsed_sec": 7.4,
+     "classes": {
+      "static": {
+       "mae": 17.03367805480957,
+       "n": 4164,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 134.66
+      },
+      "pedestrian": {
+       "mae": 19.77046775817871,
+       "n": 11083,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 30.98
+      },
+      "jogger": {
+       "mae": 15.318561553955078,
+       "n": 8244,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 14.15
+      },
+      "vehicle": {
+       "mae": 24.268220901489258,
+       "n": 5843,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 3.19
+      }
+     }
+    }
+   },
+   "per_class": {
+    "static": {
+     "maes": {
+      "h=0": 21.1022,
+      "h=1": 20.3815,
+      "h=3": 18.4738,
+      "h=5": 17.4281,
+      "h=10": 17.0337
+     },
+     "best_h": 10,
+     "best_window_sec": 134.66,
+     "median_dt_s": 13.466,
+     "gain_pct": 19.28,
+     "n": 4164
+    },
+    "pedestrian": {
+     "maes": {
+      "h=0": 23.3927,
+      "h=1": 22.0306,
+      "h=3": 20.2807,
+      "h=5": 20.0238,
+      "h=10": 19.7705
+     },
+     "best_h": 10,
+     "best_window_sec": 30.98,
+     "median_dt_s": 3.098,
+     "gain_pct": 15.48,
+     "n": 11083
+    },
+    "jogger": {
+     "maes": {
+      "h=0": 18.5447,
+      "h=1": 17.267,
+      "h=3": 16.575,
+      "h=5": 15.8201,
+      "h=10": 15.3186
+     },
+     "best_h": 10,
+     "best_window_sec": 14.15,
+     "median_dt_s": 1.415,
+     "gain_pct": 17.4,
+     "n": 8244
+    },
+    "vehicle": {
+     "maes": {
+      "h=0": 26.6277,
+      "h=1": 25.3428,
+      "h=3": 24.3879,
+      "h=5": 24.8449,
+      "h=10": 24.2682
+     },
+     "best_h": 10,
+     "best_window_sec": 3.19,
+     "median_dt_s": 0.319,
+     "gain_pct": 8.86,
+     "n": 5843
+    }
+   },
+   "best_h_per_class": {
+    "static": 10,
+    "pedestrian": 10,
+    "jogger": 10,
+    "vehicle": 10
+   },
+   "best_window_sec_per_class": {
+    "static": 134.66,
+    "pedestrian": 30.98,
+    "jogger": 14.15,
+    "vehicle": 3.19
+   },
+   "aligned_in_samples": true,
+   "aligned_in_seconds": false,
+   "window_sec_relative_spread": 2.874
+  },
+  "cnn": {
+   "per_depth": {
+    "h=0": {
+     "overall_mae": 22.825551986694336,
+     "elapsed_sec": 196.6,
+     "classes": {
+      "static": {
+       "mae": 22.856752395629883,
+       "n": 4234,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 0.0
+      },
+      "pedestrian": {
+       "mae": 23.961708068847656,
+       "n": 11263,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 0.0
+      },
+      "jogger": {
+       "mae": 19.899696350097656,
+       "n": 8374,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 0.0
+      },
+      "vehicle": {
+       "mae": 24.77608299255371,
+       "n": 5933,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 0.0
+      }
+     }
+    },
+    "h=1": {
+     "overall_mae": 20.669031143188477,
+     "elapsed_sec": 121.6,
+     "classes": {
+      "static": {
+       "mae": 19.418621063232422,
+       "n": 4227,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 13.47
+      },
+      "pedestrian": {
+       "mae": 21.474239349365234,
+       "n": 11245,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 3.1
+      },
+      "jogger": {
+       "mae": 17.759994506835938,
+       "n": 8361,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 1.41
+      },
+      "vehicle": {
+       "mae": 24.138545989990234,
+       "n": 5924,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 0.32
+      }
+     }
+    },
+    "h=3": {
+     "overall_mae": 19.494613647460938,
+     "elapsed_sec": 112.4,
+     "classes": {
+      "static": {
+       "mae": 17.797290802001953,
+       "n": 4213,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 40.4
+      },
+      "pedestrian": {
+       "mae": 20.00908088684082,
+       "n": 11209,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 9.29
+      },
+      "jogger": {
+       "mae": 16.357952117919922,
+       "n": 8335,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 4.24
+      },
+      "vehicle": {
+       "mae": 24.15567398071289,
+       "n": 5906,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 0.96
+      }
+     }
+    },
+    "h=5": {
+     "overall_mae": 19.106815338134766,
+     "elapsed_sec": 140.3,
+     "classes": {
+      "static": {
+       "mae": 17.269502639770508,
+       "n": 4199,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 67.33
+      },
+      "pedestrian": {
+       "mae": 20.051965713500977,
+       "n": 11173,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 15.49
+      },
+      "jogger": {
+       "mae": 15.519196510314941,
+       "n": 8309,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 7.07
+      },
+      "vehicle": {
+       "mae": 23.68634605407715,
+       "n": 5888,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 1.6
+      }
+     }
+    },
+    "h=10": {
+     "overall_mae": 19.08352279663086,
+     "elapsed_sec": 144.5,
+     "classes": {
+      "static": {
+       "mae": 16.39860725402832,
+       "n": 4164,
+       "median_dt_s": 13.465871810913086,
+       "window_sec": 134.66
+      },
+      "pedestrian": {
+       "mae": 19.924251556396484,
+       "n": 11083,
+       "median_dt_s": 3.0981688499450684,
+       "window_sec": 30.98
+      },
+      "jogger": {
+       "mae": 15.819559097290039,
+       "n": 8244,
+       "median_dt_s": 1.4149036407470703,
+       "window_sec": 14.15
+      },
+      "vehicle": {
+       "mae": 24.00741195678711,
+       "n": 5843,
+       "median_dt_s": 0.3194715678691864,
+       "window_sec": 3.19
+      }
+     }
+    }
+   },
+   "per_class": {
+    "static": {
+     "maes": {
+      "h=0": 22.8568,
+      "h=1": 19.4186,
+      "h=3": 17.7973,
+      "h=5": 17.2695,
+      "h=10": 16.3986
+     },
+     "best_h": 10,
+     "best_window_sec": 134.66,
+     "median_dt_s": 13.466,
+     "gain_pct": 28.25,
+     "n": 4164
+    },
+    "pedestrian": {
+     "maes": {
+      "h=0": 23.9617,
+      "h=1": 21.4742,
+      "h=3": 20.0091,
+      "h=5": 20.052,
+      "h=10": 19.9243
+     },
+     "best_h": 10,
+     "best_window_sec": 30.98,
+     "median_dt_s": 3.098,
+     "gain_pct": 16.85,
+     "n": 11083
+    },
+    "jogger": {
+     "maes": {
+      "h=0": 19.8997,
+      "h=1": 17.76,
+      "h=3": 16.358,
+      "h=5": 15.5192,
+      "h=10": 15.8196
+     },
+     "best_h": 5,
+     "best_window_sec": 7.07,
+     "median_dt_s": 1.415,
+     "gain_pct": 22.01,
+     "n": 8309
+    },
+    "vehicle": {
+     "maes": {
+      "h=0": 24.7761,
+      "h=1": 24.1385,
+      "h=3": 24.1557,
+      "h=5": 23.6863,
+      "h=10": 24.0074
+     },
+     "best_h": 5,
+     "best_window_sec": 1.6,
+     "median_dt_s": 0.319,
+     "gain_pct": 4.4,
+     "n": 5888
+    }
+   },
+   "best_h_per_class": {
+    "static": 10,
+    "pedestrian": 10,
+    "jogger": 5,
+    "vehicle": 5
+   },
+   "best_window_sec_per_class": {
+    "static": 134.66,
+    "pedestrian": 30.98,
+    "jogger": 7.07,
+    "vehicle": 1.6
+   },
+   "aligned_in_samples": false,
+   "aligned_in_seconds": false,
+   "window_sec_relative_spread": 3.053
+  }
+ }
+}

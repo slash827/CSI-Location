@@ -39,6 +39,7 @@ by hand — full float precision is preserved.
 | `aoa_masking_across_models_summary.json` | **A2** — AoA masking applied to k-NN, RF, XGBoost. Backs §7.6.1, the negative generalisation result |
 | `pathloss_fit_summary.json` | **A3** — fitted γ and σ per Voronoi zone, and the recomputed range-resolution table. Backs §7.5 |
 | `deep_history_sweep_trees_summary.json` | **A4** — XGBoost depth sweep to h=30. Backs the saturation finding in §5.4 |
+| `history_by_speed_class_summary.json` | **B1** — history sweep within each speed class. Backs §5.8, the finding that the useful window is spatial rather than temporal |
 | `seed_repeats_summary.json` | **A5** — five-seed repeats, marginal spread and seed-paired CIs. Backs §5.7, the noise floor |
 
 ### Reproducing the September ablations
