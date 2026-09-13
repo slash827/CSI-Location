@@ -35,6 +35,29 @@ the *old* machine, so treat them as upper bounds.
 
 ---
 
+# Tier A — COMPLETE (2026-09-13)
+
+All five ran in about 25 minutes total. Outcomes:
+
+| # | Experiment | Actual | Outcome |
+| :--- | :--- | ---: | :--- |
+| A1 | History gain by zone | ~5 min | **Prediction confirmed.** LOS +15.98% vs NLOS +4.84%, a 3.3× difference, range confound running the other way. Report §5.6 |
+| A2 | AoA masking across families | ~10 min | **Hypothesis refuted, usefully.** Helps 1 of 3 non-convolutional models. C4 rescoped to architectures without conditional structure. Report §7.6.1 |
+| A3 | Fit path-loss per zone | ~1 min | γ = 3.26 (not 4), σ = 10.11 dB (not 6), R² = 0.20. Naive-ranging bound rises 32.9 → 67.9 m, so the model beats it by ~5×. Report §7.5 |
+| A4 | Extend tree sweep to h=30 | ~2 min | **Saturation, not a turn.** h ∈ [10,30] spans 0.053 m. Report §5.4 |
+| A5 | Seed repeats, cheap models | ~4 min | **Noise floor measured.** Marginal spread 1.85 m, seed-paired CI ±0.29 m. Several sub-metre claims flagged as directional. Report §5.7 |
+
+Scripts live in `src/python/experiments_ablation/`; summaries in
+`docs/results_of_record/ablations_2026_09/`.
+
+**A5 changed how the other results must be read**, so it is worth restating: the
+top-four model ranking in the §6 scorecard is a statistical tie, and any claimed
+delta below roughly half a metre is suggestive rather than demonstrated until it
+gets its own seed-paired repeat.
+
+<details>
+<summary>Original Tier A specifications (kept for provenance)</summary>
+
 # Tier A — run now, under 30 minutes each
 
 ## A1. Does history help more where the ambiguity is worse?
@@ -147,6 +170,8 @@ reported as k-fold over users rather than a single 80/20, which would be a
 protocol change worth making before submission.
 
 ---
+
+</details>
 
 # Tier B — new machine
 

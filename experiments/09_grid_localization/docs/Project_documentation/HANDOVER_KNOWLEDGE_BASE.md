@@ -66,13 +66,13 @@ Adding sequence history systematically reduces positioning error. Two distinct d
 | $h = 1$ | `21.284 m` | `18.397 m` | `39.378 m` | `-1.562 m` | `-1.562 m` | **$+6.8\%$** |
 | $h = 3$ | `20.026 m` | `16.654 m` | `38.647 m` | `-1.258 m` | `-2.820 m` | **$+12.3\%$** |
 | $h = 5$ | **`19.260 m`** | **`15.228 m`** | **`38.005 m`** | `-0.766 m` | `-3.586 m` | **$+15.7\%$** 🏆 |
-| $h = 10$ | `20.215 m` | `16.485 m` | `37.472 m` | `+0.955 m` | `-2.631 m` | $+11.5\%$ (plateau) |
+| $h = 10$ | `20.215 m` | `16.485 m` | `37.472 m` | `+0.955 m` | `-2.631 m` | $+11.5\%$ (regresses) |
 
 *Sign convention: negative $\Delta\text{MAE}$ (metres) = error reduced. The **Cumulative gain** column reports the same reduction as a positive percentage, matching `technical_documentation.md` §8.*
 
 Interpretation:
 * $h = 1$ is where the model first gains instantaneous velocity $\mathbf{v}$ — the single largest step gain, and the point at which distance-ring symmetry is broken.
-* $h = 5$ ($\approx 2.5\text{s}$ of history) is the **empirical sweet spot**; all master-benchmark models in §3.2 are evaluated here.
+* $h = 5$ is the **empirical sweet spot for this model**; all master-benchmark models in §3.2 are evaluated there. Note this is *six samples*, not a fixed duration — window length spans $1.3$–$162\,$s across the population (§2), so any statement of the form '$h=5 \approx 2.5\text{s}$' holds for one speed class only.
 * $h = 10$ *regresses* for this model (positive step $\Delta$). This is **not universal**: the 1D-CNN and $k$-NN turn at $h=10$, while XGBoost and Random Forest keep improving through $h=10$ on the same data. Fixed-window estimators must consume every lag; tree ensembles can decline to split on an uninformative one. Any claim that $h=5$ is a shared optimum is unsupported.
 
 ### 3.2 Master Cross-Model Benchmark Scorecard (Apples-to-Apples at $h=5$)
@@ -122,6 +122,27 @@ Interpretation:
 * [Figure 8.4: Outlier Failure Mode: User 250 (1-Antenna Radial Smearing)](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/diagnostic_WORST_user_250_ant1.png)
 * [Figure 8.5: Universal $\Delta\text{MAE}$ Curves Across All Model Families](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/universal_delta_mae_history_curves.png)
 * [Figure 8.6: Per-Device Antenna Cohort Error CDF & Reachability](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/antenna_cohort_error_cdf.png)
+
+---
+
+## 4.5 September 2026 ablations — what changed
+
+Five experiments run 2026-09-13 (scripts in `src/python/experiments_ablation/`,
+summaries in `docs/results_of_record/ablations_2026_09/`). Three of them revised
+claims that had been stated elsewhere in this knowledge base:
+
+| Finding | Effect on earlier claims |
+| :--- | :--- |
+| **History gain is 3.3× larger in LOS** (+15.98%) than NLOS (+4.84%) | New confirmatory evidence. Also explains why NLOS posts *lower absolute* error: those positions are more identifiable from a snapshot, so they start better and have less to gain |
+| **Noise floor measured**: marginal seed spread 1.85 m, seed-paired CI ±0.29 m | The top-four model ranking in the master scorecard is a **statistical tie**. "GRU is best" (18.518 vs 1D-CNN 19.330) is a 0.812 m gap and is not established |
+| **AoA masking does not generalise** — helps 1 of 3 non-convolutional models | The masking contribution is scoped to architectures *without* conditional structure. Trees already branch on `n_antennas`, so the validity flag is redundant for them |
+| **Tree ensembles saturate rather than turn** — h ∈ [10,30] spans 0.053 m | Earlier wording of "still improving at h=10" is replaced by "saturates by h≈10, flat to h=30" |
+| **Path-loss constants fitted**: γ = 3.26, σ = 10.11 dB, R² = 0.20 | Replaces assumed γ=4 / 6 dB. Naive-ranging bound rises from 32.9 m to 67.9 m, so the model beats it by ~5× rather than 2.4×. The R² is itself a result: range explains only 20% of RSS variance |
+
+**Also fixed in this period:** a defect where the Kalman/RTS smoother received
+z-scored `delta_t` instead of seconds, clamping 85.8% of steps to 0.01 s (commit
+`dee50dd`). Every pre-fix smoothing number was measuring that bug; all raw MAE
+results are unaffected.
 
 ---
 

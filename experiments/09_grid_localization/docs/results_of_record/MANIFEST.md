@@ -35,6 +35,22 @@ by hand — full float precision is preserved.
 | `rts_retune_all_models_summary.json` | Cross-model Kalman/RTS sweep, **post-fix**. Backs the §7.7 table |
 | `rts_retune_report.md` | Human-readable rendering of the same run |
 | `per_user_process_noise_summary.json` | Global vs per-user process noise, `q_u = k·v_u`, wide grids (§7.7) |
+| `history_gain_by_zone_summary.json` | **A1** — history gain per propagation zone. Backs §5.6, the LOS vs NLOS prediction test |
+| `aoa_masking_across_models_summary.json` | **A2** — AoA masking applied to k-NN, RF, XGBoost. Backs §7.6.1, the negative generalisation result |
+| `pathloss_fit_summary.json` | **A3** — fitted γ and σ per Voronoi zone, and the recomputed range-resolution table. Backs §7.5 |
+| `deep_history_sweep_trees_summary.json` | **A4** — XGBoost depth sweep to h=30. Backs the saturation finding in §5.4 |
+| `seed_repeats_summary.json` | **A5** — five-seed repeats, marginal spread and seed-paired CIs. Backs §5.7, the noise floor |
+
+### Reproducing the September ablations
+
+```bash
+E=experiments/09_grid_localization/src/python/experiments_ablation
+.venv/Scripts/python $E/history_gain_by_zone.py          # A1, ~5 min
+.venv/Scripts/python $E/aoa_masking_across_models.py     # A2, ~10 min
+.venv/Scripts/python $E/fit_pathloss_per_zone.py         # A3, ~1 min
+.venv/Scripts/python $E/deep_history_sweep_trees.py      # A4, ~2 min
+.venv/Scripts/python $E/seed_repeats.py                  # A5, ~4 min
+```
 
 ## `history_sweeps_july/` — independent corroboration
 

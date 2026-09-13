@@ -140,11 +140,13 @@ A finding that changes how the claim must be stated:
 |---|---:|---:|---:|---|
 | 1D-CNN | 22.846 | **19.260** | 20.215 | **turns** (+0.955 m) |
 | k-NN | 27.440 | **23.983** | 24.485 | **turns** (+0.502 m) |
-| XGBoost | 22.349 | 19.434 | **19.027** | still improving |
-| XGBoost (Jul, raw feats) | 28.325 | 25.404 | **25.002** | still improving |
-| Random Forest (Jul) | 27.704 | 25.945 | **25.880** | still improving |
+| XGBoost | 22.349 | 19.434 | **19.027** | saturates, no turn |
+| XGBoost (Jul, raw feats) | 28.325 | 25.404 | **25.002** | saturates, no turn |
+| Random Forest (Jul) | 27.704 | 25.945 | **25.880** | saturates, no turn |
 
-**Fixed-window estimators turn; tree ensembles do not.** A tree simply never splits on an uninformative lag. A convolution over a fixed window, and a distance metric over a fixed vector, must consume every position in it.
+Pushing XGBoost to **h=30** (406 features) settles it — MAE across h ∈ [10, 30] spans just **0.053 m** (19.027 / 18.974 / 19.006 / 18.980). Not a turn, a **plateau**.
+
+**Fixed-window estimators degrade past their optimum; tree ensembles saturate and sit flat.** A tree simply never splits on an uninformative lag. A convolution over a fixed window, and a distance metric over a fixed vector, must consume every position in it.
 
 → *"History always helps"* is supported. *"h=5 is the universal optimum"* is **not**.
 
@@ -197,6 +199,30 @@ Move the serving BS from **grid centre (360° azimuth spread)** to a **corner (5
 **AoA's value is a property of the deployment. History's is not.**
 
 This is the strongest single argument that transition history is a mechanism rather than a configuration-specific trick: it survives precisely the change that destroys the competing information source.
+
+---
+
+## A prediction the mechanism makes — and it holds
+
+If history works by resolving the **distance-ring ambiguity**, its benefit should be largest exactly where that ambiguity bites hardest: in **LOS**, where the range-to-RSS map is clean and there is no multipath to break the tie.
+
+One XGBoost per depth, trained on all users, evaluated by zone:
+
+| Zone | Scenario | Mean range | h=0 | h=5 | Gain |
+|---|---|---:|---:|---:|---:|
+| Park | UMi_LOS | 74.9 m | 22.145 | **17.993** | **+18.75%** |
+| Highway | RMa_LOS | 119.4 m | 23.833 | **21.228** | **+10.93%** |
+| Residential | mixed NLOS | 106.9 m | 20.664 | 19.378 | +6.22% |
+| Shopping | UMi_NLOS | 89.1 m | 21.832 | 21.143 | +4.38% |
+| **LOS** | | 90.1 m | 22.719 | **19.090** | **+15.98%** |
+| **NLOS** | | 96.8 m | 21.329 | 20.385 | +4.84% |
+
+**3.3× more gain in LOS.** Both LOS zones beat both NLOS zones, no overlap.
+
+- **The range confound runs backwards** — LOS is at *shorter* mean range and gains more; Highway is the most distant zone of all and still beats both NLOS zones.
+- **NLOS saturates at h=1** and flattens; LOS keeps gaining to h=5. Exactly the predicted shape.
+
+This also dissolves the paradox that NLOS posts *lower absolute* error: those positions are more identifiable from a snapshot, so they start better and have less left to gain.
 
 ---
 
@@ -255,18 +281,18 @@ For single-antenna devices the mirror image holds: 25.60 m tangential vs a predi
 
 RSS sensitivity to range falls off as $1/r$:  $\dfrac{d\,\text{RSS}}{dr} = \dfrac{10\gamma}{r \ln 10}$ dB/m
 
-| Operating range | dB per metre | $\sigma_{\text{range}}$ at 6 dB shadow fading |
-|---|---:|---:|
-| ~10 m (15×15 centre BS) | 1.737 | 3.5 m |
-| ~40 m (15×15 NE BS) | 0.434 | 13.8 m |
-| **~95 m (macro median)** | **0.182** | **32.9 m** |
-| ~126 m (macro p90) | 0.138 | 43.6 m |
+**Constants fitted from this dataset**, per zone, controlling for antenna gain and MRC combining:
 
-At 95 m, one metre of displacement moves RSS by **0.18 dB** — far below the shadow-fading floor.
+| Zone | Scenario | $\gamma$ | $\sigma$ | $R^2$ |
+|---|---|---:|---:|---:|
+| Highway | RMa_LOS | **2.59** | 10.01 dB | 0.062 |
+| Park | UMi_LOS | 3.25 | 10.49 dB | 0.188 |
+| Shopping | UMi_NLOS | 3.55 | 9.29 dB | 0.130 |
+| **Pooled** | | **3.26** | **10.11 dB** | **0.204** |
 
-The measured multi-antenna radial error of 13.69 m is **well inside** the 32.9 m naive bound — evidence that history, SINR and elevation contribute real range information beyond raw path loss.
+**Range explains only 20% of RSS variance** — 6% in rural LOS. That *is* the distance-ring ambiguity, measured directly.
 
-*(γ = 4 and 6 dB assumed; not fitted per Voronoi zone.)*
+With fitted rather than assumed constants, naive ranging at median range degrades from 32.9 m to **67.9 m** of uncertainty. The measured multi-antenna radial error of **13.69 m beats it by ~5×** — evidence that history, SINR and elevation carry real range information beyond raw path loss.
 
 ---
 
@@ -301,6 +327,33 @@ The break is **binary, not a gradient**: 2-ant and 4-ant are statistically indis
 | Single-ant angular error | 15.84° | **14.83°** | −1.01° |
 
 **Both cohorts improve** — the multi-antenna gain is *cross-cohort gradient protection*. Cost: one channel, 0.2 K parameters.
+
+**But it does not generalise.** The identical transform applied to k-NN, Random Forest and XGBoost improves single-antenna error in **1 of 3** models and overall error in **none**. Trees already carry `n_antennas` and branch on it natively, so an explicit validity flag is redundant; a convolution cannot branch, so it needs the off-unit-circle encoding. Scope the claim to **architectures without conditional structure.**
+
+---
+
+## How big must a difference be to mean anything?
+
+Five seeds, two cheap models. The seed drives **both** the user split and initialisation — and with only 47 test users, split variance dominates.
+
+| Model | h | Mean MAE | 95% CI | Spread |
+|---|---:|---:|---:|---:|
+| k-NN | 0 | 27.074 m | ±0.640 | **1.850 m** |
+| k-NN | 5 | 23.855 m | ±0.852 | **2.528 m** |
+| XGBoost | 0 | 21.513 m | ±0.502 | **1.353 m** |
+| XGBoost | 5 | 18.866 m | ±0.459 | **1.117 m** |
+
+**Two different uncertainties.** Marginal spread (new seed) reaches **1.85 m**. But ablations compare two arms *on one split*, and paired by seed the history gain is **+2.648 m ± 0.294** — comfortably significant.
+
+| Claim | Size | Status |
+|---|---:|---|
+| History gain h=0→h=5 | 2.648 m | **established** |
+| LOS vs NLOS difference | 11.14 pp | **established** |
+| GRU vs 1D-CNN scorecard gap | 0.812 m | paired only → **top-4 ranking is a tie** |
+| Feature ablation | 0.426 m | paired only |
+| Masking, multi-antenna | 0.129 m | **not resolved** |
+
+> Reported here rather than left for a reviewer to find.
 
 ---
 
