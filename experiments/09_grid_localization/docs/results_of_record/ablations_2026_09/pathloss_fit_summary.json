@@ -1,0 +1,117 @@
+{
+ "meta": {
+  "dataset": "D:\\gilad\\projects\\Academy\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_300users_2026-07-25_11-46-11",
+  "n_rows": 144437,
+  "model": "rss ~ 1 + 10log10(r) + antenna_gain_db + log2(n_antennas)"
+ },
+ "zones": {
+  "Highway": {
+   "gamma": 2.5925853134525143,
+   "sigma_db": 10.011368853375988,
+   "r2": 0.0619952477683442,
+   "n": 43390,
+   "mean_range_m": 119.18264770507812,
+   "gain_coef": 1.0886846824121799,
+   "n_ant_coef": 1.388208131223631,
+   "scenario": "LOS"
+  },
+  "Shopping": {
+   "gamma": 3.553467574308901,
+   "sigma_db": 9.28505389225839,
+   "r2": 0.12980314642482982,
+   "n": 20911,
+   "mean_range_m": 86.58707427978516,
+   "gain_coef": 1.370404986993019,
+   "n_ant_coef": 1.2860537634713491,
+   "scenario": "NLOS"
+  },
+  "Residential": {
+   "gamma": 3.579369324005892,
+   "sigma_db": 9.544970650307432,
+   "r2": 0.09555138546739328,
+   "n": 13169,
+   "mean_range_m": 106.54346466064453,
+   "gain_coef": 1.645648833080621,
+   "n_ant_coef": 0.6831808273093223,
+   "scenario": "NLOS"
+  },
+  "Park": {
+   "gamma": 3.2470325005723835,
+   "sigma_db": 10.493540070675298,
+   "r2": 0.1882147936388393,
+   "n": 66967,
+   "mean_range_m": 75.7251205444336,
+   "gain_coef": 1.1638358241447224,
+   "n_ant_coef": 0.8418325537259488,
+   "scenario": "LOS"
+  },
+  "LOS": {
+   "gamma": 3.2599747255716958,
+   "sigma_db": 10.311331825934086,
+   "r2": 0.22077900796505623,
+   "n": 110357,
+   "mean_range_m": 92.81168365478516,
+   "gain_coef": 1.1303767407628982,
+   "n_ant_coef": 1.0786078268761086
+  },
+  "NLOS": {
+   "gamma": 3.3870641798109,
+   "sigma_db": 9.39205222465936,
+   "r2": 0.1329830259457765,
+   "n": 34080,
+   "mean_range_m": 94.29850769042969,
+   "gain_coef": 1.4777272547281675,
+   "n_ant_coef": 1.0428518390819632
+  },
+  "POOLED": {
+   "gamma": 3.264100934009834,
+   "sigma_db": 10.105913883657301,
+   "r2": 0.20408464214078426,
+   "n": 144437,
+   "mean_range_m": 93.1624984741211,
+   "gain_coef": 1.209594697521031,
+   "n_ant_coef": 1.048582826546895
+  }
+ },
+ "range_resolution": {
+  "10 m (15x15)": {
+   "assumed_db_per_m": 1.7372,
+   "assumed_sigma_r_m": 3.45,
+   "fitted_db_per_m": 1.4176,
+   "fitted_sigma_r_m": 7.13
+  },
+  "40 m (NE BS)": {
+   "assumed_db_per_m": 0.4343,
+   "assumed_sigma_r_m": 13.82,
+   "fitted_db_per_m": 0.3544,
+   "fitted_sigma_r_m": 28.52
+  },
+  "56 m (p10)": {
+   "assumed_db_per_m": 0.3086,
+   "assumed_sigma_r_m": 19.45,
+   "fitted_db_per_m": 0.2518,
+   "fitted_sigma_r_m": 40.14
+  },
+  "95 m (median)": {
+   "assumed_db_per_m": 0.1823,
+   "assumed_sigma_r_m": 32.92,
+   "fitted_db_per_m": 0.1487,
+   "fitted_sigma_r_m": 67.94
+  },
+  "126 m (p90)": {
+   "assumed_db_per_m": 0.1377,
+   "assumed_sigma_r_m": 43.59,
+   "fitted_db_per_m": 0.1123,
+   "fitted_sigma_r_m": 89.97
+  }
+ },
+ "comparison": {
+  "assumed_gamma": 4.0,
+  "fitted_gamma": 3.264,
+  "assumed_sigma_db": 6.0,
+  "fitted_sigma_db": 10.106,
+  "measured_multi_ant_radial_error_m": 13.69,
+  "fitted_sigma_r_at_median_m": 67.94,
+  "model_beats_naive_ranging": true
+ }
+}

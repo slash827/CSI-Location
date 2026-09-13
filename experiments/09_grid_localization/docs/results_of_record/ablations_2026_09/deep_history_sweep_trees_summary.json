@@ -1,0 +1,88 @@
+{
+ "meta": {
+  "dataset": "D:\\gilad\\projects\\Academy\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_300users_2026-07-25_11-46-11",
+  "seed": 42,
+  "depths": [
+   0,
+   5,
+   10,
+   15,
+   20,
+   30
+  ]
+ },
+ "sweep": {
+  "h=0": {
+   "h": 0,
+   "n_features": 16,
+   "n_train": 114633,
+   "n_test": 29804,
+   "mae": 22.3491268157959,
+   "p50": 19.363147735595703,
+   "multi_mae": 18.989093780517578,
+   "single_mae": 34.826908111572266,
+   "elapsed_sec": 4.1
+  },
+  "h=5": {
+   "h": 5,
+   "n_features": 81,
+   "n_train": 113708,
+   "n_test": 29569,
+   "mae": 19.433944702148438,
+   "p50": 15.709993362426758,
+   "multi_mae": 15.294771194458008,
+   "single_mae": 34.80556869506836,
+   "elapsed_sec": 5.8
+  },
+  "h=10": {
+   "h": 10,
+   "n_features": 146,
+   "n_train": 112783,
+   "n_test": 29334,
+   "mae": 19.026718139648438,
+   "p50": 15.302974700927734,
+   "multi_mae": 14.83236026763916,
+   "single_mae": 34.60374450683594,
+   "elapsed_sec": 8.5
+  },
+  "h=15": {
+   "h": 15,
+   "n_features": 211,
+   "n_train": 111858,
+   "n_test": 29099,
+   "mae": 18.973726272583008,
+   "p50": 15.244296073913574,
+   "multi_mae": 14.722577095031738,
+   "single_mae": 34.762123107910156,
+   "elapsed_sec": 13.6
+  },
+  "h=20": {
+   "h": 20,
+   "n_features": 276,
+   "n_train": 110933,
+   "n_test": 28864,
+   "mae": 19.006099700927734,
+   "p50": 15.373567581176758,
+   "multi_mae": 14.859931945800781,
+   "single_mae": 34.405094146728516,
+   "elapsed_sec": 14.1
+  },
+  "h=30": {
+   "h": 30,
+   "n_features": 406,
+   "n_train": 109083,
+   "n_test": 28394,
+   "mae": 18.980009078979492,
+   "p50": 15.471359252929688,
+   "multi_mae": 14.884590148925781,
+   "single_mae": 34.19147491455078,
+   "elapsed_sec": 18.0
+  }
+ },
+ "verdict": {
+  "best_h": 15,
+  "best_mae": 18.9737,
+  "gain_vs_first_pct": 15.1,
+  "turned_within_range": true
+ }
+}

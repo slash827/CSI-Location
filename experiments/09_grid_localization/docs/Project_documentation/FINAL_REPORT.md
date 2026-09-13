@@ -285,7 +285,28 @@ Running the sweep across estimator families shows that history helps everywhere,
 
 **Fixed-window estimators turn; tree ensembles do not.** The explanation is architectural rather than physical. A tree ensemble performs implicit feature selection: a lag that carries no signal is simply never split on, so an over-long window costs nothing but training time. A 1D convolution consumes every position in its receptive field, and $k$-NN measures distance over the whole concatenated vector — for both, an uninformative lag actively injects noise into the representation.
 
-This matters for how the contribution is stated. The *mechanism* claim — history reduces error in every family — is supported without qualification. A claim that "$h=5$ is the universal optimum" is not supported, and the honest version is: **the useful window is bounded for fixed-window estimators and effectively unbounded (over the range tested) for estimators that can ignore inputs.**
+This matters for how the contribution is stated. The *mechanism* claim — history reduces error in every family — is supported without qualification. A claim that "$h=5$ is the universal optimum" is not supported.
+
+**Pushing the tree-ensemble window further** settles what "effectively unbounded" means. Extending XGBoost to $h=30$ (406 flat features):
+
+| $h$ | 5 | 10 | 15 | 20 | 30 |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Features | 81 | 146 | 211 | 276 | 406 |
+| 2D MAE | 19.434 | 19.027 | **18.974** | 19.006 | 18.980 |
+
+The nominal minimum is $h=15$, but the spread across $h \in [10, 30]$ is
+$0.053\,\text{m}$ — an order of magnitude below even the paired confidence
+interval of §5.7, and two orders below the marginal seed spread. **The correct
+reading is not "it turns at $h=15$" but "it saturates by $h\approx10$ and stays
+flat out to $h=30$."** Tree ensembles pay no penalty for an over-long window; they
+simply stop extracting anything from it.
+
+So the honest version is: **the useful window is bounded for fixed-window
+estimators, which degrade past their optimum, and open-ended for estimators that
+can ignore inputs, which plateau instead.** Single-antenna error does keep
+drifting down across that plateau (34.604 → 34.191 m from $h{=}10$ to $h{=}30$),
+which is consistent with the AoA-blind cohort still extracting range information
+from longer windows, but that drift is itself within noise.
 
 ### 5.5 Does the gain survive per-depth hyperparameter re-tuning?
 
@@ -346,6 +367,58 @@ This also resolves the apparent paradox in §7.4, where NLOS posts *lower absolu
 error than LOS. Both facts have the same cause. NLOS positions are individually
 more identifiable from a snapshot, so they start better and have less to gain;
 LOS positions start worse and are precisely the ones history rescues.
+
+### 5.7 How large does a difference have to be before it means anything?
+
+Every result above is a single-seed point estimate, and the seed drives both the
+train/test user split and model initialisation. With only 47 test users, split
+variance is expected to dominate. Five seeds $\{42, 1, 7, 13, 99\}$ on the two
+cheap models:
+
+| Model | $h$ | Mean MAE | 95% CI | Min | Max | Spread |
+| :--- | :---: | ---: | ---: | ---: | ---: | ---: |
+| $k$-NN | 0 | 27.074 m | ±0.640 | 26.192 | 28.042 | **1.850 m** |
+| $k$-NN | 5 | 23.855 m | ±0.852 | 22.832 | 25.360 | **2.528 m** |
+| XGBoost | 0 | 21.513 m | ±0.502 | 20.996 | 22.349 | **1.353 m** |
+| XGBoost | 5 | 18.866 m | ±0.459 | 18.317 | 19.434 | **1.117 m** |
+
+**Two different uncertainties matter, and conflating them would be a mistake.**
+
+*Marginal* spread — what you get re-running with a new seed — reaches
+$1.85\,\text{m}$. But every ablation in this report compares two arms **on the
+same split**, and that comparison is far tighter. Pairing by seed:
+
+| Comparison | Gain | Paired 95% CI | Verdict |
+| :--- | ---: | ---: | :--- |
+| $k$-NN, $h{=}0 \to h{=}5$ | $+3.219\,\text{m}$ | ±0.272 | **significant** |
+| XGBoost, $h{=}0 \to h{=}5$ | $+2.648\,\text{m}$ | ±0.294 | **significant** |
+
+The history gain clears both bars comfortably, and so does the §5.6 LOS/NLOS
+difference ($11.14$ pp). Those results are safe.
+
+**Smaller claims in this report are not all safe, and are flagged here rather than
+left for a reviewer to find:**
+
+| Claim | Magnitude | Status |
+| :--- | ---: | :--- |
+| History gain, $h{=}0 \to h{=}5$ | 2.648 m | **established** — clears marginal spread |
+| AoA masking, single-antenna (§7.6) | 1.419 m | clears the paired CI, within marginal spread |
+| RTS smoothing, best case (§7.7) | ~0.893 m | clears the paired CI only |
+| Scorecard gap, GRU vs 1D-CNN (§6) | 0.812 m | clears the paired CI only — **"GRU is best" is not established** |
+| Per-depth tuning, best case (§5.5) | 0.444 m | clears the paired CI only |
+| Feature ablation, raw → derived (§5.2) | 0.426 m | clears the paired CI only |
+| AoA masking, multi-antenna (§7.6) | 0.129 m | **below both** — not resolved |
+| $h{=}10$ vs $h{=}15$ (§5.4) | 0.053 m | **below both** — not resolved |
+
+The paired CI above was measured for the *history* comparison specifically; each
+of the other ablations would need its own seed-paired repeat to earn a CI. Treating
+the ±0.29 m figure as a universal threshold is an approximation, and the honest
+reading is that everything below roughly half a metre in this report is
+**suggestive rather than demonstrated** until repeated.
+
+This does not touch the central claim. It does mean the *ranking* of the top four
+models in §6 should be read as a tie, and the two sub-metre contributions (feature
+ablation, multi-antenna masking gain) should be presented as directional.
 
 ---
 
@@ -499,17 +572,33 @@ Range is inferred from path loss, and the sensitivity of RSS to range falls off 
 
 $$\frac{d\,\text{RSS}}{dr} = \frac{10\gamma}{r \ln 10} \quad \text{dB/m}$$
 
-Under $\gamma = 4$ and $6\,\text{dB}$ shadow fading, the implied $1\sigma$ range uncertainty is:
+Rather than assume textbook constants, both were **fitted from this dataset**, per Voronoi zone, by regressing RSS on $10\log_{10} r$ with device controls (per-device antenna gain, and antenna count, which raises RSS through MRC combining):
 
-| Operating range | dB per metre | $\sigma_{\text{range}}$ |
-| :--- | ---: | ---: |
-| Campaign A, centre BS (~$10\,\text{m}$) | 1.737 | $3.5\,\text{m}$ |
-| Campaign A, NE BS (~$40\,\text{m}$) | 0.434 | $13.8\,\text{m}$ |
-| Campaign B, $p_{10}$ ($56\,\text{m}$) | 0.309 | $19.4\,\text{m}$ |
-| **Campaign B, median ($95\,\text{m}$)** | **0.182** | **$32.9\,\text{m}$** |
-| Campaign B, $p_{90}$ ($126\,\text{m}$) | 0.138 | $43.6\,\text{m}$ |
+| Zone | Scenario | $n$ | Mean range | Fitted $\gamma$ | Fitted $\sigma$ | $R^2$ |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| Highway | RMa_LOS | 43,390 | 119.2 m | **2.59** | 10.01 dB | 0.062 |
+| Park | UMi_LOS | 66,967 | 75.7 m | 3.25 | 10.49 dB | 0.188 |
+| Shopping | UMi_NLOS | 20,911 | 86.6 m | 3.55 | 9.29 dB | 0.130 |
+| Residential | mixed NLOS | 13,169 | 106.5 m | 3.58 | 9.54 dB | 0.096 |
+| **Pooled** | | 144,437 | 93.2 m | **3.26** | **10.11 dB** | **0.204** |
 
-At Campaign B's median range, one metre of displacement changes RSS by $0.18\,\text{dB}$ — far below the shadow-fading noise floor. The measured multi-antenna radial error of $13.69\,\text{m}$ is in fact *substantially better* than the $32.9\,\text{m}$ this naive bound predicts, which is itself evidence that history, SINR and elevation are contributing real range information beyond raw path loss.
+The ordering is physically sensible: rural LOS has the lowest exponent (2.59), NLOS zones the highest (3.55–3.58).
+
+**The $R^2$ is the headline here.** Range, with device effects already controlled, explains only **20% of RSS variance** pooled — and just 6% in the rural-LOS zone. This is the distance-ring ambiguity measured directly: RSS is a weak range estimator in this environment, before bearing is even considered.
+
+Substituting the fitted constants into $\frac{d\,\text{RSS}}{dr} = \frac{10\gamma}{r \ln 10}$:
+
+| Operating range | dB/m (assumed $\gamma{=}4$) | $\sigma_r$ (assumed) | dB/m (fitted) | $\sigma_r$ (fitted) |
+| :--- | ---: | ---: | ---: | ---: |
+| Campaign A, centre BS (~$10\,$m) | 1.737 | 3.5 m | 1.418 | 7.1 m |
+| Campaign A, NE BS (~$40\,$m) | 0.434 | 13.8 m | 0.354 | 28.5 m |
+| Campaign B, $p_{10}$ ($56\,$m) | 0.309 | 19.4 m | 0.252 | 40.1 m |
+| **Campaign B, median ($95\,$m)** | **0.182** | **32.9 m** | **0.149** | **67.9 m** |
+| Campaign B, $p_{90}$ ($126\,$m) | 0.138 | 43.6 m | 0.112 | 90.0 m |
+
+The fitted constants make naive ranging **worse** than the textbook assumption — lower $\gamma$ flattens the gradient while higher $\sigma$ raises the noise — so the bound at median range rises from $32.9\,\text{m}$ to $67.9\,\text{m}$.
+
+At Campaign B's median range, one metre of displacement moves RSS by $0.15\,\text{dB}$ against a $10\,\text{dB}$ spread. The measured multi-antenna radial error of $13.69\,\text{m}$ therefore beats naive path-loss ranging by **roughly $5\times$**, not the $2.4\times$ the assumed constants suggested. That margin is the clearest evidence that history, SINR and elevation contribute genuine range information beyond raw path loss.
 
 #### What this means for the history result
 
@@ -694,7 +783,7 @@ It also reinforces the report's central theme from a second direction: populatio
 4. **Cohort mix is assumed, not measured.** The $85/15$ split is a 3GPP-representative assumption; results are sensitive to it, which is exactly why §7.1 reports the components separately.
 5. **Two campaigns differ in more than scale.** Carrier frequency, grid spacing, task formulation, and split protocol all differ between A and B, so cross-campaign numbers are not directly comparable — only within-campaign $\Delta$'s are.
 6. **Single interference geometry per campaign.** SINR informativeness depends on interferer placement; only one configuration per campaign was swept.
-7. **Statistical reporting.** Results are single-seed point estimates. Confidence intervals over repeated seeds are needed before publication, particularly for the smaller deltas (§5.2's $+2.2\%$ and §7.6's $+0.84\%$).
+7. **Statistical reporting.** The noise floor is now measured (§5.7): marginal seed spread reaches $1.85\,	ext{m}$ and the paired 95% CI on the history gain is $\pm0.29\,	ext{m}$. The central claim clears both. Several sub-metre claims clear only the paired bar and are flagged as directional in §5.7; each needs its own seed-paired repeat, and the deep models have not been repeated at all.
 
 ---
 
@@ -709,7 +798,7 @@ The same lens explains the population's error structure. Devices that can observ
 1. **Disentangle history depth from elapsed time.** Sweep $h$ *within* each speed class, so that "six samples" and "thirteen seconds" stop being confounded (§9.3). This is now the highest-value experiment, because every history number in the report is currently averaged over a $1.3$–$162\,\text{s}$ spread of temporal horizons.
 2. **Resolve the smoothing discrepancy** (§7.7) across all model families, then either adopt re-tuned kinematic post-processing or report it as a clean negative result. Three inconsistent pictures currently exist in the record.
 3. **A targeted LOS→blocked→LOS scenario**: a UE walking a straight sidewalk past a blocking building. This isolates the case where history should be decisive — the estimator can localize the blocked interval using evidence from $t\pm k$. It also connects naturally to non-causal (smoothed) operation, which is legitimate for many use cases.
-4. **Seed-repeated runs with confidence intervals** on all reported deltas.
+4. **Seed-paired repeats for the remaining ablations.** §5.7 measures the noise floor and establishes the history gain, but the feature ablation, the masking result, the smoothing gain and the model ranking each need their own paired repeat before being stated as demonstrated. The deep models have not been repeated at all.
 5. **Extend the depth sweep past $h=10$ for tree ensembles**, which had not saturated at the deepest window tested (§5.4) — the true optimum for that family is still unknown.
 6. **Field or measured-trace validation.**
 
