@@ -97,72 +97,91 @@ def main():
     plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6.8), dpi=300)
 
+    # Depths are plotted at equal spacing rather than at their numeric values.
+    # h in {0,1,3,5,10} on a linear axis crowds the first two ticks into each
+    # other, and the curves carry no information between the sampled depths.
+    xs = np.arange(len(depths))
+    xtick_labels = [f"h={h}\n({spacing * h:.0f} m)" for h in depths]
+
     # the region every family's optimum falls in, read from the data
     best_hs = [summary[m]['best_h'] for m in models]
     lo_h, hi_h = min(best_hs), max(best_hs)
+    lo_x = float(np.where(depths == lo_h)[0][0])
+    hi_x = float(np.where(depths == hi_h)[0][0])
 
     # ── Panel A: absolute MAE ────────────────────────────────────────────────
     for name in models:
         s = summary[name]
         maes = np.array([s['mae_by_depth'][f'h{h}'] for h in depths])
         st = STYLE.get(name, dict(color="#666666", marker="o", linestyle="-", lw=2.0))
-        ax1.plot(depths, maes, label=DISPLAY.get(name, name), color=st['color'],
+        ax1.plot(xs, maes, label=DISPLAY.get(name, name), color=st['color'],
                  marker=st['marker'], markersize=7, linestyle=st['linestyle'],
                  linewidth=st['lw'], zorder=4)
 
     ax1.set_title("A: Absolute positioning error vs. history depth",
                   fontsize=13, fontweight='bold', pad=12)
-    ax1.set_xlabel("Transition history depth ($h$ previous steps)",
+    ax1.set_xlabel("Transition history depth ($h$ previous steps, and path length)",
                    fontsize=11, fontweight='semibold')
     ax1.set_ylabel("2D mean absolute error (m)", fontsize=11, fontweight='semibold')
-    ax1.set_xticks(depths)
-    ax1.set_xticklabels([f"h={h}\n({spacing * h:.0f} m of path)" for h in depths], fontsize=9)
+    ax1.set_xticks(xs)
+    ax1.set_xticklabels(xtick_labels, fontsize=9)
+    ax1.set_xlim(-0.35, len(depths) - 0.65)
     ax1.grid(True, linestyle="--", alpha=0.5)
-    ax1.legend(frameon=True, facecolor="white", edgecolor="#cccccc", fontsize=9, loc="upper right")
+    ax1.legend(frameon=True, facecolor="white", edgecolor="#cccccc", fontsize=9,
+               loc="upper right", framealpha=0.95)
 
+    # anchor the annotation on the steepest single step, h=0 -> h=1
+    y_h1 = float(np.median([summary[m]['mae_by_depth']['h1'] for m in models]))
     ax1.annotate(
-        "$v \\approx \\Delta r / \\Delta t$ becomes computable\n"
+        "$v \\approx \\Delta r / \\Delta t$ becomes computable:\n"
         "displacement constrains the ring",
-        xy=(1, max(summary[m]['mae_by_depth']['h1'] for m in models)),
-        xytext=(1.6, ax1.get_ylim()[1] - 0.12 * np.ptp(ax1.get_ylim())),
+        xy=(1, y_h1), xytext=(1.35, ax1.get_ylim()[0] + 0.30 * np.ptp(ax1.get_ylim())),
         arrowprops=dict(arrowstyle="->", color="#333333", lw=1.2),
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="#fff9e6", edgecolor="#e0c068", lw=0.8),
-        fontsize=8.5)
+        bbox=dict(boxstyle="round,pad=0.35", facecolor="#fff9e6", edgecolor="#e0c068", lw=0.8),
+        fontsize=8.5, zorder=6)
 
     # ── Panel B: normalised gain ─────────────────────────────────────────────
+    if hi_x > lo_x:
+        ax2.axvspan(lo_x - 0.25, hi_x + 0.25, color="#e6f2ff", alpha=0.7, zorder=0,
+                    label=f"optima, h={lo_h}–{hi_h} "
+                          f"({spacing * lo_h:.0f}–{spacing * hi_h:.0f} m of path)")
+
     for name in models:
         s = summary[name]
         dpct = np.array([s['delta_pct_by_depth'][f'h{h}'] for h in depths])
         st = STYLE.get(name, dict(color="#666666", marker="o", linestyle="-", lw=2.0))
-        ax2.plot(depths, dpct,
+        ax2.plot(xs, dpct,
                  label=f"{DISPLAY.get(name, name)}: {-s['gain_pct']:.1f}% at h={s['best_h']}",
                  color=st['color'], marker=st['marker'], markersize=7,
                  linestyle=st['linestyle'], linewidth=st['lw'], zorder=4)
 
     ax2.axhline(0, color="gray", linestyle="--", alpha=0.7, lw=1)
-    if hi_h > lo_h:
-        ax2.axvspan(lo_h - 0.4, hi_h + 0.4, color="#e6f2ff", alpha=0.6, zorder=0,
-                    label=f"optima, h={lo_h}–{hi_h} ({spacing * lo_h:.0f}–{spacing * hi_h:.0f} m of path)")
-
     ax2.set_title("B: Relative gain vs. each family's own snapshot baseline (h=0)",
                   fontsize=13, fontweight='bold', pad=12)
-    ax2.set_xlabel("Transition history depth ($h$ previous steps)",
+    ax2.set_xlabel("Transition history depth ($h$ previous steps, and path length)",
                    fontsize=11, fontweight='semibold')
     ax2.set_ylabel("Change in MAE vs. h=0 (%)  [lower is better]",
                    fontsize=11, fontweight='semibold')
-    ax2.set_xticks(depths)
-    ax2.set_xticklabels([f"h={h}\n({spacing * h:.0f} m of path)" for h in depths], fontsize=9)
+    ax2.set_xticks(xs)
+    ax2.set_xticklabels(xtick_labels, fontsize=9)
+    ax2.set_xlim(-0.35, len(depths) - 0.65)
     ax2.grid(True, linestyle="--", alpha=0.5)
-    ax2.legend(frameon=True, facecolor="white", edgecolor="#cccccc", fontsize=8.5, loc="lower left")
+
+    # curves fall left to right, so the lower-left corner is the free space and
+    # the verdict goes top-right where every curve has already departed
+    ax2.legend(frameon=True, facecolor="white", edgecolor="#cccccc", fontsize=8.5,
+               loc="lower left", framealpha=0.95)
+    ax2.set_ylim(top=max(2.0, ax2.get_ylim()[1]))
 
     v = data['verdict']
     props = dict(boxstyle='round,pad=0.5', facecolor='#f8f9fa', edgecolor='#b0bec5', alpha=0.95)
-    ax2.text(0.97, 0.06,
+    ax2.text(0.985, 0.955,
              f"{v['n_improved']}/{v['n_models']} families improve with history\n"
              f"gains span {v['gain_min_pct']:.1f}% to {v['gain_max_pct']:.1f}%\n"
-             f"one protocol: disjoint-user split, {data['meta']['n_test_users']} unseen test users",
-             transform=ax2.transAxes, fontsize=8.5, verticalalignment='bottom',
-             horizontalalignment='right', bbox=props)
+             f"one protocol: disjoint-user split, "
+             f"{data['meta']['n_test_users']} unseen test users",
+             transform=ax2.transAxes, fontsize=8.5, verticalalignment='top',
+             horizontalalignment='right', bbox=props, zorder=6)
 
     fig.suptitle("Transition history helps every model family "
                  "(Campaign B, 300 users, single macro cell)",

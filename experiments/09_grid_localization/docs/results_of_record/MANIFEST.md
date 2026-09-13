@@ -21,6 +21,15 @@ by hand — full float precision is preserved.
 | `bad_data_and_outlier_diagnostic_report.md` | Top-5 best/worst user audit, Voronoi boundary-crossing audit, turn-angle audit |
 | `aoa_masking_experiment_report.md` | AoA validity masking (Option A) head-to-head |
 
+> **Warning — Campaign B has uniform NLOS propagation, not the mixed LOS/NLOS map
+> its config declares.** `run_multi_user_300_25x25.m` ignores the config's
+> `mixed_scenario` block and assigns `3GPP_38.901_UMi_NLOS` to every track. Any
+> LOS/NLOS split in these files — `propagation_breakdown` in
+> `ablation_results_summary.json`, the zone rows in `history_gain_by_zone_summary.json`,
+> the per-zone fits in `pathloss_fit_summary.json` — partitions a homogeneous map
+> into geometric regions. Those partitions are real and the MAEs within them are
+> correct; only the LOS/NLOS *labels* are wrong. See `FINAL_REPORT.md` §5.6.
+
 > **Warning — the `rts_*` fields in `master_benchmark_summary.json` are invalid.**
 > They were produced before the `delta_t` defect was found and fixed (see below).
 > Every **raw** field in that file is correct and is what the report cites; only
@@ -40,12 +49,17 @@ by hand — full float precision is preserved.
 | `pathloss_fit_summary.json` | **A3** — fitted γ and σ per Voronoi zone, and the recomputed range-resolution table. Backs §7.5 |
 | `deep_history_sweep_trees_summary.json` | **A4** — XGBoost depth sweep to h=30. Backs the saturation finding in §5.4 |
 | `history_by_speed_class_summary.json` | **B1** — history sweep within each speed class. Backs §5.8, the finding that the useful window is spatial rather than temporal |
+| `seed_repeats_all_models_summary.json` | **B2** — five-seed repeats across all seven families at h=0 and h=5. Backs §5.7: marginal spread, seed-paired history CIs, and the finding that scorecard ranks 1-6 are a statistical tie |
+| `history_sweep_all_models_summary.json` | **B3** — h ∈ {0,1,3,5,10} for all seven families under one protocol. Backs §5.4 and Figure 2, replacing a figure that mixed three experiments |
 | `seed_repeats_summary.json` | **A5** — five-seed repeats, marginal spread and seed-paired CIs. Backs §5.7, the noise floor |
 
 ### Reproducing the September ablations
 
 ```bash
 E=experiments/09_grid_localization/src/python/experiments_ablation
+.venv/Scripts/python $E/seed_repeats_all_models.py       # B2, ~95 min (GPU)
+.venv/Scripts/python $E/history_sweep_all_models.py      # B3, ~50 min (GPU)
+.venv/Scripts/python $E/history_by_speed_class.py        # B1, ~22 min (GPU)
 .venv/Scripts/python $E/history_gain_by_zone.py          # A1, ~5 min
 .venv/Scripts/python $E/aoa_masking_across_models.py     # A2, ~10 min
 .venv/Scripts/python $E/fit_pathloss_per_zone.py         # A3, ~1 min

@@ -49,7 +49,7 @@ The framing of this work follows directly from a research discussion with Alon L
 
 ### 1.3 Contributions
 
-* **C1 — Mechanism, cross-validated across paradigms.** A history-stacking input transformation, evaluated at fixed protocol across seven estimators spanning four algorithmic paradigms, with $\Delta\text{MAE}$ reported per model rather than only in aggregate.
+* **C1 — Mechanism, cross-validated across paradigms.** A history-stacking input transformation, evaluated at fixed protocol across seven estimators spanning five algorithmic paradigms, with $\Delta\text{MAE}$ reported per model rather than only in aggregate.
 * **C2 — A model-class account of the optimum.** We show the gain is not monotone in $h$ for *fixed-window* estimators: the 1D-CNN and $k$-NN peak at $h=5$ and regress at $h=10$, while tree ensembles improve monotonically through $h=10$. The optimum is a property of how an estimator consumes the window, not of the propagation physics alone — a tree can decline to split on an uninformative lag, whereas a convolution over a fixed window and a distance metric over a fixed vector cannot ignore one.
 * **C3 — Cohort-disaggregated evaluation.** We show that aggregate MAE over a mixed-hardware population is a mixture artifact, and give the per-antenna-tier decomposition (including error CDFs) that makes results interpretable.
 * **C4 — AoA validity masking, for models without conditional structure.** A feature-pipeline change that removes the dummy-boresight bias for AoA-blind devices, benefiting *both* cohorts of a 1D-CNN. It does **not** generalise to tree ensembles or $k$-NN (§7.6.1), and the reason is informative: a tree can already branch on `n_antennas` and decline to split on angle channels, so an explicit validity flag is redundant for it.
@@ -273,7 +273,19 @@ Three observations:
 **The turn is not universal, and §5.4 shows it is a property of the estimator rather than of the data.** $h=5$ is nonetheless fixed for all cross-model comparisons that follow, because it is the depth at which the master benchmark was run.
 
 ![Figure 2: Universal ΔMAE curves across model families](../figures/universal_delta_mae_history_curves.png)
-*Figure 2 — The universality result. $\Delta\text{MAE}$ vs. history depth for four algorithmic paradigms (1D-CNN, XGBoost, Random Forest, GRU). Left: absolute 2D error in metres. Right: normalized improvement against each model's own $h=0$ baseline. Every family improves at every depth. The **location** of each family's optimum differs, however — see §5.4.*
+*Figure 2 — The universality result. $\Delta\text{MAE}$ vs. history depth for all
+seven estimators, spanning five algorithmic paradigms: instance-based ($k$-NN),
+bagged trees (Random Forest), boosted trees (XGBoost), convolutional (1D-CNN,
+mask-aware CNN), recurrent (GRU), and attention (CNN + attention). Left: absolute
+2D error in metres. Right: normalized improvement against each model's own $h=0$
+baseline — the comparison the universality claim rests on, since the families start
+from different baselines. Every family improves at every depth, with gains from
+$12.5\%$ to $19.3\%$. **All seven curves come from a single sweep under one
+protocol** (disjoint-user split, 47 unseen test users, identical features and
+early-stopping rule); an earlier version of this figure combined curves from three
+different experiments, one of which used a chronological within-user split that is
+not comparable. The x axis is labelled in both samples and path length, following
+§5.8. The **location** of each family's optimum differs — see §5.4.*
 
 ### 5.2 Feature-set ablation: physical inductive bias
 
@@ -299,19 +311,50 @@ Campaign A confirms the same effect in a different task formulation and a differ
 
 ### 5.4 Where the optimum sits, and why it moves
 
-Running the sweep across estimator families shows that history helps everywhere, but the depth at which the benefit saturates is not shared. Two independent sweeps from July (7 raw channels) and a fresh sweep (13 derived channels) agree:
+Running the sweep across estimator families shows that history helps everywhere,
+but the depth at which the benefit saturates is not shared. The sweep below covers
+all seven families at $h \in \{0,1,3,5,10\}$ under one protocol — the same
+disjoint-user split, features and early-stopping rule for every entry, so the
+curves are directly comparable to each other:
 
-| Estimator | Channels | $h=0$ | $h=5$ | $h=10$ | Behaviour at $h=10$ |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| 1D-CNN | 13 | 22.846 m | **19.260 m** | 20.215 m | **turns** ($+0.955$ m) |
-| $k$-NN | 13 | 27.440 m | **23.983 m** | 24.485 m | **turns** ($+0.502$ m) |
-| XGBoost | 13 | 22.349 m | 19.434 m | **19.027 m** | still improving |
-| XGBoost (Jul) | 5 raw | 28.325 m | 25.404 m | **25.002 m** | still improving |
-| Random Forest (Jul) | 5 raw | 27.704 m | 25.945 m | **25.880 m** | still improving |
+| Estimator | $h=0$ | $h=1$ | $h=3$ | $h=5$ | $h=10$ | Best | Gain |
+| :--- | ---: | ---: | ---: | ---: | ---: | :---: | ---: |
+| $k$-NN | 27.440 | 25.427 | 24.069 | **23.983** | 24.485 | $h{=}5$ | 12.60% |
+| Random Forest | 22.110 | 20.906 | 19.766 | 19.417 | **19.338** | $h{=}10$ | 12.54% |
+| XGBoost | 22.349 | 21.117 | 19.801 | 19.434 | **19.027** | $h{=}10$ | 14.87% |
+| 1D-CNN | 22.853 | 20.622 | 19.521 | 19.268 | **19.146** | $h{=}10$ | 16.22% |
+| GRU | 22.720 | 21.426 | 19.968 | 19.355 | **18.465** | $h{=}10$ | 18.73% |
+| CNN + attention | 22.541 | 21.016 | 19.396 | 18.900 | **18.192** | $h{=}10$ | 19.29% |
+| Mask-aware CNN | 22.102 | 20.255 | 19.238 | 18.746 | **18.260** | $h{=}10$ | 17.38% |
 
-**Fixed-window estimators turn; tree ensembles do not.** The explanation is architectural rather than physical. A tree ensemble performs implicit feature selection: a lag that carries no signal is simply never split on, so an over-long window costs nothing but training time. A 1D convolution consumes every position in its receptive field, and $k$-NN measures distance over the whole concatenated vector — for both, an uninformative lag actively injects noise into the representation.
+**Seven of seven improve; six of seven are still improving at $h=10$.** Only
+$k$-NN turns within the swept range, and it turns gently ($+0.502\,\text{m}$ from
+$h{=}5$ to $h{=}10$). This is a weaker and more careful statement than an earlier
+draft of this section made, and the reason is worth recording.
 
-This matters for how the contribution is stated. The *mechanism* claim — history reduces error in every family — is supported without qualification. A claim that "$h=5$ is the universal optimum" is not supported.
+> **A retracted claim.** This section previously argued that *fixed-window
+> estimators turn and tree ensembles do not*, citing a 1D-CNN that rose from
+> $19.260\,\text{m}$ at $h{=}5$ to $20.215\,\text{m}$ at $h{=}10$. The sweep above
+> puts the same architecture at $19.268$ and $19.146\,\text{m}$ — it does not turn.
+> The two runs agree closely at $h{=}5$ and disagree by $1.07\,\text{m}$ at
+> $h{=}10$, which is roughly twice the seed-paired CI of §5.7. Deep-model training
+> is stochastic and a single run at a single depth was never enough to establish a
+> turn. The architectural argument below is still plausible, but it rests on
+> $k$-NN alone now, and $k$-NN is a deterministic estimator where the effect is
+> real and repeatable.
+
+The architectural reading, offered as a hypothesis rather than a finding: a tree
+ensemble performs implicit feature selection, so a lag carrying no signal is never
+split on and an over-long window costs only training time. A $k$-NN measures
+distance over the whole concatenated vector, so an uninformative lag actively
+injects noise into the metric. Convolutional and recurrent models sit in between —
+they consume every position in the receptive field but can learn to attenuate it,
+and empirically they behave like the trees here rather than like $k$-NN.
+
+This matters for how the contribution is stated. The *mechanism* claim — history
+reduces error in every family — is supported without qualification, and §5.7 puts
+confidence intervals on it. A claim that "$h=5$ is the universal optimum" is **not**
+supported: the optimum is $h=10$ or beyond for six of the seven.
 
 **Pushing the tree-ensemble window further** settles what "effectively unbounded" means. Extending XGBoost to $h=30$ (406 flat features):
 
@@ -507,7 +550,7 @@ reading is that everything below roughly half a metre in this report is
 None of this touches the central claim, which is stronger after this section than
 before it. What it does retire is any claim that one architecture wins.
 
-### 5.8 Six samples or two and a half seconds? Neither — twenty metres
+### 5.8 Six samples or two and a half seconds? Neither — a distance
 
 §4.3 flagged the study's largest confound: step duration is $\text{spacing}/v$, so
 a fixed $h$ covers $1.3\,\text{s}$ for a vehicle and $162\,\text{s}$ for a
@@ -519,8 +562,8 @@ We swept $h$ **within each speed class**, with a success criterion fixed before
 running: optima aligning in samples would indicate an architectural effect, optima
 aligning in seconds a physical one.
 
-**1D-CNN**, evaluated per class (the model that genuinely turns, so it has an
-optimum to locate):
+**1D-CNN**, evaluated per class (the family with the most sharply located per-class
+optimum, so there is an argmin worth comparing):
 
 | Class | $n$ | median $\Delta t$ | $h{=}0$ | $h{=}1$ | $h{=}3$ | $h{=}5$ | $h{=}10$ | Best $h$ | Best window |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -535,7 +578,8 @@ relative spread of $3.05$. **The optimum is emphatically not a fixed time.**
 XGBoost gives the same verdict more bluntly: every class optimises at $h=10$, the
 deepest depth tested, across windows from $3.2\,\text{s}$ to $134.7\,\text{s}$.
 (That model saturates rather than turns, per §5.4, so its argmin sits at the grid
-boundary and carries less weight.)
+boundary and carries less weight — as does the CNN's, for the two of four classes
+whose optimum also sits at the boundary.)
 
 #### What the window actually is
 
@@ -565,8 +609,11 @@ answers the question it was built to answer:
 That is exactly what a *spatially consistent* channel implies. The information
 history adds comes from traversing the spatial channel, and a static user parked
 in one place for two minutes learns nothing a jogger does not learn in seven
-seconds. It also retires the "$h=5 \approx 2.5\,\text{s}$" gloss for good: the
-honest statement is $h=5 \approx 20\,\text{m}$ of path.
+seconds. It also retires the "$h=5 \approx 2.5\,\text{s}$" gloss for good. The
+honest conversion is depth to *distance*, not to time: $h=5$ is $20\,\text{m}$ of
+path and $h=10$ is $40\,\text{m}$, for every user regardless of speed. Since §5.4
+finds six of seven families still improving at $h=10$, the useful window extends to
+at least $40\,\text{m}$ of travel and its far edge has not been located.
 
 #### What this experiment cannot settle, and how to settle it
 
@@ -953,7 +1000,7 @@ It also reinforces the report's central theme from a second direction: populatio
 
 ## 10. Conclusion and Future Work
 
-Single-BS CSI localization is limited by an observability problem, not primarily a modelling problem: a static RSS snapshot determines range and leaves bearing free. This work shows that a short window of transition history supplies the missing constraint, that the benefit appears across four algorithmic paradigms and seven estimators, and that it survives the deployment geometry change ($360^\circ \to 52^\circ$ angular spread) that reduces AoA's contribution by an order of magnitude. The mechanism is a drop-in input transformation: no new sensor, no UE cooperation, no second estimator.
+Single-BS CSI localization is limited by an observability problem, not primarily a modelling problem: a static RSS snapshot determines range and leaves bearing free. This work shows that a short window of transition history supplies the missing constraint, that the benefit appears across five algorithmic paradigms and seven estimators, with seed-paired confidence intervals on every one, and that it survives the deployment geometry change ($360^\circ \to 52^\circ$ angular spread) that reduces AoA's contribution by an order of magnitude. The mechanism is a drop-in input transformation: no new sensor, no UE cooperation, no second estimator.
 
 The same lens explains the population's error structure. Devices that can observe bearing directly reach $14.58\,\text{m}$ MAE; devices that cannot plateau at $34.54\,\text{m}$, with $100\%$ of severe outliers drawn from that cohort and a failure mode that is visibly arc-shaped. Reporting these separately, and encoding "angle unavailable" honestly rather than as $0^\circ$, is worth $1.42\,\text{m}$ to the blind cohort at essentially zero cost.
 
