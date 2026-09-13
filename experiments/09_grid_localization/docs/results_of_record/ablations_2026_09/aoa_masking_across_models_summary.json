@@ -1,0 +1,100 @@
+{
+ "meta": {
+  "dataset": "D:\\gilad\\projects\\Academy\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_300users_2026-07-25_11-46-11",
+  "h": 5,
+  "seed": 42,
+  "reference_cnn": {
+   "single": [
+    33.607,
+    32.188
+   ],
+   "multi": [
+    15.408,
+    15.279
+   ]
+  }
+ },
+ "arms": {
+  "unmasked": {
+   "knn": {
+    "mae": 23.98301124572754,
+    "p50": 19.807069778442383,
+    "multi_mae": 19.67856788635254,
+    "single_mae": 39.96840286254883,
+    "n_multi": 23296,
+    "n_single": 6273,
+    "fit_sec": 24.5
+   },
+   "random_forest": {
+    "mae": 19.416529108956052,
+    "p50": 16.205652935808967,
+    "multi_mae": 15.74022572960544,
+    "single_mae": 33.06919346817044,
+    "n_multi": 23296,
+    "n_single": 6273,
+    "fit_sec": 44.8
+   },
+   "xgboost": {
+    "mae": 19.433944702148438,
+    "p50": 15.709993362426758,
+    "multi_mae": 15.294771194458008,
+    "single_mae": 34.80556869506836,
+    "n_multi": 23296,
+    "n_single": 6273,
+    "fit_sec": 6.9
+   }
+  },
+  "masked": {
+   "knn": {
+    "mae": 24.58524513244629,
+    "p50": 20.396081924438477,
+    "multi_mae": 20.355117797851562,
+    "single_mae": 40.294647216796875,
+    "n_multi": 23296,
+    "n_single": 6273,
+    "fit_sec": 23.4
+   },
+   "random_forest": {
+    "mae": 19.528651800676396,
+    "p50": 16.25957902986333,
+    "multi_mae": 15.862117658965644,
+    "single_mae": 33.14503620451726,
+    "n_multi": 23296,
+    "n_single": 6273,
+    "fit_sec": 47.1
+   },
+   "xgboost": {
+    "mae": 19.45777130126953,
+    "p50": 15.680830001831055,
+    "multi_mae": 15.409582138061523,
+    "single_mae": 34.49150466918945,
+    "n_multi": 23296,
+    "n_single": 6273,
+    "fit_sec": 6.2
+   }
+  }
+ },
+ "deltas_pct": {
+  "knn": {
+   "mae": -2.51,
+   "multi_mae": -3.44,
+   "single_mae": -0.82
+  },
+  "random_forest": {
+   "mae": -0.58,
+   "multi_mae": -0.77,
+   "single_mae": -0.23
+  },
+  "xgboost": {
+   "mae": -0.12,
+   "multi_mae": -0.75,
+   "single_mae": 0.9
+  }
+ },
+ "verdict": {
+  "n_models": 3,
+  "n_single_ant_improved": 1,
+  "n_overall_improved": 0,
+  "generalises": false
+ }
+}

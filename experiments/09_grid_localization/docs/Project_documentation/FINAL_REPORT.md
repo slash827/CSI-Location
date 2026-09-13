@@ -48,7 +48,7 @@ The framing of this work follows directly from a research discussion with Alon L
 * **C1 — Mechanism, cross-validated across paradigms.** A history-stacking input transformation, evaluated at fixed protocol across seven estimators spanning four algorithmic paradigms, with $\Delta\text{MAE}$ reported per model rather than only in aggregate.
 * **C2 — A model-class account of the optimum.** We show the gain is not monotone in $h$ for *fixed-window* estimators: the 1D-CNN and $k$-NN peak at $h=5$ and regress at $h=10$, while tree ensembles improve monotonically through $h=10$. The optimum is a property of how an estimator consumes the window, not of the propagation physics alone — a tree can decline to split on an uninformative lag, whereas a convolution over a fixed window and a distance metric over a fixed vector cannot ignore one.
 * **C3 — Cohort-disaggregated evaluation.** We show that aggregate MAE over a mixed-hardware population is a mixture artifact, and give the per-antenna-tier decomposition (including error CDFs) that makes results interpretable.
-* **C4 — AoA validity masking.** A two-line feature-pipeline change that removes the dummy-boresight bias for AoA-blind devices, with measured benefit to *both* cohorts.
+* **C4 — AoA validity masking, for models without conditional structure.** A feature-pipeline change that removes the dummy-boresight bias for AoA-blind devices, benefiting *both* cohorts of a 1D-CNN. It does **not** generalise to tree ensembles or $k$-NN (§7.6.1), and the reason is informative: a tree can already branch on `n_antennas` and decline to split on angle channels, so an explicit validity flag is redundant for it.
 * **C5 — Reproducible artifact.** Full simulation configs, notebooks, shared utilities, and fixed seeds.
 
 ### 1.4 Scope and non-goals
@@ -301,6 +301,52 @@ Earlier runs contained configurations where added history made tree ensembles wo
 
 **The confound does not materialise.** History helps monotonically under both regimes, and per-depth tuning buys at most $0.44\,\text{m}$ — at $h=1$ it is slightly negative, which is tuning noise (the tuned configuration won on validation users and lost on test users). The history gain is therefore not a capacity artifact, and no "provided the model is re-tuned" qualifier is needed for this campaign.
 
+### 5.6 A falsifiable prediction: the gain should be largest where the ambiguity is worst
+
+Everything so far establishes *that* history helps. This section tests a
+prediction the mechanism makes about *where*.
+
+If history works by resolving the distance-ring ambiguity, its benefit should be
+largest exactly where that ambiguity bites hardest — in **LOS**, where the
+range-to-RSS map is clean and monotone and there is no multipath diversity to
+break the tie between equidistant points. In NLOS, rich scattering already gives
+each position a distinctive signature, so there is less symmetry left to break.
+
+One XGBoost model per depth, trained on all training users, evaluated by
+propagation zone (zones assigned by nearest Voronoi centre, matching every other
+analysis in the project):
+
+| Zone | Scenario | $n$ | Mean BS range | $h{=}0$ | $h{=}1$ | $h{=}3$ | $h{=}5$ | Best gain |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Park | UMi_LOS | 14,429 | 74.9 m | 22.145 | 20.521 | 18.458 | **17.993** | **+18.75%** |
+| Highway | RMa_LOS | 7,437 | 119.4 m | 23.833 | 22.934 | 21.884 | **21.228** | **+10.93%** |
+| Residential | mixed NLOS | 3,416 | 106.9 m | 20.664 | 20.003 | 19.392 | **19.378** | +6.22% |
+| Shopping | UMi_NLOS | 4,522 | 89.1 m | 21.832 | **20.876** | 20.980 | 21.143 | +4.38% |
+| **LOS combined** | | 21,866 | 90.1 m | 22.719 | 21.341 | 19.620 | **19.090** | **+15.98%** |
+| **NLOS combined** | | 7,938 | 96.8 m | 21.329 | **20.500** | 20.297 | 20.385 | +4.84% |
+
+**The prediction is supported, and by a wide margin.** History is worth
+$+15.98\%$ in LOS against $+4.84\%$ in NLOS — a **$3.3\times$ difference**, and
+both LOS zones outperform both NLOS zones with no overlap.
+
+Two details strengthen the reading:
+
+* **The range confound points the wrong way.** Error grows with range (§7.5), so
+  if range drove this we would expect the longer-range stratum to show the larger
+  gain. It is the opposite: LOS sits at a *shorter* mean range (90.1 m vs 96.8 m)
+  and gains more. Highway is the most distant zone of all at 119.4 m and still
+  beats both NLOS zones.
+* **NLOS saturates almost immediately.** It takes its entire gain at $h=1$
+  (20.500 m) and then flattens or reverses, while LOS keeps improving all the way
+  to $h=5$. That is what the mechanism predicts: one extra frame supplies velocity
+  and that is most of what a well-fingerprinted NLOS position needs, whereas
+  breaking a clean LOS ring benefits from a longer motion-consistent arc.
+
+This also resolves the apparent paradox in §7.4, where NLOS posts *lower absolute*
+error than LOS. Both facts have the same cause. NLOS positions are individually
+more identifiable from a snapshot, so they start better and have less to gain;
+LOS positions start worse and are precisely the ones history rescues.
+
 ---
 
 ## 6. Results II — The Cross-Model Scorecard
@@ -491,6 +537,45 @@ It does, however, sharpen the framing. The mechanism is introduced as resolving 
 | Single-antenna angular error | $15.84^\circ$ | **$14.83^\circ$** | $-1.01^\circ$ | better range/angle decoupling |
 
 Both cohorts improve. The single-antenna gain is the intended effect — with the false anchor removed the network optimizes range purely from path-loss gradients. The multi-antenna gain is a side effect worth naming: **cross-cohort gradient protection**, i.e. corrupted single-antenna gradients were degrading the shared kernels that multi-antenna devices also use. The cost is one extra input channel and $0.2\,\text{K}$ parameters.
+
+#### 7.6.1 It does not generalise — and that is informative
+
+Masking is a *feature-pipeline* change, not an architectural one, so the obvious
+hypothesis is that it should help any model consuming these features. Applying the
+identical transformation to three non-convolutional estimators at $h=5$ refutes
+that:
+
+| Model | Overall | Multi-antenna | Single-antenna |
+| :--- | :---: | :---: | :---: |
+| $k$-NN | 23.983 → 24.585 ($-2.51\%$) | 19.679 → 20.355 ($-3.44\%$) | 39.968 → 40.295 ($-0.82\%$) |
+| Random Forest | 19.417 → 19.529 ($-0.58\%$) | 15.740 → 15.862 ($-0.77\%$) | 33.069 → 33.145 ($-0.23\%$) |
+| XGBoost | 19.434 → 19.458 ($-0.12\%$) | 15.295 → 15.410 ($-0.75\%$) | 34.806 → **34.492** ($+0.90\%$) |
+
+Single-antenna error improves in **one of three** models, and overall error in
+none. The 1D-CNN result does not transfer.
+
+**Why, and why it matters.** The masking encodes a *conditional* — "when
+`has_valid_aoa` is false, ignore the angle channels." Tree ensembles already have
+`n_antennas` among their static features and conditional branching as their native
+operation, so they can learn exactly that rule without help; an explicit validity
+flag is redundant, and the zeroed channels merely remove information the tree was
+already using selectively. A convolution has no branching: it applies the same
+filter weights to every sample, so it cannot express "ignore these channels for
+these devices" unless the encoding itself puts invalid angles somewhere
+unreachable — which is precisely what $\sin^2\theta + \cos^2\theta = 0$ does.
+$k$-NN is harmed most because zeroing six channels distorts the distance metric
+that *is* the model.
+
+So the honest scope of C4 is narrower than first stated: **explicit validity
+masking is worth doing for architectures without conditional structure, and is
+unnecessary or harmful for those that have it.** That is a more useful design rule
+than an unqualified recommendation would have been.
+
+*Caveat on absolute values:* this experiment's unmasked baselines differ somewhat
+from the §6 scorecard (Random Forest 19.417 m here vs 20.884 m there) because the
+feature flattening differs. The comparison that matters is within-experiment —
+both arms share one pipeline and differ only in the masking — so the deltas stand
+even though the levels are not directly comparable to §6.
 
 ### 7.7 Kinematic post-processing: a defective time base, not a useless filter
 
