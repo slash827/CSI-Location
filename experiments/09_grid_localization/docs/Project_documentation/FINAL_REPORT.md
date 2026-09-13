@@ -715,10 +715,27 @@ Two further audits confirm the data is sound:
 * **Sharp direction reversals.** Straight ($<30^\circ$ turn) $18.74\,\text{m}$; moderate ($30$–$90^\circ$) $20.14\,\text{m}$; sharp ($\ge90^\circ$) $22.02\,\text{m}$, a $+3.29\,\text{m}$ penalty. This is a *predicted* consequence of the mechanism, not a defect: a reversal invalidates the heading evidence in the window, so a history-based estimator must briefly lag. (An earlier draft of this section claimed attention layers and RTS smoothing partially compensate. Neither claim is supported by the recorded results — see §7.7 for what the smoother actually does — and both are withdrawn.)
 
 ![Figure 5: Best-case trajectory](../figures/diagnostic_BEST_user_119_ant2.png)
-*Figure 5 — User 119 (2-antenna, $10.42\,\text{m}$ MAE). Left: ground truth (black), 1D-CNN prediction (blue), and the RTS-smoothed path (green) produced with the notebook's default filter settings. Right: per-step error and model uncertainty, stable at $\approx10\,\text{m}$. Note that the smoothed track is shown for continuity with the source notebooks; at these settings smoothing *increases* population MAE (§7.7).*
+*Figure 5 — User 119 (2-antenna, $10.29\,\text{m}$ raw MAE), the best multi-antenna
+user in the test split. Left: ground truth (black), 1D-CNN raw predictions (blue),
+and two RTS-smoothed paths — the notebook default $Q=0.5$ (red) and the re-tuned
+$Q=4.0, R=40.0$ of §7.7 (green). Right: per-step error for all three. **Regenerated
+after the `delta_t` fix** (commit `dee50dd`). In the previous version of this figure
+the smoothed track collapsed to a short stub near the middle of the walk and its
+error sawtoothed between $0$ and $30\,\text{m}$, because $85.8\%$ of the timesteps
+reaching the smoother were negative z-scores clamped to $0.01\,\text{s}$. Both
+smoothers now follow the walk. Per-user MAE varies by $1$–$2\,\text{m}$ between
+training runs of the same configuration, so read the per-user numbers as
+illustrative and §7.7's population figures as the result.*
 
 ![Figure 6: Worst-case trajectory](../figures/diagnostic_WORST_user_250_ant1.png)
-*Figure 6 — User 250 (1-antenna, $33.50\,\text{m}$ MAE). Range is tracked correctly; predictions smear along the arc. The failure is geometric, not statistical.*
+*Figure 6 — User 250 (1-antenna, $33.84\,\text{m}$ raw MAE). **This is the clearest
+single picture of the mechanism's premise.** The UE traverses essentially the whole
+service area (black), while every prediction — raw and smoothed alike — collapses
+onto a narrow diagonal band at roughly the correct range from the base station.
+Range is recovered; bearing is not. Smoothing cannot help, because the error is not
+noise around a correct track but a systematic collapse onto the distance ring, and a
+kinematic prior has no information with which to choose a point on it. The failure
+is geometric, not statistical, and it is confined to the AoA-blind cohort.*
 
 ### 7.4 Spatial structure
 
@@ -878,12 +895,13 @@ even though the levels are not directly comparable to §6.
 
 ### 7.7 Kinematic post-processing: a defective time base, not a useless filter
 
-> **Status: results being regenerated.** The investigation below uncovered a defect
-> in the feature pipeline that invalidates every smoothing number previously
-> recorded — including the master benchmark's, and including the re-tuning sweeps
-> described later in this section. The defect and its fix are documented here
-> because the diagnosis stands; the numeric tables are being re-run against the
-> corrected time base and must not be cited until they are replaced.
+> **Status: corrected.** The investigation below uncovered a defect in the feature
+> pipeline that invalidated every smoothing number previously recorded, including
+> the master benchmark's. The defect and its fix are documented first because the
+> diagnosis is the substance of this section; the corrected tables follow, and
+> Figures 5 and 6 have been regenerated against the repaired time base. The
+> superseded figures are retained under `results_of_record/superseded/` and must
+> not be cited.
 
 **The defect.** `DerivedCSI1DDataset` standardises `SIGNAL_COLS` in place, and
 `delta_t` is one of those columns — it is legitimately a model input. But the
@@ -943,6 +961,15 @@ Three things change relative to the defective run:
 3. **The gain now shrinks as the estimator improves** — $+11\%$ for $k$-NN at $23.98\,	ext{m}$ down to $+3.7\%$ for the GRU at $19.26\,	ext{m}$ — which is the expected behaviour of a smoother and matches what the July sweeps recorded ($+3.6\%$ decaying to $-0.1\%$). All three pictures in the record are now consistent.
 
 Properly configured, kinematic post-processing is worth **$2.5\%$ to $4.7\%$** on the trained models. That is a real but secondary effect next to the $13$–$15\%$ from transition history, and it is complementary: history operates inside the estimator, smoothing outside it.
+
+**One caveat that matters for deployment: the gain is non-causal.** Every figure
+above is the RTS backward pass, which uses future samples. Running only the
+forward Kalman filter on the same predictions and the same tuned $Q,R$ *degrades*
+the 1D-CNN by $3.4\%$ ($19.13 \to 19.77\,\text{m}$). So smoothing is available to
+applications that tolerate latency — trajectory reconstruction, offline analytics,
+post-hoc mapping — and is not available to real-time positioning. Transition
+history carries no such restriction: it uses only past samples and is fully causal,
+which is part of why it is the stronger of the two contributions.
 
 #### A single global process noise is the wrong model
 
