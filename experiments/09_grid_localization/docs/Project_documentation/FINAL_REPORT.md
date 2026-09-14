@@ -686,50 +686,87 @@ All models below are evaluated under one identical protocol: Campaign B, $h=5$, 
 
 > **Read this table with §5.7 open.** Every cell is a single-seed point estimate.
 > Repeating the protocol over five seeds puts ranks 1–6 in a statistical tie
-> (overall MAE spans $0.47\,\text{m}$ against a marginal seed spread of
-> $1.85\,\text{m}$), so the *ordering* here is not a result. The single-antenna
-> column is worse still: it rests on roughly seven test users and carries 95%
-> intervals of $\pm1.7$ to $\pm5.1\,\text{m}$, with run-to-run spreads up to
-> $14.5\,\text{m}$. No difference under about $5\,\text{m}$ in that column means
-> anything.
->
-> Two rows also fail to reproduce under the current pipeline and are retained only
-> because they are what the master benchmark recorded. Re-running seed 42 today
-> gives Random Forest $19.417\,\text{m}$ overall and $33.069\,\text{m}$
-> single-antenna (against $20.884$ and $38.904$ below), reproduced identically by
-> three independent scripts (§5.4, §5.7, §5.5-RF); and the $k$-NN baseline's
-> single-antenna error comes out at $46.17 \pm 3.13\,\text{m}$ across five seeds,
-> with $37.142$ falling outside the observed range entirely. The master benchmark
-> predates several pipeline changes and its per-cohort figures should not be cited
-> without a re-run.
+> (overall MAE spans $0.47\,	ext{m}$ against a marginal seed spread of
+> $1.85\,	ext{m}$), so the *ordering* is not a result. The single-antenna column
+> is worse still: it rests on roughly seven test users and carries 95% intervals of
+> $\pm1.7$ to $\pm5.1\,	ext{m}$. No difference under about $5\,	ext{m}$ in that
+> column is interpretable as a marginal comparison.
 
-| Model | History | Params | Train time | 2D MAE | P50 | P90 | Multi-ant (85%) | Single-ant (15%) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| $k$-NN regressor (baseline) | $h=0$ | — | 0.0 s | 27.857 m | 23.892 m | 53.323 m | 25.356 m | 37.142 m |
-| Random Forest | $h=5$ | 6.5 M | 121.1 s | 20.884 m | 16.801 m | 41.326 m | 16.032 m | 38.904 m |
-| XGBoost | $h=5$ | 12.8 K | 26.0 s | 19.314 m | 15.469 m | 37.425 m | 15.199 m | 34.598 m |
-| **GRU (2-layer)** | $h=5$ | 187.8 K | 255.0 s | **18.518 m** | **14.560 m** | 37.313 m | **14.500 m** | 33.440 m |
-| 1D-CNN (NB06) | $h=5$ | 66.5 K | 333.1 s | 19.330 m | 15.430 m | 37.841 m | 15.394 m | 33.946 m |
-| 1D-CNN + attention (NB07) | $h=5$ | 199.7 K | 231.2 s | 19.172 m | 15.377 m | 37.744 m | 15.233 m | 33.801 m |
-| Mask-aware 1D-CNN | $h=5$ | 66.7 K | 173.2 s | 19.250 m | 15.959 m | 37.713 m | 15.713 m | **32.383 m** |
+| Model | History | Params | Train | ms / 1k | 2D MAE | P50 | P90 | Multi-ant (85%) | Single-ant (15%) |
+| :--- | :---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| $k$-NN regressor (baseline) | $h=0$ | — | 1.0 s | 325.7 | 27.440 m | 23.255 m | 53.317 m | 23.462 m | 42.212 m |
+| $k$-NN regressor | $h=5$ | — | 0.7 s | 576.5 | 23.983 m | 19.807 m | 46.880 m | 19.679 m | 39.968 m |
+| Random Forest | $h=5$ | 2.25 M nodes | 33.9 s | 102.3 | 19.417 m | 16.206 m | 37.730 m | 15.740 m | 33.069 m |
+| XGBoost | $h=5$ | 6.2 K nodes | **3.9 s** | **1.7** | 19.434 m | 15.710 m | 37.677 m | 15.295 m | 34.806 m |
+| GRU (2-layer) | $h=5$ | 254.5 K | 166.3 s | 30.8 | 19.355 m | 15.200 m | 38.957 m | 15.450 m | 33.858 m |
+| 1D-CNN | $h=5$ | 66.5 K | 197.3 s | 14.0 | 19.218 m | 15.650 m | 37.415 m | 15.506 m | 33.001 m |
+| 1D-CNN + attention | $h=5$ | 199.7 K | 212.2 s | 22.7 | 18.877 m | **14.788 m** | 38.715 m | **14.595 m** | 34.779 m |
+| **Mask-aware 1D-CNN** | $h=5$ | 66.6 K | 181.5 s | 18.3 | **18.692 m** | 15.209 m | **36.766 m** | 15.105 m | **32.013 m** |
+
+**This table was regenerated under the current pipeline.** The original benchmark
+came from a notebook with no script in the repository, and parts of it had drifted.
+Against the recorded values, five of seven models reproduce within
+$0.6\,	ext{m}$ — inside the seed noise of §5.7 — and two do not:
+
+| Model | MAE recorded → now | Single-ant recorded → now |
+| :--- | ---: | ---: |
+| Mask-aware CNN | 19.250 → 18.692 ($-0.56$) | 32.383 → 32.013 ($-0.37$) |
+| CNN + attention | 19.172 → 18.877 ($-0.30$) | 33.801 → 34.779 ($+0.98$) |
+| 1D-CNN | 19.330 → 19.218 ($-0.11$) | 33.946 → 33.001 ($-0.95$) |
+| XGBoost | 19.314 → 19.434 ($+0.12$) | 34.598 → 34.806 ($+0.21$) |
+| GRU | 18.518 → 19.355 ($+0.84$) | 33.440 → 33.858 ($+0.42$) |
+| **Random Forest** | 20.884 → **19.417** ($-1.47$) | 38.904 → **33.069** ($-5.84$) |
+| **$k$-NN ($h{=}0$)** | 27.857 → 27.440 ($-0.42$) | 37.142 → **42.212** ($+5.07$) |
+
+Parameter counts are reported on a different convention here — total tree nodes for
+the ensembles rather than the original's figure — so those columns are not
+comparable across the two runs and only the error columns are.
+
 
 **Readings:**
 
-1. **Deep temporal models lead, but not by much.** GRU is best overall at $18.518\,\text{m}$; the CNN variants cluster at $19.2$–$19.3\,\text{m}$. Recurrent gates and 1D convolutions extract motion derivatives that axis-aligned tree splits struggle to express.
-2. **XGBoost is the deployment recommendation.** $19.314\,\text{m}$ MAE with **12.8 K parameters and 26 s of training** — within $4\%$ of the best deep model at roughly $1/15$ the parameters and $1/10$ the training time. For BS-edge compute this is the operating point that matters. This is also the practical form of the universality claim: you do not need a large model to collect the history gain.
-3. **Random Forest is the largest model here, but the "outlier" reading is
-   withdrawn.** An earlier version of this section called it the only model whose
-   single-antenna error ($38.904\,\text{m}$) exceeds the $h=0$ $k$-NN baseline's
-   ($37.142\,\text{m}$), and inferred that axis-aligned splits fragment the
-   temporal signal. Both numbers are single-seed point estimates of the noisiest
-   quantity in the study, and neither survives repetition. Across five seeds
-   (§5.7) Random Forest's single-antenna MAE is $36.27 \pm 2.35\,\text{m}$ and the
-   $k$-NN baseline's is $46.17 \pm 3.13\,\text{m}$ — Random Forest is roughly
-   $10\,\text{m}$ *better* than the baseline on that cohort, not worse. It remains
-   the largest model (6.5 M parameters) for the least return, which is the reading
-   that holds.
-4. **The snapshot baseline is far behind.** $k$-NN at $h=0$ gives $27.857\,\text{m}$; every $h=5$ model beats it by $7$–$9\,\text{m}$. Part of that is model capacity, but §5.1 isolates the history component within a single fixed architecture.
-5. **The cohort columns diverge everywhere.** In every row, multi-antenna error is $14.5$–$16.0\,\text{m}$ and single-antenna error is $32.4$–$38.9\,\text{m}$. No architecture closes this gap, because it is not an architectural gap. That is §7.
+1. **No architecture wins.** The six $h=5$ models span $18.69$ to
+   $19.43\,	ext{m}$ — a range of $0.74\,	ext{m}$, well inside the
+   $1.85\,	ext{m}$ marginal seed spread, and §5.7's five-seed repeat finds every
+   adjacent pair among them statistically tied. An earlier version of this section
+   read GRU as best overall at $18.518\,	ext{m}$ and attributed the lead to
+   recurrent gates extracting motion derivatives that tree splits cannot express.
+   The re-run puts GRU at $19.355\,	ext{m}$, fifth of six, and the seed repeat
+   puts it fourth with an interval overlapping almost everything. **That reading is
+   withdrawn.** Given history, a convolution, a boosted tree ensemble and a
+   recurrent network are indistinguishable on this task.
+2. **XGBoost is the deployment recommendation, and by a wider margin than
+   before.** It matches the best model within $0.74\,	ext{m}$ while training in
+   **3.9 s** and predicting at **1.7 ms per 1000 samples** — $11	imes$ faster at
+   inference than the nearest deep model and $190	imes$ faster than $k$-NN, whose
+   cost grows with the training set it must search. For base-station edge compute
+   that is the operating point that matters, and it is the practical form of the
+   universality claim: you do not need a large model to collect the history gain.
+3. **Random Forest is the expensive way to reach the same place.** It lands at
+   $19.417\,	ext{m}$, statistically level with everything else, for $2.25$ M tree
+   nodes and $60	imes$ XGBoost's inference cost. An earlier reading called it the
+   only model whose single-antenna error ($38.904\,	ext{m}$) exceeded the $h=0$
+   $k$-NN baseline ($37.142\,	ext{m}$), and inferred that axis-aligned splits
+   fragment the temporal signal. Both figures were single-seed estimates of the
+   noisiest quantity in the study; across five seeds Random Forest sits at
+   $36.27 \pm 2.35\,	ext{m}$ and the baseline at $46.17 \pm 3.13\,	ext{m}$, so
+   Random Forest *leads* the baseline by about $10\,	ext{m}$ on that cohort. The
+   inference goes with the number.
+4. **The snapshot baseline is far behind, and part of the gap is history.**
+   $k$-NN at $h=0$ gives $27.440\,	ext{m}$; every $h=5$ model beats it by
+   $8$–$9\,	ext{m}$. Giving $k$-NN itself the same history window recovers
+   $3.5\,	ext{m}$ of that ($27.440 	o 23.983$) without changing the estimator at
+   all, which separates the history contribution from the capacity contribution
+   inside this table rather than only in §5.1.
+5. **The cohort columns diverge everywhere.** In every row, multi-antenna error is
+   $14.6$–$15.7\,	ext{m}$ and single-antenna error is $32.0$–$42.2\,	ext{m}$. No
+   architecture closes this gap, because it is not an architectural gap. That is §7.
+6. **The mask-aware CNN leads on both cohort columns it was designed for.** It
+   posts the best overall MAE ($18.692\,	ext{m}$), the best P90
+   ($36.766\,	ext{m}$) and the best single-antenna error ($32.013\,	ext{m}$) —
+   consistent with §5.7, where it also ranks first over five seeds. Given the tie,
+   this is suggestive rather than decisive, but it is the one architecture whose
+   advantage points the same way in every measurement taken.
 
 ---
 

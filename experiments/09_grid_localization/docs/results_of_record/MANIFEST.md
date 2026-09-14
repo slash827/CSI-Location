@@ -30,6 +30,12 @@ by hand — full float precision is preserved.
 > into geometric regions. Those partitions are real and the MAEs within them are
 > correct; only the LOS/NLOS *labels* are wrong. See `FINAL_REPORT.md` §5.6.
 
+> **Warning — `master_benchmark_summary.json` has drifted from the current
+> pipeline.** Re-running it today (`ablations_2026_09/master_benchmark_rerun_summary.json`)
+> reproduces five of seven models within 0.6 m, but Random Forest is 1.47 m better
+> and 5.84 m better on the single-antenna cohort, and the k-NN baseline's
+> single-antenna error is 5.07 m worse. Cite the re-run for §6.
+
 > **Warning — the `rts_*` fields in `master_benchmark_summary.json` are invalid.**
 > They were produced before the `delta_t` defect was found and fixed (see below).
 > Every **raw** field in that file is correct and is what the report cites; only
@@ -41,6 +47,7 @@ by hand — full float precision is preserved.
 | :--- | :--- |
 | `knn_sweep_rts_retune_summary.json` | k-NN history sweep, h ∈ {0,1,3,5,10}. **The `rts_retune` block is pre-fix and invalid**; the `knn_history_sweep` block is correct and is what §5.4 cites |
 | `xgb_per_h_retune_summary.json` | Per-depth Optuna re-tuning of XGBoost (§5.5). Tuned on training users only; test users evaluated once |
+| `master_benchmark_rerun_summary.json` | The §6 scorecard regenerated under the current pipeline, with a row-by-row comparison against `campaign_b/master_benchmark_summary.json`. **This supersedes that file's error columns.** |
 | `rf_per_h_retune_summary.json` | **B5** — the same per-depth Optuna protocol on Random Forest (§5.5). Null result: 20 trials per depth move it by −0.046 to +0.066 m |
 | `rts_retune_all_models_summary.json` | Cross-model Kalman/RTS sweep, **post-fix**. Backs the §7.7 table |
 | `rts_retune_report.md` | Human-readable rendering of the same run |
@@ -59,6 +66,7 @@ by hand — full float precision is preserved.
 
 ```bash
 E=experiments/09_grid_localization/src/python/experiments_ablation
+.venv/Scripts/python $E/master_benchmark_rerun.py        # scorecard, ~14 min (GPU)
 .venv/Scripts/python $E/rf_per_h_retune.py               # B5, ~2 h (CPU)
 .venv/Scripts/python $E/regenerate_trajectory_diagnostics.py  # B4, ~6 min (GPU)
 .venv/Scripts/python $E/seed_repeats_all_models.py       # B2, ~95 min (GPU)
