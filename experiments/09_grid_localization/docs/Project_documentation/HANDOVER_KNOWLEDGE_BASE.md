@@ -1,13 +1,44 @@
 # 5G NR CSI Localization: Handover Knowledge Base & Project Synthesis
 
 > **Status:** Current, Validated & Fully Committed on branch `main`  
-> **Last Updated:** September 2026  
+> **Last Updated:** 2026-09-18  
 > **Workspace Root:** `experiments/09_grid_localization/`  
 > **Primary References:**  
 > - Detailed Technical Document: [`docs/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md)  
 > - High-Level Research Overview: [`docs/Project_documentation/research_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/research_documentation.md)  
 > - Presentation Slide Deck: [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md)  
 > - Discussion Transcript with Alon Levin: [`data/meeting_20_08_26.txt`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/data/meeting_20_08_26.txt)
+
+---
+
+## 0. Start here (added 2026-09-18, machine transition)
+
+Read these two files **before** citing any number or writing into the report:
+
+| File | Why |
+| :--- | :--- |
+| **`CORRECTIONS_LEDGER.md`** | Ten claims that were once in these documents and have since been measured and withdrawn. The superseded numbers are still sitting in `results_of_record/` and in older Google Doc snapshots, so they are easy to reintroduce by accident. |
+| **`MATLAB_RERUN_RUNBOOK.md`** | The only work still outstanding: two MATLAB + QuaDRiGa jobs, with prerequisites, commands and sanity checks. |
+
+**State as of this hand-off:**
+
+* Every Python experiment is complete — Tier A (A1–A5), Tier B (B1–B5), and a
+  regenerated master-benchmark scorecard. See `EXPERIMENTS_BACKLOG.md`.
+* Two MATLAB jobs remain. They were blocked on an **expired MATLAB trial licence**
+  (not hardware): every `INCREMENT` line in `licenses/trial_*.lic` expired
+  16-Nov-2025. QuaDRiGa 2.8.1 was installed and fine. The failure mode is
+  misleading — `matlab -batch` hangs for minutes, then exits `0x00000001` with an
+  empty log.
+* `results/` is gitignored. The ablation scripts need
+  `results/grid_localization/grid_25x25/sim_data_300users_*` to exist locally; see
+  `SHARING.md` for how to obtain it.
+
+**Three claims in this document's own §1 and §2 are now stale** and are corrected in
+the ledger: the $\Delta	ext{MAE} = -15.7\%$ headline is now measured per family as
+$11.0$–$14.7\%$ with confidence intervals (§5.7 of the report); the "4 Voronoi
+propagation areas: Park (LOS), Highway (LOS)…" line in §2 below describes what the
+config *declares*, not what was simulated — Campaign B is uniformly NLOS; and the
+$h=5$ window should be described in metres of path, not seconds.
 
 ---
 

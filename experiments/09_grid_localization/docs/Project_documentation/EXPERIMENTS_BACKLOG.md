@@ -41,7 +41,7 @@ All five ran in about 25 minutes total. Outcomes:
 
 | # | Experiment | Actual | Outcome |
 | :--- | :--- | ---: | :--- |
-| A1 | History gain by zone | ~5 min | **Prediction confirmed.** LOS +15.98% vs NLOS +4.84%, a 3.3× difference, range confound running the other way. Report §5.6 |
+| A1 | History gain by zone | ~5 min | **Outcome later withdrawn.** Campaign B has no LOS — the runner ignores the config's `mixed_scenario` block (see `CORRECTIONS_LEDGER.md` §4). The measured per-region gains (+4.38% to +18.75%) are real but purely geometric. Report §5.6 |
 | A2 | AoA masking across families | ~10 min | **Hypothesis refuted, usefully.** Helps 1 of 3 non-convolutional models. C4 rescoped to architectures without conditional structure. Report §7.6.1 |
 | A3 | Fit path-loss per zone | ~1 min | γ = 3.26 (not 4), σ = 10.11 dB (not 6), R² = 0.20. Naive-ranging bound rises 32.9 → 67.9 m, so the model beats it by ~5×. Report §7.5 |
 | A4 | Extend tree sweep to h=30 | ~2 min | **Saturation, not a turn.** h ∈ [10,30] spans 0.053 m. Report §5.4 |
@@ -173,7 +173,53 @@ protocol change worth making before submission.
 
 </details>
 
-# Tier B — new machine
+# Tier B — COMPLETE (2026-09-13/14)
+
+All five ran on the **old** machine; none needed the new box. Outcomes:
+
+| # | Experiment | Actual | Outcome |
+| :--- | :--- | ---: | :--- |
+| B1 | History within each speed class | ~22 min | **The useful window is spatial, not temporal.** Optimal durations span 1.6–134.7 s; a fixed h is a fixed 4 m/step distance. Retires "h=5 ≈ 2.5 s". Report §5.8 |
+| B2 | Seed repeats, all seven families | ~95 min | **Central claim now has CIs.** Every family gains 11.0–14.7%, all significant, 35 paired trials with no failures. Scorecard ranks 1–6 are a statistical tie. Report §5.7 |
+| B3 | Universality figure, all seven | ~50 min | **Figure 2 rebuilt from one protocol.** 7/7 improve, 12.5–19.3%. Exposed that the old figure mixed three experiments, one with a leaky chronological split. Report §5.4 |
+| B4 | Regenerate trajectory diagnostics | ~6 min | **Figures 5 and 6 repaired.** Also established the smoothing gain is entirely non-causal — the forward Kalman pass degrades by 3.4%. Report §7.7 |
+| B5 | Per-depth re-tune, Random Forest | ~2 h | **Null result.** 20 Optuna trials per depth move RF by −0.046 to +0.066 m. Also exposed that the master benchmark had drifted. Report §5.5 |
+| — | Master benchmark re-run | ~14 min | **Scorecard regenerated.** Five of seven models reproduce within 0.6 m; RF and the k-NN baseline do not. "GRU is best" withdrawn. Report §6 |
+
+B4 was done as a script (`regenerate_trajectory_diagnostics.py`) rather than by
+re-running notebooks 06 and 07, since notebook re-execution is hard to verify and
+harder to repeat. It writes the same figure filenames, so the report's links are
+unchanged.
+
+**Read `CORRECTIONS_LEDGER.md` before citing anything.** Tier B withdrew six claims
+that had been in the documents, and the superseded numbers are still present in
+`results_of_record/`.
+
+---
+
+# What actually remains
+
+Two MATLAB + QuaDRiGa jobs, both specified in **`MATLAB_RERUN_RUNBOOK.md`**:
+
+1. **Campaign B re-run with mixed LOS/NLOS propagation** — the current dataset is
+   uniformly NLOS despite its config declaring four LOS/NLOS Voronoi cells. The
+   corrected runner (`run_multi_user_300_25x25_mixed.m`) is committed but has never
+   been executed. This is the precondition for §5.6 saying anything.
+2. **B6 — the targeted LOS → blocked → LOS scenario** (specified below).
+
+Plus **C1–C3** below, which need no compute.
+
+> The old machine was blocked on an **expired MATLAB trial licence** (every
+> `INCREMENT` line dated 16-Nov-2025), not on hardware. QuaDRiGa 2.8.1 was installed
+> and working. Verify `license('test','MATLAB')` returns 1 before assuming anything
+> else is wrong.
+
+---
+
+<details>
+<summary>Original Tier B specifications (kept for provenance)</summary>
+
+# Tier B — original specifications
 
 Each entry is written so a fresh Claude session can execute it cold.
 
@@ -291,7 +337,9 @@ tuning surface is flat.
 
 ---
 
-## B6. Targeted LOS → blocked → LOS scenario (requires MATLAB + QuaDRiGa)
+</details>
+
+## B6. Targeted LOS → blocked → LOS scenario — STILL OPEN (requires MATLAB + QuaDRiGa)
 
 **Question.** The case where history should be decisive: a UE walking a straight
 sidewalk that passes behind a blocking building, so the link goes LOS → NLOS →
@@ -351,15 +399,26 @@ grow a second results tree too.
 
 ---
 
-# Suggested order
+# Suggested order (updated 2026-09-18)
 
-1. **A1 and A2 first.** Cheap, need no new data, and both directly strengthen the
-   central claim — A1 tests a prediction the mechanism makes, A2 potentially
-   promotes C4 to a mechanism-level contribution.
-2. **A3, A5** — convert assumed constants to measured ones, and establish the
-   noise floor before defending any small delta.
-3. **B1** once the new machine is live. It is the most likely reviewer objection
-   and the answer is currently unknown.
-4. **B3, B2** to make the universality figure and the error bars match the claims.
-5. **B4, C2, C3** as cleanup.
-6. **B5, B6** last — expensive, and neither blocks the current claims.
+Tier A and Tier B are done. What is left, in the order that maximises what the
+report can claim:
+
+1. **Campaign B mixed-propagation re-run** (`MATLAB_RERUN_RUNBOOK.md` §1). It is the
+   only outstanding item that converts a *withdrawn* claim back into a testable one.
+   Needs a MATLAB licence; expect hours of QuaDRiGa time.
+2. **Re-run the Python ablations against the mixed dataset** — A1 and A3 become real
+   propagation results rather than geometric ones; B2, B3 and the master benchmark
+   re-baseline. Keep the uniform-NLOS dataset as the single-scenario baseline rather
+   than replacing it.
+3. **C1 (Related Work)** — needs no compute and is the largest remaining gap for a
+   conference submission. §10 is still a stub.
+4. **C2, C3** — cleanup: the §7.2 AoA-noise provenance conflict, and the stray
+   `experiments/results` tree.
+5. **B6** (`MATLAB_RERUN_RUNBOOK.md` §2) — the sharpest isolation of the mechanism,
+   but it is new simulation work and nothing currently claimed depends on it.
+6. **Separating samples from distance** (`MATLAB_RERUN_RUNBOOK.md` §3) — the last
+   open question about the mechanism itself, and the one a reviewer is most likely
+   to raise after B1.
+
+**Before writing anything into the report, read `CORRECTIONS_LEDGER.md`.**
