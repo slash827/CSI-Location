@@ -41,7 +41,7 @@ All five ran in about 25 minutes total. Outcomes:
 
 | # | Experiment | Actual | Outcome |
 | :--- | :--- | ---: | :--- |
-| A1 | History gain by zone | ~5 min | **Outcome later withdrawn.** Campaign B has no LOS — the runner ignores the config's `mixed_scenario` block (see `CORRECTIONS_LEDGER.md` §4). The measured per-region gains (+4.38% to +18.75%) are real but purely geometric. Report §5.6 |
+| A1 | History gain by zone | ~5 min | **Outcome later withdrawn.** Campaign B has no LOS — the runner ignores the config's `mixed_scenario` block (see `CONTINUE_HERE.md` §6.4). The measured per-region gains (+4.38% to +18.75%) are real but purely geometric. Report §5.6 |
 | A2 | AoA masking across families | ~10 min | **Hypothesis refuted, usefully.** Helps 1 of 3 non-convolutional models. C4 rescoped to architectures without conditional structure. Report §7.6.1 |
 | A3 | Fit path-loss per zone | ~1 min | γ = 3.26 (not 4), σ = 10.11 dB (not 6), R² = 0.20. Naive-ranging bound rises 32.9 → 67.9 m, so the model beats it by ~5×. Report §7.5 |
 | A4 | Extend tree sweep to h=30 | ~2 min | **Saturation, not a turn.** h ∈ [10,30] spans 0.053 m. Report §5.4 |
@@ -191,7 +191,7 @@ re-running notebooks 06 and 07, since notebook re-execution is hard to verify an
 harder to repeat. It writes the same figure filenames, so the report's links are
 unchanged.
 
-**Read `CORRECTIONS_LEDGER.md` before citing anything.** Tier B withdrew six claims
+**Read `CONTINUE_HERE.md` §6 before citing anything.** Tier B withdrew six claims
 that had been in the documents, and the superseded numbers are still present in
 `results_of_record/`.
 
@@ -199,7 +199,7 @@ that had been in the documents, and the superseded numbers are still present in
 
 # What actually remains
 
-Two MATLAB + QuaDRiGa jobs, both specified in **`MATLAB_RERUN_RUNBOOK.md`**:
+Two MATLAB + QuaDRiGa jobs, both specified in **`CONTINUE_HERE.md`**:
 
 1. **Campaign B re-run with mixed LOS/NLOS propagation** — the current dataset is
    uniformly NLOS despite its config declaring four LOS/NLOS Voronoi cells. The
@@ -404,7 +404,7 @@ grow a second results tree too.
 Tier A and Tier B are done. What is left, in the order that maximises what the
 report can claim:
 
-1. **Campaign B mixed-propagation re-run** (`MATLAB_RERUN_RUNBOOK.md` §1). It is the
+1. **Campaign B mixed-propagation re-run** (`CONTINUE_HERE.md` §3). It is the
    only outstanding item that converts a *withdrawn* claim back into a testable one.
    Needs a MATLAB licence; expect hours of QuaDRiGa time.
 2. **Re-run the Python ablations against the mixed dataset** — A1 and A3 become real
@@ -415,10 +415,10 @@ report can claim:
    conference submission. §10 is still a stub.
 4. **C2, C3** — cleanup: the §7.2 AoA-noise provenance conflict, and the stray
    `experiments/results` tree.
-5. **B6** (`MATLAB_RERUN_RUNBOOK.md` §2) — the sharpest isolation of the mechanism,
+5. **B6** (`CONTINUE_HERE.md` §4) — the sharpest isolation of the mechanism,
    but it is new simulation work and nothing currently claimed depends on it.
-6. **Separating samples from distance** (`MATLAB_RERUN_RUNBOOK.md` §3) — the last
+6. **Separating samples from distance** (`CONTINUE_HERE.md` §5) — the last
    open question about the mechanism itself, and the one a reviewer is most likely
    to raise after B1.
 
-**Before writing anything into the report, read `CORRECTIONS_LEDGER.md`.**
+**Before writing anything into the report, read `CONTINUE_HERE.md` §6.**

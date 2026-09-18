@@ -13,12 +13,12 @@
 
 ## 0. Start here (added 2026-09-18, machine transition)
 
-Read these two files **before** citing any number or writing into the report:
-
-| File | Why |
-| :--- | :--- |
-| **`CORRECTIONS_LEDGER.md`** | Ten claims that were once in these documents and have since been measured and withdrawn. The superseded numbers are still sitting in `results_of_record/` and in older Google Doc snapshots, so they are easy to reintroduce by accident. |
-| **`MATLAB_RERUN_RUNBOOK.md`** | The only work still outstanding: two MATLAB + QuaDRiGa jobs, with prerequisites, commands and sanity checks. |
+Read **[`CONTINUE_HERE.md`](CONTINUE_HERE.md)** before citing any number or writing
+into the report. It is the single entry point for picking this project up: current
+state, the two MATLAB jobs still outstanding with commands and sanity checks, and
+§6 — ten claims that were once in these documents and have since been measured and
+withdrawn. Those superseded numbers are still sitting in `results_of_record/` and in
+older Google Doc snapshots, so they are easy to reintroduce by accident.
 
 **State as of this hand-off:**
 
