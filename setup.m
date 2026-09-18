@@ -13,8 +13,23 @@ fprintf('========================================\n\n');
 %% Step 1: Check QuaDRiGa
 fprintf('Step 1: Checking QuaDRiGa installation...\n');
 if ~exist('qd_simulation_parameters', 'file')
-    addpath(genpath('D:\programs\QuaDRiGa'));  % Adjust to your installation
-    savepath;
+    % Search, rather than assuming one machine's layout. Set the QUADRIGA_HOME
+    % environment variable to skip the guesswork on a new machine.
+    candidates = {getenv('QUADRIGA_HOME'), ...
+                  'D:\programs\QuaDRiGa', ...
+                  'C:\programs\QuaDRiGa', ...
+                  fullfile(getenv('USERPROFILE'), 'QuaDRiGa'), ...
+                  fullfile(fileparts(mfilename('fullpath')), '..', 'QuaDRiGa')};
+    for c = 1:numel(candidates)
+        if ~isempty(candidates{c}) && isfolder(candidates{c})
+            addpath(genpath(candidates{c}));
+            if exist('qd_simulation_parameters', 'file')
+                fprintf('  Found QuaDRiGa at: %s\n', candidates{c});
+                savepath;
+                break;
+            end
+        end
+    end
 end
 
 if exist('qd_simulation_parameters', 'file')

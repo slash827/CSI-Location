@@ -21,7 +21,9 @@ import sys, json, time, datetime, copy
 from pathlib import Path
 import numpy as np
 
-PROJECT_ROOT = Path('d:/gilad/projects/Academy/CSI-Location')
+# Resolve the repo root from this file's own location, so the script runs on any
+# machine. experiments_ablation/ sits five levels below the root.
+PROJECT_ROOT = Path(__file__).resolve().parents[5]
 sys.path.insert(0, str(PROJECT_ROOT / 'experiments' / '09_grid_localization' / 'src' / 'python'))
 
 import torch

@@ -332,7 +332,40 @@ It came from a notebook with no script in the repo, which is why it drifted.
 
 ---
 
-## 8. File map
+## 8. Machine-specific paths
+
+Audited 2026-09-18. **All active scripts are portable.** Four ablation scripts
+hardcoded `Path('d:/gilad/projects/Academy/CSI-Location')` and were converted to
+`Path(__file__).resolve().parents[5]`, matching the nine that were already portable:
+`knn_sweep_and_rts_retune.py`, `per_user_process_noise.py`,
+`rts_retune_all_models.py`, `xgb_per_h_retune.py`.
+
+`setup.m` now searches for QuaDRiGa rather than assuming one location. Set
+`QUADRIGA_HOME` to skip the search:
+
+```matlab
+setenv('QUADRIGA_HOME', '<path>/QuaDRiGa');
+```
+
+The MATLAB runners and every `configs/*.jsonc` were already clean — no absolute
+paths at all.
+
+### Known remaining, none of them blocking
+
+| Location | What | Impact |
+| :--- | :--- | :--- |
+| `src/python/utils/environment_viz.py:276` | writes to a `.gemini/antigravity-ide/brain/…` path from a long-dead IDE session | fails only if that one function is called; the figure it makes is already committed |
+| `src/python/utils/parse_terminal_output.py:103,110` | references user `gilad.battat` and a `GitHub_Personal` checkout — a *different* machine again | standalone dev utility, unused by any pipeline |
+| `answers/extract_bs_parameters.m:8` | `exp11_2025-11-15…` results dir | one-off script from the exp11 era |
+| `ml_training/experiments/neural_networks/debugging/*.py` | four scripts pointing at `exp11`/`exp10` dataset dirs | superseded debugging scripts |
+| Various `docs/**/*.md` | `file:///d:/gilad/…` links and `cd D:\gilad\…` snippets | cosmetic; links stop resolving, prose still correct |
+
+None of these are on the path to Job 1 or Job 2. Left as-is deliberately rather than
+touched without a reason to run them.
+
+---
+
+## 9. File map
 
 | Path | What it is |
 | :--- | :--- |
