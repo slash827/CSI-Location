@@ -7,11 +7,25 @@ import pandas as pd
 from pathlib import Path
 from scipy.io import loadmat
 
+def _extract_cellstr(mat_field):
+    """MATLAB cellstr -> plain numpy array of Python strings (scipy.io.loadmat
+    returns each cell as a nested char array under default options)."""
+    out = []
+    for x in np.asarray(mat_field).flatten():
+        arr = np.asarray(x).flatten()
+        out.append(str(arr[0]) if arr.size else '')
+    return np.array(out)
+
+
 def load_200_users(data_dir):
     """
     Loads per-user MAT files from data_dir into a single DataFrame.
     Computes instantaneous physical speed v(t) (m/s) per user trajectory.
     Handles both 200-user and 300-user multi-user simulation datasets.
+
+    Mixed-propagation datasets (run_multi_user_300_25x25_mixed.m) additionally
+    save real per-snapshot 'is_los' and 'voronoi_zone_name'; uniform-scenario
+    datasets do not have these fields, so they are filled with NaN / None.
     """
     mat_files = sorted(glob.glob(os.path.join(data_dir, 'user*.mat')))
     if not mat_files:
@@ -50,6 +64,16 @@ def load_200_users(data_dir):
         else:
             height = float(dp['ue_height_m'][0,0][0,0])
         
+        n_rows = len(rss)
+        if 'is_los' in mat:
+            is_los = mat['is_los'].flatten().astype(bool)
+        else:
+            is_los = np.full(n_rows, np.nan)
+        if 'voronoi_zone_name' in mat:
+            voronoi_zone_name = _extract_cellstr(mat['voronoi_zone_name'])
+        else:
+            voronoi_zone_name = np.full(n_rows, None)
+
         df_u = pd.DataFrame({
             'user_id': u_id,
             'step_index': step_idx,
@@ -63,7 +87,9 @@ def load_200_users(data_dir):
             'timestamp_sec': timestamp_sec,
             'n_antennas': n_ant,
             'antenna_gain_db': gain,
-            'ue_height': height
+            'ue_height': height,
+            'is_los': is_los,
+            'voronoi_zone_name': voronoi_zone_name
         })
         
         # Calculate instantaneous physical speed v(t) (m/s)

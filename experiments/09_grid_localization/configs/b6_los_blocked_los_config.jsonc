@@ -1,0 +1,105 @@
+{
+  // B6 — Targeted LOS -> blocked -> LOS scenario
+  //
+  // OBJECTIVE: Isolate the mechanism directly. A UE walks a straight sidewalk
+  //   that passes behind a blocking building: LOS -> NLOS -> LOS. During the
+  //   blocked interval a snapshot model has almost nothing to go on, while a
+  //   history model carries the pre-blockage heading through. Report
+  //   Delta-MAE within the blocked interval specifically (not pooled over
+  //   the whole walk, which would dilute the effect with the LOS segments).
+  //
+  // GEOMETRY: straight corridor along x in [0, corridor_length], y = 0.
+  //   NLOS "blocking strip" is centred in x, width swept per user. LOS
+  //   before and after. Not a grid — x_pos/y_pos are continuous, used
+  //   directly as 2D regression targets relative to the serving BS (same
+  //   convention as ne_bs_voronoi_25x25's regression pipeline).
+  //
+  // Generated with run_b6_los_blocked_los.m using the SAME per-segment
+  // independent channel generation as run_multi_user_300_25x25_mixed.m
+  // (Job 1's fix) — a single merged multi-scenario track crashes QuaDRiGa's
+  // merge() at any LOS/NLOS path-count mismatch, and this scenario *is* that
+  // boundary, so merge() must never be used here.
+
+  "experiment": {
+    "name": "b6_los_blocked_los",
+    "description": "Straight-line LOS->NLOS->LOS crossing, swept strip width and speed",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "corridor": {
+    "length_m": 200.0,
+    "y_pos_m": 0.0,
+    // blocking strip is centred in x: [ (L-W)/2, (L+W)/2 ], W swept per user
+    // 2026-09-19: extended from [5,10,20,40,80] after a first run + 5-seed
+    // check showed gain rising monotonically through 80m with no sign of
+    // the predicted decay (and 5/10m too noisy, n=16-71, to trust) —
+    // extending to test whether the peak appears beyond 80m.
+    "strip_widths_m": [5, 10, 20, 40, 80, 100, 120, 150],
+    "speeds_ms": [1.5, 4.0, 10.0],
+    "repeats_per_combo": 15,
+    "sample_interval_s": 0.25
+  },
+
+  "channel": {
+    "los_scenario": "3GPP_38.901_UMi_LOS",
+    "nlos_scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3.0e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256
+  },
+
+  "base_station": {
+    // Large standoff (500 m) deliberately makes range ~constant across the
+    // whole 200 m corridor (range varies from 500 m at x=100 to only
+    // sqrt(500^2+100^2)=509.9 m at the corridor ends — under 2%, ~0.25 dB of
+    // path-loss). This decouples range from the LOS/NLOS transition, which
+    // is the actual thing being measured.
+    //
+    // BS at [100,40,10] (perpendicular, centred on the strip) was tried
+    // first and rejected: it puts the range MINIMUM inside the blocked
+    // interval itself (13 dB range-driven advantage, 40 m vs 107.7 m at the
+    // corridor ends) — a real, deterministic confound, not sampling noise.
+    // BS at [30,40,10] (offset along the corridor) was tried second: it
+    // creates a monotonic range ramp along the whole corridor, so the
+    // aggregate LOS average mixes a near LOS-in segment with a far LOS-out
+    // segment. This gave a backwards single-user result for width=40 in a
+    // 1-repeat smoke test, but was not confirmed as a systematic bias at
+    // higher n before being dropped — do not cite it as a proven confound,
+    // only the first geometry is provably one.
+    // This geometry (large standoff, range varies <2% end to end) was
+    // validated at n=12 (6 repeats x 2 widths): 12/12 users showed the
+    // correct LOS > blocked direction, with consistent pooled gaps (19.5 dB
+    // width=10, 20.6 dB width=40).
+    "position": [100, 500, 10],
+    "tx_power_dbm": 30,
+
+    "interferers": {
+      "enabled": true,
+      "positions": [
+        [-20, 500, 10],
+        [220, 500, 10]
+      ],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "regression",
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR"],
+    "max_history_length": 10
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": false,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}

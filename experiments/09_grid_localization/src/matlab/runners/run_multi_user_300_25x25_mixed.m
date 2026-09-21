@@ -145,7 +145,32 @@ fprintf('  Total trajectory steps: %d\n\n', sum(user_manifest(:, 6)));
 total_start = tic;
 zone_hist = zeros(n_cells, 1);   % global occupancy, for the run summary
 
-%% 2. Process Batches in Shared QuaDRiGa Multi-User Layouts
+%% 2. Process Users — one independent single-scenario channel per Voronoi segment
+%
+% WHY NOT A SINGLE MERGED MULTI-SEGMENT TRACK (as Job 1 originally attempted)
+% -----------------------------------------------------------------------------
+% qd_channel/merge.m computes its path-index mapping once, from a track's FIRST
+% segment (see init_path_indices.m), and reuses it unchanged for every later
+% segment. 3GPP_38.901_UMi_LOS has 12 clusters, _NLOS has 20 — a different
+% no_path — so merge() crashes with a dimension mismatch at the first snapshot
+% where a user's walk actually crosses an LOS/NLOS boundary. This is
+% deterministic, not seed- or tuning-dependent: it hit every user whose walk
+% left its starting propagation regime.
+%
+% Generating each segment as its own single-scenario, single-segment track
+% sidesteps merge() entirely. The cost is losing QuaDRiGa's spatial-consistency
+% correlation of large-scale parameters *across* a segment boundary; checked
+% against the scenario configs, SC_lambda (7-15 m for both scenarios) is far
+% shorter than a typical segment (28-128 m for MIN_SEG_LEN=4 at 2 m spacing),
+% so this discards at most one correlation-length's worth of continuity at each
+% boundary, out of a segment far longer than that. The ML pipeline downstream
+% only consumes scalar rss/sinr/aoa per snapshot, never raw channel
+% coefficients, so coefficient-level phase continuity across the boundary was
+% never something this project measures.
+
+bs_pos = [116; 116; 10];
+ibs_pos = [-60, 53, 10; 53, -60, 10];  % Pushed SW & South towers
+
 for b = 1:n_batches
     u_start = (b-1)*batch_size + 1;
     u_end   = min(b*batch_size, n_users);
@@ -154,29 +179,8 @@ for b = 1:n_batches
 
     fprintf('>>> Processing Batch %d/%d (Users %d to %d)...\n', b, n_batches, u_start, u_end);
     batch_tic = tic;
+    seg_counts_batch = zeros(n_batch_u, 1);
 
-    % Initialize Shared QuaDRiGa Layout
-    l = qd_layout;
-    % NOTE: no l.set_scenario() here. Scenarios are set per track segment below;
-    % a layout-wide set_scenario would overwrite them.
-    l.simpar.center_frequency = center_freq;  % 3.0 GHz 5G Frequency
-
-    % Configure BSs (Serving + 2 Pushed Interferers)
-    bs_pos = [116; 116; 10];
-    ibs_pos = [-60, 53, 10; 53, -60, 10];  % Pushed SW & South towers
-
-    l.no_tx = 3;
-    l.tx_position(:, 1) = bs_pos;
-    l.tx_array(1) = qd_arrayant('omni');
-    for i = 1:2
-        l.tx_position(:, i+1) = ibs_pos(i, :)';
-        l.tx_array(i+1) = qd_arrayant('omni');
-    end
-
-    l.no_rx = n_batch_u;
-
-    % Build trajectories for all users in batch
-    user_paths = cell(n_batch_u, 1);
     for idx = 1:n_batch_u
         uid = batch_u_ids(idx);
         prof = user_manifest(uid, :);
@@ -207,110 +211,128 @@ for b = 1:n_batches
         end
 
         [seg_start, seg_cell] = build_scenario_segments(cell_idx_per_step, MIN_SEG_LEN);
-        scen_per_seg = voronoi_scenarios(seg_cell)';       % 1 x n_segments cell
+        n_segments = numel(seg_start);
+        seg_counts_batch(idx) = n_segments;
+        seg_end = [seg_start(2:end) - 1, n_steps];
 
-        user_paths{idx} = struct('x', x_pts, 'y', y_pts, 'grid_id', w_idx, ...
-                                 'positions', positions, 'speed', speed, 'n_steps', n_steps, ...
-                                 'n_ant', n_ant, 'gain_db', gain_db, 'h_m', h_m, ...
-                                 'cell_idx', cell_idx_per_step, 'n_segments', numel(seg_start));
-
-        l.rx_array(idx) = qd_arrayant('omni');
-        if n_ant > 1
-            l.rx_array(idx).no_elements = n_ant;
-        end
-        trk = qd_track('linear', 0, 0);
-        trk.name = sprintf('UE%d', uid);
-        trk.positions = positions';
-        % segment_index must be set before scenario: no_segments is derived from it
-        trk.segment_index = seg_start(:)';
-        trk.scenario = scen_per_seg;
-        l.rx_track(idx) = trk;
-    end
-
-    seg_counts = cellfun(@(p) p.n_segments, user_paths);
-    fprintf('  Propagation segments per user: min %d, median %d, max %d\n', ...
-        min(seg_counts), round(median(seg_counts)), max(seg_counts));
-
-    % Generate Channels
-    fprintf('  Generating 5G QuaDRiGa multi-user channel coefficients...\n');
-    ch = l.get_channels();
-
-    % Save Per-User MAT Files
-    for idx = 1:n_batch_u
-        uid = batch_u_ids(idx);
-        up  = user_paths{idx};
-        n_steps = up.n_steps;
-
-        if iscell(ch)
-            ch_u = ch{idx, 1}; ch_i1 = ch{idx, 2}; ch_i2 = ch{idx, 3};
-        else
-            ch_u = ch(idx, 1); ch_i1 = ch(idx, 2); ch_i2 = ch(idx, 3);
-        end
-
-        % Segment merging can return a different snapshot count than the track
-        % had. Clamp rather than indexing past the end, and record the clamp.
-        n_avail = min([ch_u.no_snap, ch_i1.no_snap, ch_i2.no_snap]);
-        if n_avail < n_steps
-            fprintf('    user %d: channel has %d snapshots for %d positions, truncating\n', ...
-                uid, n_avail, n_steps);
-            n_steps = n_avail;
-        end
-
-        rss  = zeros(n_steps, 1);
-        sinr = zeros(n_steps, 1);
+        rss    = zeros(n_steps, 1);
+        sinr   = zeros(n_steps, 1);
         aoa_az = zeros(n_steps, 1);
         aoa_el = zeros(n_steps, 1);
+        n_valid = 0;   % contiguous count actually filled; a mid-walk clamp stops here
 
-        delta_t = (config_json.grid.spacing / up.speed) * ones(n_steps, 1);
-        timestamp_sec = cumsum(delta_t) - delta_t(1);
+        for k = 1:n_segments
+            lo = seg_start(k);
+            hi = seg_end(k);
+            seg_len = hi - lo + 1;
+            scen = voronoi_scenarios{seg_cell(k)};
 
-        for t = 1:n_steps
-            H_t = ch_u.fr(bandwidth, n_sc, t);
-            if up.n_ant > 1
-                H_t = reshape(H_t, up.n_ant, n_sc);
+            l_seg = qd_layout;
+            l_seg.simpar.center_frequency = center_freq;
+            l_seg.no_tx = 3;
+            l_seg.tx_position(:, 1) = bs_pos;
+            l_seg.tx_array(1) = qd_arrayant('omni');
+            for i = 1:2
+                l_seg.tx_position(:, i+1) = ibs_pos(i, :)';
+                l_seg.tx_array(i+1) = qd_arrayant('omni');
             end
-            p_sig = mean(abs(H_t(:)).^2);
+            l_seg.no_rx = 1;
+            l_seg.rx_array(1) = qd_arrayant('omni');
+            if n_ant > 1
+                l_seg.rx_array(1).no_elements = n_ant;
+            end
 
-            H_i1 = ch_i1.fr(bandwidth, n_sc, t);
-            H_i2 = ch_i2.fr(bandwidth, n_sc, t);
-            p_int = mean(abs(H_i1(:)).^2) + mean(abs(H_i2(:)).^2);
-            p_noise = 10^(-104/10) * 0.001;
+            trk = qd_track('linear', 0, 0);
+            % No underscore in the name: QuaDRiGa's internal channel naming
+            % (get_channels.m, merge.m) splits track names on the FIRST
+            % underscore expecting exactly "TxName_RxName" — an underscore
+            % inside the rx track name itself breaks that parsing.
+            trk.name = sprintf('UE%dS%d', uid, k);
+            trk.positions = positions(lo:hi, :)';
+            trk.scenario = {scen};
+            l_seg.rx_track(1) = trk;
 
-            rss(t)  = 10 * log10(max(p_sig, 1e-15) / 0.001) + up.gain_db;
-            sinr(t) = 10 * log10(max(p_sig, 1e-15) / (p_int + p_noise));
-
-            dx = bs_pos(1) - up.x(t);
-            dy = bs_pos(2) - up.y(t);
-            dz = bs_pos(3) - up.h_m;
-            d_2d = sqrt(dx^2 + dy^2);
-
-            if up.n_ant > 1
-                aoa_az(t) = atan2d(dx, dy);
-                aoa_el(t) = atan2d(dz, max(d_2d, 0.1));
+            ch = l_seg.get_channels();
+            if iscell(ch)
+                ch_u = ch{1, 1}; ch_i1 = ch{1, 2}; ch_i2 = ch{1, 3};
             else
-                aoa_az(t) = 0.0;
-                aoa_el(t) = 0.0;
+                ch_u = ch(1, 1); ch_i1 = ch(1, 2); ch_i2 = ch(1, 3);
             end
+
+            n_avail = min([ch_u.no_snap, ch_i1.no_snap, ch_i2.no_snap]);
+            truncated = n_avail < seg_len;
+            if truncated
+                fprintf('    user %d segment %d: channel has %d snapshots for %d positions, truncating\n', ...
+                    uid, k, n_avail, seg_len);
+                seg_len = n_avail;
+            end
+
+            for t = 1:seg_len
+                H_t = ch_u.fr(bandwidth, n_sc, t);
+                if n_ant > 1
+                    H_t = reshape(H_t, n_ant, n_sc);
+                end
+                p_sig = mean(abs(H_t(:)).^2);
+
+                H_i1 = ch_i1.fr(bandwidth, n_sc, t);
+                H_i2 = ch_i2.fr(bandwidth, n_sc, t);
+                p_int = mean(abs(H_i1(:)).^2) + mean(abs(H_i2(:)).^2);
+                p_noise = 10^(-104/10) * 0.001;
+
+                gidx = lo + t - 1;
+                rss(gidx)  = 10 * log10(max(p_sig, 1e-15) / 0.001) + gain_db;
+                sinr(gidx) = 10 * log10(max(p_sig, 1e-15) / (p_int + p_noise));
+
+                dx = bs_pos(1) - x_pts(gidx);
+                dy = bs_pos(2) - y_pts(gidx);
+                dz = bs_pos(3) - h_m;
+                d_2d = sqrt(dx^2 + dy^2);
+
+                if n_ant > 1
+                    aoa_az(gidx) = atan2d(dx, dy);
+                    aoa_el(gidx) = atan2d(dz, max(d_2d, 0.1));
+                else
+                    aoa_az(gidx) = 0.0;
+                    aoa_el(gidx) = 0.0;
+                end
+            end
+
+            n_valid = lo + seg_len - 1;
+            if truncated
+                break;   % keep the filled prefix contiguous; do not fill past a clamp
+            end
+        end
+
+        n_steps = n_valid;
+        if n_steps < prof(6)
+            fprintf('    user %d: %d/%d snapshots valid after per-segment clamping\n', uid, n_steps, prof(6));
         end
 
         step_index    = (1:n_steps)';
-        grid_point_id = up.grid_id(1:n_steps);
+        grid_point_id = w_idx(1:n_steps);
         user_id_val   = uid;
-        speed_ms      = up.speed;
-        x_pos         = up.x(1:n_steps);
-        y_pos         = up.y(1:n_steps);
+        speed_ms      = speed;
+        x_pos         = x_pts(1:n_steps);
+        y_pos         = y_pts(1:n_steps);
+        rss           = rss(1:n_steps);
+        sinr          = sinr(1:n_steps);
+        aoa_az        = aoa_az(1:n_steps);
+        aoa_el        = aoa_el(1:n_steps);
+
+        delta_t = (spacing_m / speed) * ones(n_steps, 1);
+        timestamp_sec = cumsum(delta_t) - delta_t(1);
 
         % Real Voronoi cell membership per snapshot. The uniform-NLOS runner
         % saved grid_point_id under this name, which is why the Python side had
         % to re-derive zones from coordinates.
-        voronoi_cell_id   = up.cell_idx(1:n_steps);
+        voronoi_cell_id   = cell_idx_per_step(1:n_steps);
         voronoi_scenario  = voronoi_scenarios(voronoi_cell_id);
         voronoi_zone_name = voronoi_names(voronoi_cell_id);
         is_los = ~cellfun(@isempty, strfind(voronoi_scenario, '_LOS'));  %#ok<STRCL1>
 
-        device_profile = struct('n_antennas', up.n_ant, ...
-                                'antenna_gain_db', up.gain_db, ...
-                                'ue_height', up.h_m);
+        device_profile = struct('n_antennas', n_ant, ...
+                                'antenna_gain_db', gain_db, ...
+                                'ue_height', h_m);
 
         user_file = fullfile(mat_dir, sprintf('user%d_ne_bs_25x25.mat', uid));
         save(user_file, 'rss', 'sinr', 'aoa_az', 'aoa_el', 'delta_t', ...
@@ -318,6 +340,9 @@ for b = 1:n_batches
              'speed_ms', 'x_pos', 'y_pos', 'voronoi_cell_id', 'voronoi_scenario', ...
              'voronoi_zone_name', 'is_los', 'device_profile', 'user_manifest');
     end
+
+    fprintf('  Propagation segments per user: min %d, median %d, max %d\n', ...
+        min(seg_counts_batch), round(median(seg_counts_batch)), max(seg_counts_batch));
     fprintf('  Batch %d completed in %.1f seconds.\n', b, toc(batch_tic));
 end
 
@@ -357,6 +382,11 @@ sim_config.quadriga_scenario      = 'mixed_voronoi';
 sim_config.mixed_scenario         = true;
 sim_config.voronoi_cells          = vcells;
 sim_config.min_segment_length     = MIN_SEG_LEN;
+% Each Voronoi segment is its own independent single-scenario QuaDRiGa channel
+% (no qd_channel/merge across segments) — see the note above the batch loop.
+% Large-scale parameters are not spatially correlated across a segment
+% boundary; within a segment they are, exactly as in the uniform-NLOS baseline.
+sim_config.channel_generation      = 'per_segment_independent';
 sim_config.serving_bs_position_m  = bs_pos';
 sim_config.sw_interferer_position_m = [-60, 53, 10];
 sim_config.s_interferer_position_m  = [53, -60, 10];

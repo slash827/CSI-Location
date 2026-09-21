@@ -14,25 +14,25 @@ it improves *every* model family rather than producing one best model.
 
 > Read `experiments/09_grid_localization/docs/Project_documentation/CONTINUE_HERE.md`
 > and confirm your understanding: what is done, what remains, and which claims were
-> withdrawn. Then check whether MATLAB has a valid licence
-> (`license('test','MATLAB')`) and, if it does, start Job 1 — the Campaign B re-run
-> with mixed LOS/NLOS propagation. Do not cite any number from
-> `master_benchmark_summary.json` or from a Google Doc snapshot without checking it
-> against §6 of this file first.
+> withdrawn. Both MATLAB jobs are done as of 2026-09-19 (§1a, §1b) — neither is
+> reflected in `FINAL_REPORT.md` yet. Propagate those results into the report
+> (§5, §6.4, §7), then pick up C1 Related Work or the C2/C3 cleanup items. Do
+> not cite any number from `master_benchmark_summary.json` or from a Google
+> Doc snapshot without checking it against §6 of this file first.
 
 ---
 
 ## 1. Where things stand
 
-Every Python experiment is complete. Two MATLAB + QuaDRiGa jobs remain.
+Every Python experiment, Job 1, and Job 2 are complete.
 
 | Block | Status | Backing |
 | :--- | :--- | :--- |
 | Tier A (A1–A5) | done 2026-09-13 | `results_of_record/ablations_2026_09/` |
 | Tier B (B1–B5) | done 2026-09-14 | same |
 | Master benchmark re-run | done 2026-09-14 | `master_benchmark_rerun_summary.json` |
-| **Job 1 — Campaign B mixed propagation** | **not started** | runner committed, never executed |
-| **Job 2 — B6, LOS→blocked→LOS** | **not started** | §4 below |
+| **Job 1 — Campaign B mixed propagation** | **done 2026-09-19** | see §1a below |
+| **Job 2 — B6, LOS→blocked→LOS** | **done 2026-09-19** | see §1b below |
 | C1 Related Work | not started | §10 of the report is a stub |
 | C2 AoA-noise provenance, C3 stray results tree | not started | cleanup |
 
@@ -51,11 +51,99 @@ What Tier B established, in one line each:
 * **B5** — per-depth re-tuning of Random Forest is a **null result** (−0.046 to
   +0.066 m). Report §5.5.
 
+### 1a. Job 1 results (2026-09-19)
+
+Campaign B mixed LOS/NLOS re-run completed. The runner
+(`run_multi_user_300_25x25_mixed.m`) had to be rewritten first — see §3 for what
+changed and why. Dataset:
+`results/grid_localization/grid_25x25/sim_data_300users_mixed_2026-09-18_20-25-01/`
+(gitignored, local only). Zone occupancy: 76.9% LOS (highway 30.0%, park 46.9%),
+23.1% NLOS (shopping_center 14.1%, residential 9.0%).
+
+* **§6.4 is reversed.** The LOS/NLOS mechanism prediction is now **SUPPORTED** on
+  real mixed-propagation data for the first time: history's benefit is
+  **+15.94% in LOS vs +8.65% in NLOS** (+7.29 pp), `history_gain_by_zone.py`.
+  Range confound checked and clean: LOS mean range (90.1 m) is *shorter* than
+  NLOS (96.8 m), so the range confound can't be inflating the LOS gain — if
+  anything it works against the effect.
+* Path-loss exponents fit independently per zone are physically sensible: LOS
+  γ=2.58, NLOS γ=3.60 (`fit_pathloss_per_zone.py`) — confirms the mixed data is
+  physically correct, not just an RSS offset artifact.
+* Universality holds on the new data: **7/7 model families improve with
+  history**, 11.3–23.3% gains, six of seven peak at h=10 (only k-NN peaks at
+  h=5, consistent with §6.3) — `history_sweep_all_models.py`.
+* Seed-paired confidence intervals: **all 7 families significant at 95% CI**,
+  gains 11.37–15.43% — `seed_repeats_all_models.py`, closely matching the
+  original uniform-NLOS B2 result (11.0–14.7%).
+* `master_benchmark_rerun.py` re-run on the mixed dataset; MAE dropped
+  1.5–3.9 m across every model vs. the uniform-NLOS baseline. Expected on
+  structural grounds (76.9% LOS samples is an easier propagation mix than
+  100% NLOS) — not itself evidence of anything, that's what the per-zone
+  scripts above are for.
+
+All four summary JSONs are under
+`results/notebook_experiments/multi_user_poc/{master_benchmark_rerun,
+history_gain_by_zone, pathloss_fit, history_sweep_all_models,
+seed_repeats_all_models}_2026-09-19*/`. None of this is reflected in
+`FINAL_REPORT.md` yet — the report's §5, §7, and the §6.4 discussion still
+describe the withdrawn claim and need updating to cite these new numbers.
+
+### 1b. Job 2 results (2026-09-19) — flat, not peaked; evidence against the specific prediction
+
+New runner `run_b6_los_blocked_los.m` and config
+`configs/b6_los_blocked_los_config.jsonc` (neither existed before today).
+Straight corridor, far-standoff BS (see §4 for why — two closer geometries
+were tried and rejected for range/blockage confounds). Two generations: an
+initial 150-user run at strip widths [5,10,20,40,80] m, then an extended
+360-user run adding [100,120,150] m after the first showed gain still rising
+at the widest width tested with no sign of turning over. Datasets:
+`results/b6_los_blocked_los/sim_data_b6_2026-09-19_{12-45-03 (150u),
+12-54-09 (360u, use this one)}/` (gitignored, local only).
+
+**Verdict, from `b6_los_blocked_los_analysis.py` run across 5 seeds on the
+360-user dataset (widths 5–150 m):**
+
+| width (m) | mean gain | std | mean n |
+| :--- | :--- | :--- | :--- |
+| 5 | 24.1% | ±10.6 | 59 |
+| 10 | 25.4% | ±16.2 | 90 |
+| 20 | 23.8% | ±13.6 | 175 |
+| 40 | 26.8% | ±4.8 | 386 |
+| 80 | 31.6% | ±4.3 | 899 |
+| 100 | 27.4% | ±7.5 | 1039 |
+| 120 | 26.3% | ±9.2 | 1544 |
+| 150 | 32.2% | ±10.3 | 1536 |
+
+**Flat, not peaked.** Gain within the blocked interval hovers 24–32% across
+the whole tested range with no coherent rise-then-fall; the per-seed "peak"
+location bounced between width=10, 80 and 120 depending on seed — a scatter
+that itself shows there's no stable peak, just noise riding a flat trend. Per
+the method's own stated criterion (§4): *"a flat curve is evidence against."*
+That is the result. **History still helps substantially inside the blocked
+interval** (24–32% MAE reduction even at 5 m) — consistent with the universal
+gain established elsewhere — but the specific "advantage grows with blockage
+duration then decays once the pre-blockage heading goes stale" dynamic is
+**not supported** in this range. Do not report a peak from this data; report
+the flat curve as a (mild) negative result on the mechanism's specific
+functional form, not on whether history helps.
+
+Caveats before citing this: (1) narrow straps (5–20 m) have high seed-to-seed
+variance (std 10.6–16.2 pp) even at n=59–175, so their individual numbers are
+unreliable — only the 40–150 m range (std 4.3–10.3 pp) is trustworthy enough
+to call genuinely flat; (2) this used a single XGBoost model per depth, not
+the seven-family sweep — unconfirmed whether other model families show the
+same flat pattern; (3) corridor length is fixed at 200 m, so widths beyond
+150 m were not reachable without redesigning the geometry (would leave
+under 25 m of LOS runway on each side).
+
+`fit_pathloss_per_zone.py`-equivalent per-zone check was not re-run for B6;
+`history_gain_by_zone.py` is grid/Voronoi-specific and does not apply here.
+
 ---
 
 ## 2. Before running anything: the MATLAB licence
 
-Both remaining jobs are gated on this one thing.
+Both Job 1 and Job 2 were gated on this — kept here for any future MATLAB work.
 
 ```matlab
 license('test','MATLAB')   % must return 1
@@ -80,10 +168,12 @@ Newer QuaDRiGa versions change the `qd_layout` API. Use 2.8.1.
 
 ---
 
-## 3. Job 1 — Campaign B re-run with mixed LOS/NLOS propagation
+## 3. Job 1 — Campaign B re-run with mixed LOS/NLOS propagation (DONE 2026-09-19)
 
-**This is the highest-value remaining item.** It converts a withdrawn claim (§6.4
-below) back into a testable one.
+Converted the withdrawn §6.4 claim back into a testable one, and confirmed it.
+Results in §1a above. What follows is kept for the record — the runner
+described here as "the fix" is **not** what actually ran; see the crash and
+the real fix below before reusing any of this for Job 2.
 
 ### What is wrong with the current dataset
 
@@ -107,23 +197,58 @@ keeps its default single segment and the whole walk inherits the scenario of its
 first position. Campaign A goes through that file, so **Campaign A's mixed scenarios
 are also suspect** and should be checked the same way.
 
-### The fix
+### The originally-planned fix (does NOT work — QuaDRiGa crash)
 
-`runners/run_multi_user_300_25x25_mixed.m` — committed, never executed. It:
+The plan below builds `segment_index` correctly and was believed sufficient:
 
 * assigns every snapshot to its nearest Voronoi cell;
 * builds `segment_index` at each cell change, **set before `trk.scenario`**, because
   `no_segments` is derived from it;
-* absorbs runs shorter than `MIN_SEG_LEN = 4` into the preceding segment — QuaDRiGa
-  merges neighbouring segments across an overlap region, and a two-snapshot segment
-  gives that merge nothing to work with;
-* saves real per-snapshot `voronoi_cell_id`, `voronoi_scenario`, `voronoi_zone_name`
-  and `is_los`. The old runner saved the *grid point id* under the name
-  `voronoi_cell_id`, which is why the Python side had to re-derive zones;
-* keeps the `rng(42)` manifest draw order byte-identical to the uniform run, so the
-  two datasets stay comparable user by user;
-* clamps to the available snapshot count if segment merging returns fewer snapshots
-  than the track had, and logs when it does.
+* absorbs runs shorter than `MIN_SEG_LEN = 4` into the preceding segment.
+
+It ran cleanly for two batches (50 users), then crashed deterministically the
+moment a user's walk crossed an LOS↔NLOS boundary:
+
+```
+Unable to perform assignment because the size of the left side is 2-by-1-by-34-by-2
+and the size of the right side is 2-by-1-by-58-by-2.
+Error in qd_channel/merge (line 203)
+```
+
+**Root cause:** `3GPP_38.901_UMi_LOS` has `NumClusters=12`, `_NLOS` has
+`NumClusters=20` (QuaDRiGa's own scenario `.conf` files) — a different
+`no_path`. `qd_channel/merge.m`'s `init_path_indices.m` computes the
+path-index mapping **once**, from a track's *first* segment, and reuses it
+unchanged for every later segment. It has no mechanism for a later segment
+whose own path count differs from the first. This is architectural, not a
+tuning problem — no `MIN_SEG_LEN` or seed choice avoids it. Two batches
+succeeded only because none of those particular users' walks happened to
+cross a LOS/NLOS *type* boundary yet.
+
+### The actual fix: per-segment independent channels, no merge
+
+`runners/run_multi_user_300_25x25_mixed.m` was rewritten to generate **each
+Voronoi segment as its own single-scenario, single-segment `qd_track`**, with
+its own `get_channels()` call — sidestepping `merge()` entirely. Checked
+against the scenario configs first: `SC_lambda` (spatial-consistency
+correlation distance, 7–15 m for both scenarios) is far shorter than a
+typical segment (28–128 m at `MIN_SEG_LEN=4`, 2 m spacing), so this only
+discards about one correlation-length of large-scale-parameter continuity at
+each boundary — small, and it doesn't apply to LOS↔NLOS crossings anyway
+(those never had coefficient continuity even in the original merged design,
+since the cluster models are structurally different). The ML pipeline only
+consumes scalar `rss`/`sinr`/`aoa_az`/`aoa_el` per snapshot, never raw channel
+coefficients, so this is invisible downstream.
+
+One naming trap hit during this rewrite: **do not put an underscore in a
+`qd_track.name`.** QuaDRiGa's own channel-naming convention
+(`get_channels.m`, `merge.m`) splits track names on the *first* underscore
+expecting exactly `TxName_RxName`; a name like `UE1_seg1` breaks that parsing
+with an unrelated-looking error (`rx_order` assignment size mismatch). Use
+`UE1S1` instead.
+
+`sim_config.channel_generation = 'per_segment_independent'` is saved in every
+mixed dataset's `simulation_config.json` as a provenance marker.
 
 ### Run it
 
@@ -139,19 +264,24 @@ run_multi_user_300_25x25_mixed
 
 Output: `results/grid_localization/grid_25x25/sim_data_300users_mixed_<timestamp>/`.
 
-**Expect hours.** The original 300-user run took hours, and this one is strictly more
-expensive — segmented tracks mean QuaDRiGa builds and merges a channel per segment.
+**Budget ~1–4.5 hours.** The per-segment rewrite is much faster per batch than
+the merge-based design once it fails to crash (a 6-user smoke test ran batches
+at ~18s/user; the full 300-user run took 265.9 min, but two of its twelve
+batches individually stalled 3900–8700 s consistent with the machine
+sleeping mid-run — watch for that if running unattended).
 
-### Sanity checks before trusting the output
+### Sanity checks before trusting the output (all passed 2026-09-19)
 
 1. `simulation_config.json` says `quadriga_scenario: "mixed_voronoi"` and
-   `mixed_scenario: true`.
-2. The zone-occupancy table in the log shows all four zones non-empty, LOS zones at
-   roughly 60–75% of samples (the LOS cells are larger in this layout).
-3. Segments per user are tens, not hundreds. Hundreds means `MIN_SEG_LEN` is too
-   small for these trajectory patterns.
+   `mixed_scenario: true`. ✓
+2. The zone-occupancy table in the log shows all four zones non-empty, LOS
+   zones at roughly 60–75% of samples. Actual: 76.9% LOS — a touch above the
+   expected band but not concerning (see §1a). ✓
+3. Segments per user are tens, not hundreds; zero truncation events across
+   all 300 users. ✓
 4. LOS-zone samples have **higher RSS at comparable BS range** than NLOS-zone
-   samples. If not, the scenarios still are not being applied — stop and debug.
+   samples. Actual: 16.87 dB population-level gap, holds in 96.7% of users
+   who visited both zone types. ✓
 
 ### Then re-run the Python side
 
@@ -168,18 +298,51 @@ E=experiments/09_grid_localization/src/python/experiments_ablation
 .venv/Scripts/python $E/seed_repeats_all_models.py      # B2 — CIs on the new numbers
 ```
 
-`history_gain_by_zone.py` should be edited to read `is_los` from the `.mat` files
-rather than re-deriving zones from coordinates — a small change, worth making once
-the data exists.
+`history_gain_by_zone.py` (and `multi_user_200_pipeline.py`'s `load_200_users`,
+which it depends on) were edited 2026-09-19 to read real `is_los` /
+`voronoi_zone_name` from the `.mat` files rather than re-deriving zones from
+coordinates, with a fallback to the old geometric method for datasets that
+lack these fields (the uniform-NLOS baseline). `fit_pathloss_per_zone.py`
+still uses the geometric method only — not yet updated, left as an option for
+whoever touches it next.
 
 > **Keep both datasets.** The uniform-NLOS run is a legitimate single-scenario
 > baseline and every current result is measured on it. Report the mixed run as the
 > propagation ablation *alongside* it, or the entire report needs re-baselining at
 > once.
 
+### Environment note: the migrated `.venv` was broken, and torch silently ran on CPU
+
+Neither of these is specific to Job 1, but both were only caught *because* of
+Job 1's heavy compute, so recording them here:
+
+* The migrated `.venv/pyvenv.cfg` pointed at a Python 3.11 install path that
+  doesn't exist on a new machine. Fixed by installing Python 3.11.2 via
+  `winget install --id Python.Python.3.11 --version 3.11.2`, which happened to
+  land at the exact path the old config expected, bringing the existing
+  `site-packages` back to life with zero reinstalls.
+* The inherited `torch==2.7.1+cu118` pin has no kernels for a Blackwell GPU
+  (`sm_120`, e.g. RTX 50-series). It doesn't error — it silently falls back to
+  CPU. Symptom: a GRU that should train in ~3 minutes took **7.7 hours**
+  (`master_benchmark_rerun.py`'s first run). Fixed by reinstalling
+  `torch/torchvision/torchaudio` against the `cu128` index (see
+  `requirements.txt`'s header for the exact steps) — confirmed with a direct
+  GPU matmul + GRU forward-pass timing test, not just `torch.cuda.is_available()`
+  (which returns `True` even when the installed build can't run kernels for
+  the device's compute capability — check `torch.cuda.get_device_capability()`
+  against what the installed build supports if in doubt).
+* **Lesson: if any deep-model training step on a freshly-migrated machine
+  takes wildly longer than its documented runtime, suspect a silent CPU
+  fallback before assuming the hardware is slow.** `torch.cuda.is_available()`
+  alone is not sufficient evidence the GPU is actually usable.
+
 ---
 
-## 4. Job 2 — B6, the targeted LOS → blocked → LOS scenario
+## 4. Job 2 — B6, the targeted LOS → blocked → LOS scenario (DONE 2026-09-19)
+
+Result in §1b above: **flat, not peaked — evidence against the specific
+grows-then-decays prediction**, though history still helps substantially
+throughout. What follows is the original spec plus what changed executing it.
 
 A UE walking a straight sidewalk that passes behind a blocking building, so the link
 goes LOS → NLOS → LOS. The case where history should be decisive: during the blocked
@@ -187,19 +350,48 @@ interval a snapshot model has almost nothing, while a history model carries the
 pre-blockage heading through. Proposed directly to Alon Levin; the sharpest isolation
 of the mechanism available.
 
-**Method.** Straight-line trajectories at constant speed crossing a rectangular NLOS
-strip between two LOS regions. Build it with explicit `segment_index` exactly as Job
-1 does — `build_scenario_segments` in `run_multi_user_300_25x25_mixed.m` is directly
-reusable and its contract is covered by `tests/TestScenarioSegments.m`.
+**Method, as executed.** Straight-line trajectories at constant speed
+crossing a rectangular NLOS strip between two LOS regions
+(`run_b6_los_blocked_los.m`, `configs/b6_los_blocked_los_config.jsonc` — both
+new, not reused from Job 1). `build_scenario_segments` from
+`run_multi_user_300_25x25_mixed.m` was **not** reused as originally planned —
+B6's segmentation is simpler (always exactly 3 segments per user: LOS-in,
+NLOS-strip, LOS-out, derived directly from the strip boundary, no absorption
+logic needed). What *was* mandatory to carry over was the channel-generation
+pattern: each segment generated as its own independent single-scenario
+`qd_track` and `get_channels()` call, never a single multi-segment track fed
+to a merged `get_channels()` — a LOS→NLOS→LOS crossing is exactly the
+`merge()` path-count crash Job 1 hit (§3), and unavoidable here since this
+scenario *is* the LOS/NLOS boundary. Also carried over: no underscore in any
+`qd_track.name` (§3's naming trap; used `B6U{uid}S{k}`).
 
-Vary strip width (blockage duration), speed, and history depth $h$.
+**Geometry required two fix cycles before the RSS came out physically
+correct** — full detail and rejected alternatives are in
+`b6_los_blocked_los_config.jsonc`'s `base_station` comment. Summary: BS
+placement couples range to the LOS/NLOS transition unless deliberately
+avoided, and that coupling can silently reverse the measured effect (blocked
+segment reading a *stronger* raw signal than LOS, purely from geometry, not
+propagation). The fix that worked: a large standoff distance (500 m) so range
+is ~constant (<2% variation) across the whole corridor. Validate any new
+geometry the same way before trusting it — per-user smoke test RSS direction
+isn't enough (a single user can look right by luck, as happened here at
+first); check the *pooled* direction across several repeats before scaling up.
 
-**Report $\Delta\text{MAE}$ within the blocked interval specifically**, not pooled
-over the walk — the pooled number is diluted by the LOS segments.
+Varied strip width (5–150 m across two generations) and speed (1.5, 4.0,
+10.0 m/s); history depth $h$ swept in the Python analysis, not generation.
 
-**Prediction.** History's advantage should grow with blockage duration up to the
+**Reported $\Delta\text{MAE}$ within the blocked interval specifically**, not
+pooled over the walk (`b6_los_blocked_los_analysis.py`).
+
+**Prediction, and outcome.** History's advantage should grow with blockage duration up to the
 point where the pre-blockage heading stops being informative, then decay. A clean
-peak is strong evidence; a flat curve is evidence against.
+peak is strong evidence; a flat curve is evidence against. **Result: flat** (§1b) —
+gain hovers 24–32% from 5 m to 150 m with no coherent peak, and the apparent
+"peak" location was unstable across seeds (10, 80, or 120 m depending on
+seed) — noise on a flat trend, not a real shape. Checked with a single
+XGBoost model across 5 seeds at h∈{0,5}, not the full seven-family sweep or
+depth range other B-block results use — a natural next step if this result
+needs to go in the report with the same rigor as B2/B3.
 
 ---
 
@@ -259,13 +451,19 @@ runs agree at $h{=}5$ and differ by 1.07 m at $h{=}10$, about twice the paired C
 set. Six of seven families are still improving at $h{=}10$. The architectural
 explanation survives only as a hypothesis.
 
-### 6.4 "The LOS/NLOS prediction is confirmed"
-**Was:** history worth +15.98% in LOS vs +4.84% in NLOS, a 3.3× difference.
-**Now:** **Campaign B contains no LOS** (§3 above). The measured per-region gains
-(+4.38% to +18.75%) are real but isolate a purely *geometric* contribution.
-**Also do not reintroduce** the supporting argument that "the range confound points
-the wrong way because the LOS stratum has shorter mean range" — with propagation
-uniform, that attributed a geometric difference to physics never simulated.
+### 6.4 "The LOS/NLOS prediction is confirmed" — RE-CONFIRMED 2026-09-19, no longer withdrawn
+**Was withdrawn because:** the original Campaign B contained no real LOS at all (the
+mixed-scenario runner silently ran everyone under uniform NLOS; see the old §3
+description, now superseded — §3 above has the real fix). The old +15.98%/+4.84%
+number and the "range confound points the wrong way" supporting argument were both
+measured on a homogeneous NLOS map and attributed to physics never simulated — do
+not cite those specific numbers or that argument.
+**Now, on the real mixed LOS/NLOS dataset (Job 1, §1a):** history's benefit is
+**+15.94% in LOS vs +8.65% in NLOS** (+7.29 pp, `history_gain_by_zone.py`). Range
+confound re-checked on real data and comes out clean: LOS mean range (90.1 m) is
+*shorter* than NLOS (96.8 m), so it can't be inflating the LOS gain. Independently
+corroborated by `fit_pathloss_per_zone.py`: LOS γ=2.58 vs NLOS γ=3.60, the expected
+direction. **The mechanism prediction is SUPPORTED.**
 
 ### 6.5 "$h=5$ is the universal optimum" and "$h=5 \approx 2.5$ s"
 **Now:** two separate corrections. The optimum is $h{=}10$ or beyond for six of seven
@@ -329,6 +527,34 @@ It came from a notebook with no script in the repo, which is why it drifted.
 * **Deep-model per-user MAE is not stable across runs** — the same configuration gave
   user 119 a raw MAE of 9.97, 12.08 and 10.29 m on three runs. Population MAE is
   stable to ~0.2 m. Quote population figures; treat per-user numbers as illustrative.
+* **QuaDRiGa `qd_channel/merge.m` cannot merge segments with different path
+  counts** (e.g. LOS vs NLOS scenarios) — deterministic crash the first time a
+  merged multi-segment track actually crosses that boundary, not a rare edge
+  case. Full diagnosis in §3. Generate mismatched-scenario segments as
+  independent single-segment channels instead of relying on `merge()`.
+* **No underscore in a `qd_track.name`** — QuaDRiGa's own channel-naming
+  convention splits on the first underscore expecting `TxName_RxName`; a name
+  like `UE1_seg1` breaks that parsing with an error that looks unrelated
+  (`rx_order` assignment size mismatch in `get_channels.m`).
+* **A migrated `.venv` can look intact and be silently unusable or silently
+  wrong** — `pyvenv.cfg` pointing at a nonexistent interpreter path fails
+  loudly (easy); `torch` built for a CUDA architecture the new GPU doesn't
+  support fails silently by falling back to CPU (hard — `torch.cuda.
+  is_available()` still returns `True`). Both hit during Job 1; full details
+  in §3's environment note. After any machine migration, time one small
+  known-cost deep-learning training step before trusting a "no errors"
+  result.
+* **BS placement can silently couple range to whatever you're trying to
+  isolate** — designing B6 (§4), two BS geometries in turn produced a
+  confound where the blocked interval read a *stronger* raw signal than the
+  LOS segments, purely from geometry (closest-approach point coinciding with
+  or being systematically nearer than the comparison region), not
+  propagation. A single-user smoke test looked fine by luck before this was
+  caught at n=12. **Check the *pooled* direction across several repeats, not
+  one user, before trusting a new geometry.** Fixed by a large standoff
+  distance making range ~constant across the region of interest — the
+  general fix whenever a manipulated variable (here, LOS/NLOS) must be
+  measured independently of position.
 
 ---
 
@@ -375,12 +601,17 @@ touched without a reason to run them.
 | `docs/Project_documentation/PRESENTATION_SLIDES.md` | Marp deck, 4 acts |
 | `docs/results_of_record/MANIFEST.md` | **Source of truth** for every number, with warnings on the stale files |
 | `src/python/experiments_ablation/` | All ablation scripts; `model_zoo.py` holds the seven families |
-| `src/matlab/runners/run_multi_user_300_25x25_mixed.m` | Job 1, committed and unexecuted |
-| `src/matlab/tests/TestScenarioSegments.m` | Segmentation contract for Jobs 1 and 2 |
+| `src/matlab/runners/run_multi_user_300_25x25_mixed.m` | Job 1 — done 2026-09-19; per-segment independent channel generation, no QuaDRiGa merge (§3) |
+| `src/matlab/tests/TestScenarioSegments.m` | Segmentation contract for Job 1's `build_scenario_segments` — Job 2 did NOT reuse it (§4), its own segmentation is simpler (fixed 3 segments) |
+| `src/python/pipelines/multi_user_200_pipeline.py` | `load_200_users` extended 2026-09-19 to load real `is_los`/`voronoi_zone_name` when present |
+| `src/matlab/runners/run_b6_los_blocked_los.m` | Job 2 — done 2026-09-19; new, not derived from Job 1's runner beyond the per-segment pattern (§4) |
+| `configs/b6_los_blocked_los_config.jsonc` | Job 2 config — BS geometry comment documents two rejected confounded placements, read before changing it |
+| `src/python/experiments_ablation/b6_los_blocked_los_analysis.py` | Job 2 analysis — blocked-interval MAE vs h and vs strip width; result is §1b |
 
 `results/` is gitignored. The ablation scripts need
 `results/grid_localization/grid_25x25/sim_data_300users_*` present locally; see
-`SHARING.md`.
+`SHARING.md`. Job 2's data is under `results/b6_los_blocked_los/` instead —
+separate tree, not picked up by the `sim_data_300users_*` glob.
 
 **Reproducing any September ablation:** commands and runtimes are listed in
 `docs/results_of_record/MANIFEST.md`.

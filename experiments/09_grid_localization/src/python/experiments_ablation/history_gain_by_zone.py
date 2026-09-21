@@ -101,8 +101,24 @@ def main():
                                      single_ant_ratio=args.single_ant_ratio)
     df, _, test_uids = make_unseen_user_split(df, 0.8, args.seed)
 
-    # zone + range are properties of position, so attach them before windowing
-    df['zone_idx'] = assign_zone(df.x_pos.values, df.y_pos.values)
+    # zone + range are properties of position, so attach them before windowing.
+    # Mixed-propagation datasets (run_multi_user_300_25x25_mixed.m) save the real
+    # per-snapshot Voronoi cell and is_los flag; use those directly rather than
+    # re-deriving zones from (x, y), which is what the pre-fix uniform-NLOS
+    # dataset forced every earlier version of this script to do (CONTINUE_HERE.md
+    # §3). Fall back to the geometric assignment only for datasets that lack the
+    # real field (i.e. the uniform-NLOS baseline).
+    has_real_zone = 'voronoi_zone_name' in df.columns and df['voronoi_zone_name'].notna().all()
+    if has_real_zone:
+        # order matches VORONOI above: Highway/LOS, Shopping/NLOS, Residential/NLOS, Park/LOS
+        name_to_idx = {'highway': 0, 'shopping_center': 1, 'residential': 2, 'park': 3}
+        df['zone_idx'] = df['voronoi_zone_name'].map(name_to_idx).astype(int)
+        df['is_los_real'] = df['is_los'].astype(bool)
+        log('zone source: real per-snapshot voronoi_zone_name / is_los from .mat files')
+    else:
+        df['zone_idx'] = assign_zone(df.x_pos.values, df.y_pos.values)
+        df['is_los_real'] = df['zone_idx'].map(lambda i: VORONOI[i]['scenario'] == 'LOS')
+        log('zone source: geometric nearest-Voronoi-centre fallback (no real zone data in this dataset)')
     df['bs_range'] = np.sqrt((df.x_pos - bs_pos[0]) ** 2 + (df.y_pos - bs_pos[1]) ** 2)
 
     df_tr = df[df.split == 'train']
@@ -111,7 +127,9 @@ def main():
 
     results = {'meta': {'dataset': str(data_dir), 'seed': args.seed,
                         'depths': args.depths,
-                        'voronoi_centres': VORONOI}, 'by_depth': {}}
+                        'voronoi_centres': VORONOI,
+                        'zone_source': 'real_per_snapshot' if has_real_zone else 'geometric_fallback'},
+               'by_depth': {}}
     per_depth_err = {}
 
     for h in args.depths:
@@ -126,16 +144,18 @@ def main():
         X_te, Y_te, _ = flatten(te)
 
         # DerivedCSI1DDataset drops the first h rows of each user, so rebuild the
-        # aligned zone/range vectors the same way rather than reusing df_te order
-        zone_te, rng_te = [], []
+        # aligned zone/range/is_los vectors the same way rather than reusing df_te order
+        zone_te, rng_te, los_te = [], [], []
         for uid, udf in df_te.groupby('user_id'):
             udf = udf.sort_values('step_index')
             if len(udf) < h + 1:
                 continue
             zone_te.append(udf['zone_idx'].values[h:])
             rng_te.append(udf['bs_range'].values[h:])
+            los_te.append(udf['is_los_real'].values[h:])
         zone_te = np.concatenate(zone_te)
         rng_te = np.concatenate(rng_te)
+        los_te = np.concatenate(los_te).astype(bool)
         assert len(zone_te) == len(X_te), f'alignment broken: {len(zone_te)} vs {len(X_te)}'
 
         model = XGBRegressor(n_estimators=50, max_depth=5, learning_rate=0.15,
@@ -146,7 +166,7 @@ def main():
         pred = model.predict(X_te) * tr.targ_std + tr.targ_mean
         true = Y_te * tr.targ_std + tr.targ_mean
         err = np.linalg.norm(pred - true, axis=1)
-        per_depth_err[h] = (err, zone_te, rng_te)
+        per_depth_err[h] = (err, zone_te, rng_te, los_te)
 
         rec = {'overall_mae': float(err.mean()), 'elapsed_sec': round(time.time() - t0, 1)}
         for i, c in enumerate(VORONOI):
@@ -154,9 +174,10 @@ def main():
             rec[c['name']] = {'mae': float(err[m].mean()), 'n': int(m.sum()),
                               'mean_range_m': float(rng_te[m].mean()),
                               'scenario': c['scenario']}
+        # Real per-snapshot is_los, not the zone-index geometric bucket (which is
+        # only used above to break MAE down by named zone for readability).
         for lab in ('LOS', 'NLOS'):
-            idx = [i for i, c in enumerate(VORONOI) if c['scenario'] == lab]
-            m = np.isin(zone_te, idx)
+            m = los_te if lab == 'LOS' else ~los_te
             rec[lab] = {'mae': float(err[m].mean()), 'n': int(m.sum()),
                         'mean_range_m': float(rng_te[m].mean())}
         results['by_depth'][f'h={h}'] = rec
