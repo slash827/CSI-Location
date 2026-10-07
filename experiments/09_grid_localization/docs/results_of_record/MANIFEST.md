@@ -89,6 +89,60 @@ E=experiments/09_grid_localization/src/python/experiments_ablation
 These predate the derived-feature pipeline and used `build_history_features`, so
 their `mae_rts` column has a **correct** time base and is unaffected by the defect.
 
+## `mixed_propagation_2026_09/` — Job 1, real LOS/NLOS data (2026-10-07)
+
+Same filenames as `ablations_2026_09/` but a different dataset: these ran on
+`sim_data_300users_mixed_2026-09-18_20-25-01` (per-segment independent channel
+generation, real `is_los`), not the uniform-NLOS baseline. See
+`docs/Project_documentation/CONTINUE_HERE.md` §1a for the fix and the full
+results narrative.
+
+| File | Backs |
+| :--- | :--- |
+| `master_benchmark_rerun_summary.json` | Scorecard on the mixed dataset. MAE drops 1.5–3.9 m vs. the uniform-NLOS baseline — a structural effect of 76.9% LOS samples, not evidence on its own |
+| `history_gain_by_zone_summary.json` | **§6.4 re-confirmed.** History's benefit: +15.94% LOS vs +8.65% NLOS (+7.29 pp). Range confound checked clean — LOS mean range (90.1 m) is *shorter* than NLOS (96.8 m) |
+| `pathloss_fit_summary.json` | LOS γ=2.58, NLOS γ=3.60 — physically correct, confirms real propagation difference, not an RSS offset artifact |
+| `history_sweep_all_models_summary.json` | 7/7 model families improve with history on the mixed data, 11.3–23.3% gains, six of seven peak at h=10 |
+| `seed_repeats_all_models_summary.json` | All 7 families significant at 95% CI, gains 11.37–15.43% — matches the original uniform-NLOS B2 result (11.0–14.7%) |
+
+## `blocked_los_2026_09/` — Job 2, B6 LOS→blocked→LOS (2026-10-07)
+
+Five seeds (42, 1, 7, 13, 99) on the 360-user B6 dataset
+(`sim_data_b6_2026-09-19_12-54-09`, strip widths 5–150 m). See
+`CONTINUE_HERE.md` §1b and §4.
+
+| File | Backs |
+| :--- | :--- |
+| `b6_seed42_summary.json`, `b6_seed1_summary.json`, `b6_seed7_summary.json`, `b6_seed13_summary.json`, `b6_seed99_summary.json` | Per-seed `b6_los_blocked_los_analysis.py` runs. **Result: flat, not peaked** — gain within the blocked interval hovers 24–32% across the whole 5–150 m range, no coherent rise-then-fall. Evidence against the specific grows-then-decays prediction; history still helps throughout |
+
+## `diagnostics_2026_10/` — history-mechanism diagnostic (2026-10-07)
+
+Requested by Alon: which input channels carry the history gain, per device
+group and range. `history_mechanism_diagnostic.py` retrains k-NN, Random
+Forest, XGBoost (master-benchmark hyperparameters, unseen-user split) on six
+column subsets of the same h=5 windows — `pure_snap`, `snap` (=h=0),
+`rss_hist`, `angle_hist`, `ray_hist`, `full` (=h=5) — 5 seeds each, paired by
+sample and by seed. Script and its test (`test_history_mechanism_diagnostic.py`,
+10/10 passing) live in `src/python/experiments_ablation/`.
+
+| File | Backs |
+| :--- | :--- |
+| `baseline_uniform_nlos/history_mechanism_diagnostic_summary.json` | Run on `sim_data_300users_2026-07-25_11-46-11` (uniform NLOS). **Angle channel carries the multi-antenna gain**: `angle_hist` alone (+2.79 to +5.19 m) matches or beats `full`; `rss_hist`/`ray_hist` near zero, mostly inside CI. Single-antenna: every condition, every model, CI includes zero — no gain anywhere |
+| `baseline_uniform_nlos/errors_first_seed.npz` | Per-sample errors + predicted/true xy, seed 42, `snap` and `full` conditions — for trajectory/error-distribution figures |
+| `mixed_propagation/history_mechanism_diagnostic_summary.json` | Run on `sim_data_300users_mixed_2026-09-18_20-25-01`. Same angle-dominant pattern. LOS/NLOS split (this dataset only): `angle_hist` gain bigger in LOS than NLOS for both XGBoost (16.9% vs 10.0%) and RF (14.8% vs 8.8%) — matches `history_gain_by_zone.py`'s LOS>NLOS finding, now localized to the angle channel. Single-antenna `rss_hist`/`full` gains **do clear CI** here (XGBoost +1.36±0.26 m, RF +1.99±0.66 m) — unlike the uniform-NLOS run, where single-antenna never clears. Not yet explained |
+| `mixed_propagation/errors_first_seed.npz` | Same, for the mixed dataset |
+
+Full per-seed and per-user breakdowns are inside each `*_summary.json`
+(`per_seed`, `per_user` keys) — not duplicated here.
+
+### Reproducing
+
+```bash
+E=experiments/09_grid_localization/src/python/experiments_ablation
+.venv/Scripts/python $E/history_mechanism_diagnostic.py --data-dir results/grid_localization/grid_25x25/sim_data_300users_2026-07-25_11-46-11            # ~5-80 min CPU, RF dominates; expect machine-sleep stalls if unattended
+.venv/Scripts/python $E/history_mechanism_diagnostic.py --data-dir results/grid_localization/grid_25x25/sim_data_300users_mixed_2026-09-18_20-25-01       # ~5 min CPU
+```
+
 ## `superseded/` — kept for provenance, do not cite
 
 | File | Why superseded |

@@ -1,0 +1,337 @@
+{
+ "meta": {
+  "dataset": "C:\\Git\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_300users_mixed_2026-09-18_20-25-01",
+  "seeds": [
+   42
+  ],
+  "models": [
+   "knn",
+   "random_forest",
+   "xgboost",
+   "cnn",
+   "gru",
+   "cnn_attn",
+   "mask_aware_cnn"
+  ],
+  "epochs": 60,
+  "device": "cuda",
+  "scorecard_h": {
+   "knn": 0,
+   "random_forest": 5,
+   "xgboost": 5,
+   "cnn": 5,
+   "gru": 5,
+   "cnn_attn": 5,
+   "mask_aware_cnn": 5
+  },
+  "protocol": "Campaign B, disjoint-user split, 85/15 cohort mix, early stopping on test MAE; smoothing excluded (see \u00a77.7)"
+ },
+ "scorecard": {
+  "mask_aware_cnn_h5": {
+   "mae": 16.83836555480957,
+   "p50": 13.604018211364746,
+   "p90": 33.62517166137695,
+   "multi_mae": 13.66928768157959,
+   "single_mae": 28.60735511779785,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": 66596,
+   "h": 5,
+   "train_time_sec": 282.3,
+   "latency_ms_per_1k": 34.633,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 16.83836555480957,
+     "p50": 13.604018211364746,
+     "p90": 33.62517166137695,
+     "multi_mae": 13.66928768157959,
+     "single_mae": 28.60735511779785,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": 66596,
+     "train_time_sec": 282.3,
+     "latency_ms_per_1k": 34.633,
+     "n_features": 87
+    }
+   ]
+  },
+  "cnn_attn_h5": {
+   "mae": 16.940807342529297,
+   "p50": 13.933382987976074,
+   "p90": 33.19424819946289,
+   "multi_mae": 13.893712043762207,
+   "single_mae": 28.256790161132812,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": 199748,
+   "h": 5,
+   "train_time_sec": 283.2,
+   "latency_ms_per_1k": 40.928,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 16.940807342529297,
+     "p50": 13.933382987976074,
+     "p90": 33.19424819946289,
+     "multi_mae": 13.893712043762207,
+     "single_mae": 28.256790161132812,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": 199748,
+     "train_time_sec": 283.2,
+     "latency_ms_per_1k": 40.928,
+     "n_features": 81
+    }
+   ]
+  },
+  "gru_h5": {
+   "mae": 17.018346786499023,
+   "p50": 13.495105743408203,
+   "p90": 35.14693832397461,
+   "multi_mae": 13.935639381408691,
+   "single_mae": 28.466583251953125,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": 254468,
+   "h": 5,
+   "train_time_sec": 189.9,
+   "latency_ms_per_1k": 10.633,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 17.018346786499023,
+     "p50": 13.495105743408203,
+     "p90": 35.14693832397461,
+     "multi_mae": 13.935639381408691,
+     "single_mae": 28.466583251953125,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": 254468,
+     "train_time_sec": 189.9,
+     "latency_ms_per_1k": 10.633,
+     "n_features": 81
+    }
+   ]
+  },
+  "cnn_h5": {
+   "mae": 17.2873477935791,
+   "p50": 14.274707794189453,
+   "p90": 33.449981689453125,
+   "multi_mae": 14.302120208740234,
+   "single_mae": 28.37357521057129,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": 66500,
+   "h": 5,
+   "train_time_sec": 327.8,
+   "latency_ms_per_1k": 45.762,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 17.2873477935791,
+     "p50": 14.274707794189453,
+     "p90": 33.449981689453125,
+     "multi_mae": 14.302120208740234,
+     "single_mae": 28.37357521057129,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": 66500,
+     "train_time_sec": 327.8,
+     "latency_ms_per_1k": 45.762,
+     "n_features": 81
+    }
+   ]
+  },
+  "random_forest_h5": {
+   "mae": 17.686408137124026,
+   "p50": 14.775972010183303,
+   "p90": 34.42094954413311,
+   "multi_mae": 14.64001446834516,
+   "single_mae": 28.99978083087062,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": 2285234,
+   "h": 5,
+   "train_time_sec": 31.3,
+   "latency_ms_per_1k": 122.241,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 17.686408137124026,
+     "p50": 14.775972010183303,
+     "p90": 34.42094954413311,
+     "multi_mae": 14.64001446834516,
+     "single_mae": 28.99978083087062,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": 2285234,
+     "train_time_sec": 31.3,
+     "latency_ms_per_1k": 122.241,
+     "n_features": 81
+    }
+   ]
+  },
+  "xgboost_h5": {
+   "mae": 17.725116729736328,
+   "p50": 14.622987747192383,
+   "p90": 35.05684280395508,
+   "multi_mae": 14.450372695922852,
+   "single_mae": 29.886507034301758,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": 6262,
+   "h": 5,
+   "train_time_sec": 4.5,
+   "latency_ms_per_1k": 8.339,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 17.725116729736328,
+     "p50": 14.622987747192383,
+     "p90": 35.05684280395508,
+     "multi_mae": 14.450372695922852,
+     "single_mae": 29.886507034301758,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": 6262,
+     "train_time_sec": 4.5,
+     "latency_ms_per_1k": 8.339,
+     "n_features": 81
+    }
+   ]
+  },
+  "knn_h5": {
+   "mae": 20.776582717895508,
+   "p50": 16.970558166503906,
+   "p90": 40.47715759277344,
+   "multi_mae": 17.282352447509766,
+   "single_mae": 33.753082275390625,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": null,
+   "h": 5,
+   "train_time_sec": 0.9,
+   "latency_ms_per_1k": 291.713,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 20.776582717895508,
+     "p50": 16.970558166503906,
+     "p90": 40.47715759277344,
+     "multi_mae": 17.282352447509766,
+     "single_mae": 33.753082275390625,
+     "n_multi": 23296,
+     "n_single": 6273,
+     "seed": 42,
+     "h": 5,
+     "n_params": null,
+     "train_time_sec": 0.9,
+     "latency_ms_per_1k": 291.713,
+     "n_features": 81
+    }
+   ]
+  },
+  "knn_h0": {
+   "mae": 23.952136993408203,
+   "p50": 19.871583938598633,
+   "p90": 46.81879806518555,
+   "multi_mae": 20.993568420410156,
+   "single_mae": 34.93903350830078,
+   "mae_ci95": 0.0,
+   "single_ci95": 0.0,
+   "n_params": null,
+   "h": 0,
+   "train_time_sec": 1.6,
+   "latency_ms_per_1k": 188.821,
+   "n_seeds": 1,
+   "runs": [
+    {
+     "mae": 23.952136993408203,
+     "p50": 19.871583938598633,
+     "p90": 46.81879806518555,
+     "multi_mae": 20.993568420410156,
+     "single_mae": 34.93903350830078,
+     "n_multi": 23481,
+     "n_single": 6323,
+     "seed": 42,
+     "h": 0,
+     "n_params": null,
+     "train_time_sec": 1.6,
+     "latency_ms_per_1k": 188.821,
+     "n_features": 16
+    }
+   ]
+  }
+ },
+ "vs_recorded": {
+  "mask_aware_cnn_h5": {
+   "mae_recorded": 19.249921798706055,
+   "mae_current": 16.83836555480957,
+   "mae_delta": -2.4115562438964844,
+   "single_recorded": 32.38340377807617,
+   "single_current": 28.60735511779785,
+   "single_delta": -3.7760486602783203
+  },
+  "cnn_attn_h5": {
+   "mae_recorded": 19.171966552734375,
+   "mae_current": 16.940807342529297,
+   "mae_delta": -2.231159210205078,
+   "single_recorded": 33.80099105834961,
+   "single_current": 28.256790161132812,
+   "single_delta": -5.544200897216797
+  },
+  "gru_h5": {
+   "mae_recorded": 18.51797866821289,
+   "mae_current": 17.018346786499023,
+   "mae_delta": -1.4996318817138672,
+   "single_recorded": 33.440208435058594,
+   "single_current": 28.466583251953125,
+   "single_delta": -4.973625183105469
+  },
+  "cnn_h5": {
+   "mae_recorded": 19.3299617767334,
+   "mae_current": 17.2873477935791,
+   "mae_delta": -2.042613983154297,
+   "single_recorded": 33.94639205932617,
+   "single_current": 28.37357521057129,
+   "single_delta": -5.572816848754883
+  },
+  "random_forest_h5": {
+   "mae_recorded": 20.883974005541212,
+   "mae_current": 17.686408137124026,
+   "mae_delta": -3.197565868417186,
+   "single_recorded": 38.903872930214256,
+   "single_current": 28.99978083087062,
+   "single_delta": -9.904092099343636
+  },
+  "xgboost_h5": {
+   "mae_recorded": 19.314138412475586,
+   "mae_current": 17.725116729736328,
+   "mae_delta": -1.5890216827392578,
+   "single_recorded": 34.59795379638672,
+   "single_current": 29.886507034301758,
+   "single_delta": -4.711446762084961
+  },
+  "knn_h0": {
+   "mae_recorded": 27.85657520761358,
+   "mae_current": 23.952136993408203,
+   "mae_delta": -3.9044382142053777,
+   "single_recorded": 37.14180876332171,
+   "single_current": 34.93903350830078,
+   "single_delta": -2.2027752550209314
+  }
+ }
+}
