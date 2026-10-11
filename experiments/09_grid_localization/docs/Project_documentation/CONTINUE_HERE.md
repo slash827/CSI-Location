@@ -22,6 +22,23 @@ it improves *every* model family rather than producing one best model.
 
 ---
 
+## 0. Read first: the 2026-10-12 follow-up changes the story
+
+`docs/REPORT_SKELETON_VALIDATION.md` validates every claim in
+`docs/REPORT_SKELETON.md` and reports the follow-up runs in
+`results_of_record/followup_2026_10/`. Three results override text further down
+this file:
+
+* **The multi-antenna history gain is the averaging of AoA measurement error.**
+  With exact AoA the multi-antenna error is ~2 m and the gain is zero. An
+  order-free window mean of the angle channels recovers the whole gain, and
+  elevation carries more than 80% of it. The gain is ~17% when the AoA error is
+  independent between reports (the pipeline's model) and ~6% when it persists.
+* **LOS propagation does not change the history gain** (§6.4 is withdrawn again).
+* **B6** (§1b): multi-antenna +6.3 m (36%) inside the blocked stretch and the
+  same outside it; single-antenna devices gain nothing. The corridor shows
+  nothing specific to blockage.
+
 ## 1. Where things stand
 
 Every Python experiment, Job 1, and Job 2 are complete.
@@ -60,7 +77,8 @@ changed and why. Dataset:
 (gitignored, local only). Zone occupancy: 76.9% LOS (highway 30.0%, park 46.9%),
 23.1% NLOS (shopping_center 14.1%, residential 9.0%).
 
-* **§6.4 is reversed.** The LOS/NLOS mechanism prediction is now **SUPPORTED** on
+* **Superseded 2026-10-12 — see the correction in §6.4: this is a regional
+  difference, not a propagation effect.** The LOS/NLOS mechanism prediction was read as supported on
   real mixed-propagation data for the first time: history's benefit is
   **+15.94% in LOS vs +8.65% in NLOS** (+7.29 pp), `history_gain_by_zone.py`.
   Range confound checked and clean: LOS mean range (90.1 m) is *shorter* than
@@ -451,7 +469,21 @@ runs agree at $h{=}5$ and differ by 1.07 m at $h{=}10$, about twice the paired C
 set. Six of seven families are still improving at $h{=}10$. The architectural
 explanation survives only as a hypothesis.
 
-### 6.4 "The LOS/NLOS prediction is confirmed" — RE-CONFIRMED 2026-09-19, no longer withdrawn
+### 6.4 "The LOS/NLOS prediction is confirmed" — WITHDRAWN AGAIN 2026-10-12
+
+> **Correction, 2026-10-12.** The "re-confirmed" verdict below is wrong and must
+> not be cited. The uniform-NLOS dataset uses the same walks and the same four
+> regions with no LOS anywhere, and shows the same regional difference
+> (+15.98% vs +4.84%, same script, same seed). A 20-seed seed-paired control
+> finds the LOS-region minus NLOS-region gap unchanged between the two datasets
+> (mixed minus uniform: −0.16 ± 0.28 m for XGBoost angle history, −0.08 ± 0.17 m
+> for Random Forest). The difference is range and geometry, not propagation.
+> The path-loss exponents (LOS γ=2.58, NLOS γ=3.60) do confirm the mixed data
+> is physically real; they say nothing about history. Evidence:
+> `docs/REPORT_SKELETON_VALIDATION.md` A4 and
+> `results_of_record/followup_2026_10/mixed_propagation/region_gain_did_vs_uniform.json`.
+> The text below is kept for the record.
+
 **Was withdrawn because:** the original Campaign B contained no real LOS at all (the
 mixed-scenario runner silently ran everyone under uniform NLOS; see the old §3
 description, now superseded — §3 above has the real fix). The old +15.98%/+4.84%

@@ -100,7 +100,7 @@ results narrative.
 | File | Backs |
 | :--- | :--- |
 | `master_benchmark_rerun_summary.json` | Scorecard on the mixed dataset. MAE drops 1.5–3.9 m vs. the uniform-NLOS baseline — a structural effect of 76.9% LOS samples, not evidence on its own |
-| `history_gain_by_zone_summary.json` | **§6.4 re-confirmed.** History's benefit: +15.94% LOS vs +8.65% NLOS (+7.29 pp). Range confound checked clean — LOS mean range (90.1 m) is *shorter* than NLOS (96.8 m) |
+| `history_gain_by_zone_summary.json` | History gain per region: +15.94% in the LOS regions vs +8.65% in the NLOS regions (+7.29 pp), seed 42, XGBoost. **Not evidence of a propagation effect** — the same regions show +15.98% vs +4.84% on the uniform-NLOS dataset (`ablations_2026_09/history_gain_by_zone_summary.json`), and the 20-seed control in `followup_2026_10/` finds no difference between the datasets. The earlier "§6.4 re-confirmed" reading was wrong; see `REPORT_SKELETON_VALIDATION.md` A4 |
 | `pathloss_fit_summary.json` | LOS γ=2.58, NLOS γ=3.60 — physically correct, confirms real propagation difference, not an RSS offset artifact |
 | `history_sweep_all_models_summary.json` | 7/7 model families improve with history on the mixed data, 11.3–23.3% gains, six of seven peak at h=10 |
 | `seed_repeats_all_models_summary.json` | All 7 families significant at 95% CI, gains 11.37–15.43% — matches the original uniform-NLOS B2 result (11.0–14.7%) |
@@ -129,7 +129,7 @@ sample and by seed. Script and its test (`test_history_mechanism_diagnostic.py`,
 | :--- | :--- |
 | `baseline_uniform_nlos/history_mechanism_diagnostic_summary.json` | Run on `sim_data_300users_2026-07-25_11-46-11` (uniform NLOS). **Angle channel carries the multi-antenna gain**: `angle_hist` alone (+2.79 to +5.19 m) matches or beats `full`; `rss_hist`/`ray_hist` near zero, mostly inside CI. Single-antenna: every condition, every model, CI includes zero — no gain anywhere |
 | `baseline_uniform_nlos/errors_first_seed.npz` | Per-sample errors + predicted/true xy, seed 42, `snap` and `full` conditions — for trajectory/error-distribution figures |
-| `mixed_propagation/history_mechanism_diagnostic_summary.json` | Run on `sim_data_300users_mixed_2026-09-18_20-25-01`. Same angle-dominant pattern. LOS/NLOS split (this dataset only): `angle_hist` gain bigger in LOS than NLOS for both XGBoost (16.9% vs 10.0%) and RF (14.8% vs 8.8%) — matches `history_gain_by_zone.py`'s LOS>NLOS finding, now localized to the angle channel. Single-antenna `rss_hist`/`full` gains **do clear CI** here (XGBoost +1.36±0.26 m, RF +1.99±0.66 m) — unlike the uniform-NLOS run, where single-antenna never clears. Not yet explained |
+| `mixed_propagation/history_mechanism_diagnostic_summary.json` | Run on `sim_data_300users_mixed_2026-09-18_20-25-01`. Same angle-dominant pattern. LOS/NLOS split (this dataset only): `angle_hist` gain bigger in the LOS regions than the NLOS regions for both XGBoost (16.9% vs 10.0%) and RF (14.8% vs 8.8%) — a regional difference that `followup_2026_10/` shows is also present with no LOS, so not a propagation effect. Single-antenna `rss_hist`/`full` gains **do clear CI** here (XGBoost +1.36±0.26 m, RF +1.99±0.66 m) — unlike the uniform-NLOS run, where single-antenna never clears. Not yet explained |
 | `mixed_propagation/errors_first_seed.npz` | Same, for the mixed dataset |
 
 Full per-seed and per-user breakdowns are inside each `*_summary.json`
@@ -141,6 +141,48 @@ Full per-seed and per-user breakdowns are inside each `*_summary.json`
 E=experiments/09_grid_localization/src/python/experiments_ablation
 .venv/Scripts/python $E/history_mechanism_diagnostic.py --data-dir results/grid_localization/grid_25x25/sim_data_300users_2026-07-25_11-46-11            # ~5-80 min CPU, RF dominates; expect machine-sleep stalls if unattended
 .venv/Scripts/python $E/history_mechanism_diagnostic.py --data-dir results/grid_localization/grid_25x25/sim_data_300users_mixed_2026-09-18_20-25-01       # ~5 min CPU
+```
+
+## `followup_2026_10/` — follow-up to the mechanism diagnostic (2026-10-12)
+
+Runs that settle the open points of `docs/REPORT_SKELETON_VALIDATION.md`; that
+document is the narrative for everything here. Scripts:
+`history_mechanism_followup.py` (classical models, 11 unit tests) and
+`history_mechanism_deep.py` (1D-CNN, GRU), both in
+`src/python/experiments_ablation/`. Same protocol as the diagnostic. All
+intervals are Student-t 95% over seed-paired differences. Files are the
+scripts' JSON output with whitespace removed; nothing else was changed.
+
+| File | Backs |
+| :--- | :--- |
+| `uniform_nlos/history_mechanism_followup_summary.json` | 20 seeds, XGBoost + RF, `sim_data_300users_2026-07-25_11-46-11`. Extra conditions `az_hist`, `el_hist`, `angle_mean`, `angle_stats`, `angle_shuffled`; error by region, range band and region x range; radial/tangential RMS, radial share, range correlation. **Elevation history carries >80% of the gain; an order-free window mean recovers all of it** |
+| `mixed_propagation/history_mechanism_followup_summary.json` | Same on `sim_data_300users_mixed_2026-09-18_20-25-01`, plus `snap_los` and strata by real LOS and by whether the window crosses an LOS/NLOS boundary |
+| `mixed_propagation/region_gain_did_vs_uniform.json` | Seed-paired contrast of the LOS-region minus NLOS-region gain between the two datasets. **No difference (−0.16 ± 0.28 m, XGBoost angle history): LOS propagation does not change the history gain** |
+| `mixed_propagation_los_flag/history_mechanism_followup_summary.json` | 20 seeds, conditions `rss_hist`, `full`, `snap_los`, `rss_hist_los`. Single-antenna gain on mixed data: oracle LOS flag +3.3 m; RSS history adds +1.0 m on top, mostly in boundary-crossing windows |
+| `blocked_los/history_mechanism_followup_summary.json` | 20 seeds on `sim_data_b6_2026-09-19_12-54-09`, by device group, blocked/unblocked and strip width. **Multi-antenna +6.3 m (36%) blocked, +6.7 m unblocked; single-antenna no detectable gain; all of it azimuth averaging.** Supersedes the pooled 5-seed reading in `blocked_los_2026_09/` |
+| `aoa_impairment/clean/…` | 10 seeds, uniform NLOS, exact AoA. Multi-antenna error ~2 m, **history gain zero** |
+| `aoa_impairment/quant5_only/…`, `noise4_only/…`, `noise8_quant5/…` | 10 seeds each: 5° quantization only (14.2 m, gain +1.9 m), 4° noise only (18.5 m, +3.1 m), 8° noise + 5° quantization (21.7 m, +2.4 m) |
+| `aoa_impairment/corr_rho{0,0.5,0.9,0.99}/…` | 10 seeds each: AoA error AR(1) along the walk with lag-1 correlation rho. **Gain falls from +3.1 m (17%) at rho=0 to about +1.0 m (5–6%) at rho>=0.9** |
+| `neural_uniform_nlos/history_mechanism_deep_summary.json` | 5 seeds, 1D-CNN and GRU, uniform NLOS: angle history alone equals full history (+3.1 / +3.4 m vs +3.1 / +3.2 m); RSS history +0.2 m |
+
+### Reproducing
+
+```bash
+E=experiments/09_grid_localization/src/python/experiments_ablation
+U=results/grid_localization/grid_25x25/sim_data_300users_2026-07-25_11-46-11
+M=results/grid_localization/grid_25x25/sim_data_300users_mixed_2026-09-18_20-25-01
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U            # ~30 min CPU
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $M            # ~27 min
+.venv/Scripts/python $E/history_mechanism_followup.py --did <uniform summary.json> <mixed summary.json>
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $M --conditions rss_hist full snap_los rss_hist_los
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir results/b6_los_blocked_los/sim_data_b6_2026-09-19_12-54-09 --b6
+S="42 1 7 13 99 3 11 17 23 29"
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-std 0 --aoa-quant-step 0.000001
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-std 0 --aoa-quant-step 5
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-std 4 --aoa-quant-step 0.000001
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-std 8 --aoa-quant-step 5
+for r in 0 0.5 0.9 0.99; do .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-corr $r --conditions rss_hist angle_hist full az_hist el_hist angle_mean; done
+.venv/Scripts/python $E/history_mechanism_deep.py --data-dir $U --conditions snap rss_hist angle_hist angle_mean full   # ~3.5 h GPU
 ```
 
 ## `superseded/` — kept for provenance, do not cite
