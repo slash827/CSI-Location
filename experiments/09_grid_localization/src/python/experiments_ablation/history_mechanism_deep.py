@@ -2,8 +2,11 @@
 History-mechanism diagnostic for the neural families.
 
 history_mechanism_diagnostic.py answers "which channels carry the history
-gain" for the classical models only. This runs the same question on the 1D-CNN
-and the GRU, so the answer no longer has to be inferred for them.
+gain" for the classical models only. This runs the same question on the four
+neural families, so the answer no longer has to be inferred for them. The AoA
+impairment can be changed with the same options as
+history_mechanism_followup.py, to test whether the neural gain is also the
+averaging of per-report AoA error.
 
 A network needs a fixed [13 x (h+1)] input, so a condition cannot drop
 columns. Instead, every channel that is NOT allowed its history is held at its
@@ -37,7 +40,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import history_mechanism_diagnostic as D
 from history_mechanism_diagnostic import ANGLE_SIDE, RAY_SIDE, RSS_SIDE, SIGNAL_COLS, TIME_SIDE
-from history_mechanism_followup import keep_awake, paired
+from history_mechanism_followup import keep_awake, paired, prepare_correlated
 
 BASELINE = 'snap'
 KEEP = {
@@ -58,7 +61,10 @@ def hold_current(seq, keep, mean_of=()):
     (last) value.
     """
     out = seq.copy()
-    for c, name in enumerate(SIGNAL_COLS):
+    for c in range(seq.shape[0]):
+        # rows past SIGNAL_COLS are extra inputs (the mask-aware CNN's validity
+        # flag); they are constant per user, so holding them changes nothing
+        name = SIGNAL_COLS[c] if c < len(SIGNAL_COLS) else None
         if name in keep:
             continue
         out[c, :] = seq[c].mean() if name in mean_of else seq[c, -1]
@@ -83,10 +89,18 @@ def main():
 """)
     ap.add_argument('--data-dir', required=True, help='dataset folder; no glob')
     ap.add_argument('--seeds', type=int, nargs='+', default=[42, 1, 7, 13, 99])
-    ap.add_argument('--models', nargs='+', default=['cnn', 'gru'], choices=['cnn', 'gru', 'cnn_attn'])
+    ap.add_argument('--models', nargs='+', default=['cnn', 'gru'],
+                    choices=['cnn', 'gru', 'cnn_attn', 'mask_aware_cnn'])
     ap.add_argument('--conditions', nargs='+', default=list(KEEP), choices=list(KEEP))
     ap.add_argument('--history', type=int, default=5)
     ap.add_argument('--epochs', type=int, default=None)
+    ap.add_argument('--aoa-noise-std', type=float, default=4.0,
+                    help='Gaussian AoA error in degrees (default 4.0)')
+    ap.add_argument('--aoa-quant-step', type=float, default=5.0,
+                    help='AoA quantisation step in degrees (default 5.0); use a tiny value for none')
+    ap.add_argument('--aoa-noise-corr', type=float, default=None,
+                    help='lag-1 correlation of the AoA error along a walk (AR(1)); '
+                         'omit for the original independent error')
     args = ap.parse_args()
 
     keep_awake()
@@ -112,27 +126,49 @@ def main():
     epochs = args.epochs or Z.EPOCHS
     device = Z.get_device()
     run_ts = time.strftime('%Y-%m-%d_%H-%M-%S')
+    aoa_tag = ('' if (args.aoa_noise_std, args.aoa_quant_step, args.aoa_noise_corr) == (4.0, 5.0, None)
+               else f'aoa{args.aoa_noise_std:g}n{args.aoa_quant_step:g}q_')
+    if args.aoa_noise_corr is not None:
+        aoa_tag += f'rho{args.aoa_noise_corr:g}_'
     out_dir = (PROJECT_ROOT / 'results' / 'notebook_experiments' / 'multi_user_poc'
-               / f'history_mechanism_deep_{data_dir.name}_{run_ts}')
-    out_dir.mkdir(parents=True, exist_ok=True)
+               / f'history_mechanism_deep_{aoa_tag}{data_dir.name}_{"-".join(args.models)}_{run_ts}')
+    # exist_ok=False: two runs started in the same second must not share a folder
+    out_dir.mkdir(parents=True, exist_ok=False)
     bs_pos = np.array(_read_bs_position_3d(data_dir))
     log(f'dataset={data_dir.name} | h={h} | seeds={args.seeds} | models={args.models} | device={device}')
 
     raw = {n: {c: [] for c in args.conditions} for n in args.models}
     t_start = time.time()
     for seed in args.seeds:
-        df, _, _ = load_and_prepare_data(data_dir, bs_pos, seed=seed, single_ant_ratio=Z.SINGLE_ANT_RATIO)
+        if args.aoa_noise_corr is None:
+            df, _, _ = load_and_prepare_data(data_dir, bs_pos, seed=seed,
+                                             single_ant_ratio=Z.SINGLE_ANT_RATIO,
+                                             aoa_noise_std_deg=args.aoa_noise_std,
+                                             aoa_quant_step_deg=args.aoa_quant_step)
+        else:
+            df = prepare_correlated(data_dir, bs_pos, seed, Z.SINGLE_ANT_RATIO,
+                                    args.aoa_noise_std, args.aoa_quant_step, args.aoa_noise_corr)
         df, _, _ = make_unseen_user_split(df, Z.TRAIN_RATIO, seed)
-        tr, te = Z.make_datasets(df[df.split == 'train'], df[df.split == 'test'], h)
+        df_tr, df_te = df[df.split == 'train'], df[df.split == 'test']
+        # the mask-aware CNN reads one extra channel, so it gets its own datasets
+        data = {}
+        for masked in sorted({n == 'mask_aware_cnn' for n in args.models}):
+            if masked:
+                with Z.signal_cols(SIGNAL_COLS + ['has_valid_aoa']):
+                    data[masked] = Z.make_datasets(Z.apply_aoa_mask(df_tr), Z.apply_aoa_mask(df_te), h)
+            else:
+                data[masked] = Z.make_datasets(df_tr, df_te, h)
+        tr, te = next(iter(data.values()))
         ts, tm = tr.targ_std, tr.targ_mean
         _, Y, uid, _, ant = Z.flatten(te)
         true = Y * ts + tm
         log('=' * 84)
         log(f'SEED {seed}: {len(te):,} test windows')
         for cond in args.conditions:
-            tr_c, te_c = conditioned(tr, cond), conditioned(te, cond)
+            cond_data = {k: (conditioned(a, cond), conditioned(b, cond)) for k, (a, b) in data.items()}
             for name in args.models:
                 t0 = time.time()
+                tr_c, te_c = cond_data[name == 'mask_aware_cnn']
                 torch.manual_seed(seed)
                 np.random.seed(seed)
                 net = Z.build_net(name, h)
@@ -169,6 +205,8 @@ def main():
         'meta': {'dataset': data_dir.name, 'h': h, 'seeds': args.seeds, 'models': args.models,
                  'conditions': {c: KEEP[c] for c in args.conditions}, 'baseline': BASELINE,
                  'epochs': epochs, 'device': str(device),
+                 'aoa_noise_std_deg': args.aoa_noise_std, 'aoa_quant_step_deg': args.aoa_quant_step,
+                 'aoa_noise_lag1_corr': args.aoa_noise_corr,
                  'interval': 'Student-t 95% over seed-paired differences',
                  'protocol': 'macro-cell protocol: unseen-user split; channels without history are '
                              'held at their current value; early stopping on test MAE, as in model_zoo',
