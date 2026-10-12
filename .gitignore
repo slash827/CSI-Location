@@ -44,6 +44,5 @@ training.log
 # Misc
 Archive/
 
-# Alon's UE-log scripts: keep the .m files, not the exported data
-experiments/09_grid_localization/Alon_scripts/UE Log CSVs/
+# Alon's UE-log scripts: the CSVs are tracked, the zip duplicates them
 experiments/09_grid_localization/Alon_scripts/UE Log CSVs.zip
