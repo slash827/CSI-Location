@@ -1,0 +1,24 @@
+\section{Model Hyperparameters}
+\label{app:hyperparameters}
+
+% src: CSI-Location experiments_ablation/model_zoo.py (build_classical, protocol constants, architectures); master_benchmark_rerun_summary.json (n_params)
+\begin{table}[h]
+  \centering
+  \caption{Macro-cell model configurations. Hyperparameters are identical at every history depth.}
+  \label{tab:hyperparameters}
+  \small
+  \begin{tabularx}{\textwidth}{@{}lX@{}}
+    \toprule
+    Model & Configuration \\
+    \midrule
+    $k$-NN & $k=5$ neighbors, Euclidean distance on standardized features \\
+    Random Forest & $150$ trees, maximum depth $16$, minimum leaf size $5$, $\sqrt{d}$ features per split \\
+    XGBoost & $50$ trees, maximum depth $5$, learning rate $0.15$, row and column subsampling $0.8$, one output per tree \\
+    1D-CNN & Three convolutional layers~($32$, $64$, $128$ filters, kernel $3$) with batch normalization and dropout $0.35$, global average pooling, a shared $128$-unit trunk with the static device features, and position, speed and uncertainty heads; $66{,}500$ parameters \\
+    Mask-aware 1D-CNN & As the 1D-CNN, with an additional AoA-validity input channel; $66{,}596$ parameters \\
+    1D-CNN + attention & As the 1D-CNN, followed by a four-head temporal self-attention block with learned positional embeddings; $199{,}748$ parameters \\
+    GRU & Two recurrent layers of $128$ units, dropout $0.30$, a $256$-unit shared trunk and the same three heads; $254{,}468$ parameters \\
+    Neural training & AdamW, learning rate $3\times10^{-4}$, weight decay $10^{-2}$, batch size $512$, Huber loss with weights $1.0$, $0.2$ and $0.05$ on position, speed and uncertainty, at most $60$ epochs, early stopping with patience $8$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

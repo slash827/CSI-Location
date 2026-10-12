@@ -1,0 +1,88 @@
+\section{Supplementary Results}
+\label{app:supplementary}
+
+\begin{table}[h]
+  \centering
+  \caption{Effect of history~($h=0$ to $h=5$) per model and device group, macro-cell study. Errors are means over five seeds; gains are seed-paired, with $95\%$ confidence intervals. Training time and time to predict $1000$ positions come from a single run.}
+  \label{tab:history-gain}
+  \small
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+     & \multicolumn{2}{c}{Multi-antenna devices} & \multicolumn{2}{c}{Single-antenna devices} & \multicolumn{2}{c}{Cost} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(l){6-7}
+    Model & Error, $h=0$ & Gain & Error, $h=0$ & Gain & Training & ms per 1000 \\
+    \midrule
+    $k$-NN & $23.4\,\text{m}$ & $3.77 \pm 0.33\,\text{m}$ & $46.2\,\text{m}$ & $-0.11 \pm 2.32\,\text{m}$ & $1\,\text{s}$ & $577$ \\
+    Random Forest & $18.8\,\text{m}$ & $2.75 \pm 0.13\,\text{m}$ & $36.6\,\text{m}$ & $0.32 \pm 0.86\,\text{m}$ & $34\,\text{s}$ & $102$ \\
+    XGBoost & $18.8\,\text{m}$ & $3.16 \pm 0.34\,\text{m}$ & $35.8\,\text{m}$ & $0.06 \pm 0.18\,\text{m}$ & $4\,\text{s}$ & $1.7$ \\
+    GRU & $19.3\,\text{m}$ & $3.54 \pm 0.66\,\text{m}$ & $36.7\,\text{m}$ & $-0.26 \pm 0.76\,\text{m}$ & $166\,\text{s}$ & $31$ \\
+    1D-CNN & $19.5\,\text{m}$ & $3.73 \pm 0.85\,\text{m}$ & $36.0\,\text{m}$ & $-1.16 \pm 1.82\,\text{m}$ & $197\,\text{s}$ & $14$ \\
+    Mask-aware 1D-CNN & $19.3\,\text{m}$ & $3.47 \pm 0.75\,\text{m}$ & $34.8\,\text{m}$ & $0.25 \pm 0.82\,\text{m}$ & $182\,\text{s}$ & $18$ \\
+    1D-CNN + attention & $19.5\,\text{m}$ & $4.06 \pm 0.74\,\text{m}$ & $35.9\,\text{m}$ & $-1.39 \pm 3.28\,\text{m}$ & $212\,\text{s}$ & $23$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+% src: seed_repeats_all_models_summary.json per_config runs (seed-paired per-group differences); master_benchmark_rerun_summary.json scorecard (train_time_sec, latency_ms_per_1k; k-NN cost row is the h=5 model)
+
+\begin{table}[h]
+  \centering
+  \caption{Macro-cell study: overall mean error~(m) by history depth for every model, single seed. These are the values behind Figure~\ref{fig:history-by-group}, pooled over both device groups.}
+  \label{tab:supp-depth}
+  \small
+  \begin{tabular}{@{}lrrrrr@{}}
+    \toprule
+    Model & $h=0$ & $h=1$ & $h=3$ & $h=5$ & $h=10$ \\
+    \midrule
+    $k$-NN & 27.44 & 25.43 & 24.07 & 23.98 & 24.49 \\
+    Random Forest & 22.11 & 20.91 & 19.77 & 19.42 & 19.34 \\
+    XGBoost & 22.35 & 21.12 & 19.80 & 19.43 & 19.03 \\
+    GRU & 22.72 & 21.43 & 19.97 & 19.36 & 18.47 \\
+    1D-CNN & 22.85 & 20.62 & 19.52 & 19.27 & 19.15 \\
+    Mask-aware 1D-CNN & 22.10 & 20.26 & 19.24 & 18.75 & 18.26 \\
+    1D-CNN + attention & 22.54 & 21.02 & 19.40 & 18.90 & 18.19 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+% src: history_sweep_all_models_summary.json curves.*.h*.mae (seed 42)
+
+\begin{table}[h]
+  \centering
+  \caption{Macro-cell study: overall mean error~(m) over five seeds, with $95\%$ confidence interval and full range across seeds, and the seed-paired overall gain from $h=0$ to $h=5$.}
+  \label{tab:supp-seeds}
+  \small
+  \begin{tabular}{@{}lrrrrr@{}}
+    \toprule
+    Model & $h=0$ & Spread, $h=0$ & $h=5$ & Spread, $h=5$ & Paired gain \\
+    \midrule
+    $k$-NN & $27.07 \pm 0.64$ & 1.85 & $23.86 \pm 0.85$ & 2.53 & $3.22 \pm 0.27$ \\
+    Random Forest & $21.66 \pm 0.46$ & 1.24 & $19.28 \pm 0.39$ & 1.19 & $2.38 \pm 0.20$ \\
+    XGBoost & $21.51 \pm 0.50$ & 1.35 & $18.87 \pm 0.46$ & 1.12 & $2.65 \pm 0.29$ \\
+    GRU & $22.03 \pm 0.56$ & 1.27 & $19.09 \pm 0.49$ & 1.36 & $2.95 \pm 0.49$ \\
+    1D-CNN & $22.10 \pm 0.62$ & 1.46 & $19.12 \pm 0.52$ & 1.31 & $2.98 \pm 0.63$ \\
+    Mask-aware 1D-CNN & $21.74 \pm 0.59$ & 1.56 & $18.81 \pm 0.52$ & 1.46 & $2.93 \pm 0.58$ \\
+    1D-CNN + attention & $22.08 \pm 0.61$ & 1.61 & $18.84 \pm 0.44$ & 1.30 & $3.24 \pm 0.63$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+% src: seed_repeats_all_models_summary.json per_config (mae_mean, mae_ci95, mae_spread) and verdict (gain_mean_m, gain_ci95_m)
+
+\begin{table}[h]
+  \centering
+  \caption{Macro-cell study: overall mean error~(m) with fixed hyperparameters and with hyperparameters re-tuned separately at each depth on training users only, single seed.}
+  \label{tab:supp-retune}
+  \small
+  \begin{tabular}{@{}lrrrr@{}}
+    \toprule
+     & \multicolumn{2}{c}{XGBoost} & \multicolumn{2}{c}{Random Forest} \\
+    \cmidrule(lr){2-3}\cmidrule(l){4-5}
+    Depth & Fixed & Re-tuned & Fixed & Re-tuned \\
+    \midrule
+    $h=0$ & 22.35 & 21.91 & 22.11 & 22.05 \\
+    $h=1$ & 21.12 & 21.20 & 20.91 & 20.84 \\
+    $h=3$ & 19.80 & 19.66 & 19.77 & 19.81 \\
+    $h=5$ & 19.43 & 19.07 & 19.42 & 19.40 \\
+    $h=10$ & 19.03 & 18.97 & 19.34 & 19.30 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+% src: xgb_per_h_retune_summary.json, rf_per_h_retune_summary.json (as transcribed in FINAL_REPORT.md §5.5)

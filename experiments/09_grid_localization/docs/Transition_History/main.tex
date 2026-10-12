@@ -1,0 +1,170 @@
+\documentclass[12pt,onecolumn,conference]{IEEEtran}
+
+% ---------------------------------------------------------------------------
+% Language and fonts
+% ---------------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+
+% ---------------------------------------------------------------------------
+% Page geometry
+% ---------------------------------------------------------------------------
+\usepackage[margin=2.5cm]{geometry}
+
+% ---------------------------------------------------------------------------
+% Units and quantities
+% ---------------------------------------------------------------------------
+\usepackage{siunitx}
+\sisetup{per-mode=symbol}
+\DeclareSIUnit\byte{B}
+\DeclareSIUnit\GHz{\giga\hertz}
+
+% ---------------------------------------------------------------------------
+% Graphics and figures
+% ---------------------------------------------------------------------------
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\renewcommand{\tabularxcolumn}[1]{m{#1}}
+
+% ---------------------------------------------------------------------------
+% Code listings
+% ---------------------------------------------------------------------------
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\lstdefinestyle{codestyle}{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{OliveGreen},
+    stringstyle=\color{purple},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=8pt,
+    backgroundcolor=\color{black!3},
+    frame=single,
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    tabsize=4
+}
+\lstset{style=codestyle}
+
+% ---------------------------------------------------------------------------
+% Hyperlinks and cross-referencing
+% ---------------------------------------------------------------------------
+\usepackage[hidelinks]{hyperref}
+
+% ---------------------------------------------------------------------------
+% Page style: centered page numbers, running header
+% ---------------------------------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Transition History for Single-BS CSI Localization}
+\fancyhead[R]{Battat et al.}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\fancypagestyle{titlepage}{
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% ---------------------------------------------------------------------------
+% Section heading styling
+% ---------------------------------------------------------------------------
+\usepackage{titlesec}
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\itshape}
+  {\thesubsectiondis}
+  {0.5em}
+  {}
+\titlespacing*{\subsection}{0pt}{1.5ex plus 1.5ex minus 0.5ex}{0.7ex plus .5ex minus 0ex}
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\subsubsection}{0pt}{1.5ex plus 1.5ex minus 0.5ex}{0.7ex plus .5ex minus 0ex}
+
+% ---------------------------------------------------------------------------
+% Miscellaneous
+% ---------------------------------------------------------------------------
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ---------------------------------------------------------------------------
+% Review/annotation commands
+% ---------------------------------------------------------------------------
+\newcommand\asl[1]{{\bf\color{red}$<$ASL: #1$>$}}
+\newcommand\uncertain[1]{{\color{orange}#1}}
+% Content waiting for Gilad's diagnostic run and result push (Gilad Diagnostic 2026-10/).
+% Remove every \pending{} before submission.
+\newcommand\pending[1]{{\color{magenta}#1}}
+
+% ---------------------------------------------------------------------------
+% Title page metadata
+% ---------------------------------------------------------------------------
+% Title wording is the author's call; this is the working title.
+\title{Transition History for Single-BS 5G NR CSI Localization:\\Model-Agnostic Gains and Their Hardware Dependence}
+\author{
+  \IEEEauthorblockN{Gilad Battat\IEEEauthorrefmark{1},
+                    Alon S.~Levin\IEEEauthorrefmark{2},
+                    David Sarne\IEEEauthorrefmark{1},
+                    Sarit Kraus\IEEEauthorrefmark{1}}
+  \IEEEauthorblockA{\IEEEauthorrefmark{1}Department of Computer Science, Bar-Ilan University}
+  \IEEEauthorblockA{\IEEEauthorrefmark{2}Department of Electrical Engineering, Columbia University}
+}
+\date{Month Year}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{titlepage}
+
+\begin{center}
+\textit{Technical Report prepared for the IISAC Consortium}\\
+\textit{Industry Partners: CEVA, Cellcom}
+\end{center}
+
+\newpage
+\input{0_abstract}
+
+% \newpage \tableofcontents
+
+\newpage
+\input{1_introduction}
+\input{2_related_work}
+\input{3_system_model}
+\input{4_experimental_setup}
+\input{5_results_controlled_grid}
+\input{6_results_error_scale}
+\input{7_results_multi_antenna}
+\input{8_results_single_antenna}
+\input{9_results_mechanism}
+\input{10_results_propagation}
+\input{11_discussion}             % placeholder: drafted after the mechanism diagnostic
+\input{12_limitations}
+\input{13_conclusion}             % placeholder: drafted after the mechanism diagnostic
+
+\nocite{*}
+\bibliographystyle{IEEEtran}
+\bibliography{reference}
+
+\appendices
+\renewcommand{\thesubsection}{\thesection-\arabic{subsection}}
+\renewcommand{\thesubsectiondis}{\thesection-\arabic{subsection}}
+\newpage \input{A_reproducibility}
+\newpage \input{B_hyperparameters}
+\newpage \input{C_supplementary}
+
+\end{document}

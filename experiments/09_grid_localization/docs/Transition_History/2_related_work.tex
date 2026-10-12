@@ -1,0 +1,13 @@
+\section{Related Work}
+\label{sec:related-work}
+
+% src: FINAL_REPORT.md §2, "Fingerprinting" paragraph
+Classical RSS fingerprinting matches a measurement snapshot against a surveyed database~\cite{yang2013_rssitocsi}; single-site multipath fingerprinting establishes that one BS already observes enough structure to localize without triangulation~\cite{kupershtein2013}, the principle this work extends to a moving user. Fingerprinting's characteristic failure mode is poor discrimination between points at equal range from the BS, which is exactly the distance-ring ambiguity the transition-history mechanism targets~(Section~\ref{subsec:ambiguity-hypothesis}). The static, $h=0$ $k$-nearest-neighbor regressor used as a baseline throughout this report stands in for this family. % src: FINAL_REPORT.md §2 (k-NN h=0 baseline)
+
+% src: FINAL_REPORT.md §2, "Geometric methods" paragraph
+Geometric methods recover position from an explicit system built on time-of-arrival, time-difference-of-arrival, or AoA estimates.
+%TODO-CITE: canonical ToA/TDoA/AoA multilateration reference(s)
+These methods require either multiple synchronized BSs or a high-quality angle estimate, so the single-serving-BS, single-angle-source deployment studied here is precisely the regime in which the geometric system is underdetermined: for a device that reports no angle at all, the available geometry constrains range but leaves bearing unresolved.
+
+% src: FINAL_REPORT.md §2, "Sequence models for CSI" paragraph
+Recurrent and dynamic-system formulations have likewise been applied to channel state information~(CSI)-based tracking~\cite{fang2010dynamic,yu2020rnn,shi2018tracking}, and a related line shows that the temporal autocorrelation of RSS improves fingerprinting accuracy when the signal is treated as a stationary process observed at a fixed location~\cite{wang2016temporal,tian2018temporal}. That precursor is complementary rather than nested: its temporal signal is order-invariant and is aggregated across access points, so it survives for a stationary receiver and vanishes for a moving one, whereas the transition-history window used here is ordered, is read from a single BS, and encodes exactly the motion the in-place statistic discards. More broadly, this body of work motivates a new architecture and reports that it lowers error; the framing adopted here instead holds the estimator family fixed and varies only the input window, isolating the effect of the input transformation from the choice of architecture and allowing the comparison to extend by design to model families not tested in this report.

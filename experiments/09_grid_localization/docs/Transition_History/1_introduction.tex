@@ -1,0 +1,43 @@
+\section{Introduction}
+\label{sec:introduction}
+
+\subsection{Motivation}
+\label{subsec:motivation}
+
+% src: technical_documentation.md §1.1; FINAL_REPORT.md §1.1 (carried over from Project Report/1_introduction.tex)
+Fifth- and sixth-generation cellular networks make several channel-derived measurements available natively at the base station~(BS): received signal strength~(RSS), signal-to-interference-plus-noise ratio~(SINR), angle of arrival~(AoA), and timing advance, none of which require dedicated positioning infrastructure to collect. %TODO-CITE: 3GPP Release 16 positioning-as-network-service framing
+Turning these measurements into a position estimate for the user equipment~(UE) is motivated by applications ranging from emergency response and asset tracking to network-assisted navigation, and the need is sharpest precisely where satellite positioning is weakest: urban canyons, tunnels, and indoor spaces, where signal blockage and multipath substantially degrade the accuracy of the Global Positioning System~(GPS). %TODO-CITE: GNSS degradation in urban-canyon and indoor environments
+Cellular positioning targets this gap directly, since a device already in radio contact with a BS can in principle be localized from measurements the network is collecting regardless of whether positioning was requested, with no added receiver and no sensor on the device itself.
+
+% src: technical_documentation.md §1.1; FINAL_REPORT.md §1.1
+The obstacle is accuracy rather than availability. RSS, the most universally reported of these metrics, is set primarily by distance from the BS, with multipath structure and shadow fading contributing only a secondary correction, which on its own leaves position under-constrained.
+
+% src: FINAL_REPORT.md §2, "Geometric methods" paragraph
+Multi-BS geometric positioning resolves the missing bearing directly, but only given multiple synchronized anchors or a high-quality angle estimate. %TODO-CITE: canonical ToA/TDoA/AoA multilateration reference(s)
+A single serving BS has neither by default. That is what makes it the harder deployment case, and the more consequential one: it is exactly the setting in which a network already capable of collecting these measurements would most benefit from a fix that adds no new infrastructure.
+
+\subsection{The Distance-Ring Ambiguity and the Hypothesis}
+\label{subsec:ambiguity-hypothesis}
+
+% src: FINAL_REPORT.md §1.1, §3.2
+Let $\mathbf{p}_{UE}$ and $\mathbf{p}_{BS}$ denote the UE and serving-BS positions, and let $r = \lVert \mathbf{p}_{UE} - \mathbf{p}_{BS} \rVert$ be their range. Under a log-distance path-loss model,
+\begin{equation}
+  \mathrm{RSS} \approx P_{tx} - 10\gamma\log_{10} r + \chi,
+  \label{eq:path-loss}
+\end{equation}
+with $\gamma$ the path-loss exponent and $\chi$ zero-mean shadow fading of standard deviation~$\sigma$. The map from RSS to position is therefore one-to-many: a static measurement identifies $r$, up to $\chi$, but leaves bearing entirely unconstrained. Locations on a common range ring around the BS are consequently indistinguishable to a static, single-snapshot estimator, which is the \emph{distance-ring ambiguity}. The ambiguity is worst in geometries dominated by line-of-sight~(LOS) propagation, where the range-to-RSS map is close to monotone and multipath diversity is minimal. SINR and AoA can each supply the missing bearing information, but both are conditional: SINR depends on interferer placement and calibration, and AoA depends on UE beamforming hardware that a large share of connected devices does not have.
+
+% src: FINAL_REPORT.md §1.2
+The hypothesis evaluated in this report is that a moving UE's measurement sequence encodes more positional information than any single snapshot, and that this holds regardless of the estimator applied on top of it. Two positions on the same range ring produce the same instantaneous RSS but different trajectories through measurement space, because the local channel neighborhood around each position is different and evolves differently as the UE moves.
+
+% src: FINAL_REPORT.md §3.3 (window definition)
+Formally, let $\mathbf{m}(t)$ denote the vector of channel-derived measurements reported for the UE at discrete snapshot time~$t$~(Table~\ref{tab:nomenclature}). Given a history depth~$h$, the model input is the window of $h+1$ consecutive observations,
+\begin{equation}
+  \mathcal{W}_h(t) = \left[\, \mathbf{m}(t-h),\ \dots,\ \mathbf{m}(t) \,\right],
+  \label{eq:transition-history}
+\end{equation}
+where $h=0$ recovers the static, memoryless fingerprint as a special case. For $h>0$, $\mathcal{W}_h(t)$ makes the temporal derivatives of $\mathbf{m}$ observable; Section~\ref{sec:system-model} sets out what those derivatives can and cannot constrain.
+
+\input{tables/nomenclature}
+
+% Contributions and Scope subsections: drafted in _draft_contributions_scope.tex, linked after author review.

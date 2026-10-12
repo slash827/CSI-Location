@@ -1,0 +1,48 @@
+\section{System Model and Problem Formulation}
+\label{sec:system-model}
+
+\subsection{Measurement Model}
+\label{subsec:measurement-model}
+
+% src: FINAL_REPORT.md §3.1
+At discrete snapshot time~$t$ the serving BS observes
+\begin{equation}
+  \mathbf{m}(t) = \big[\, \mathrm{RSS}(t),\ \mathrm{SINR}(t),\ \theta_{az}(t),\ \theta_{el}(t) \,\big],
+  \label{eq:measurement-vector}
+\end{equation}
+with the azimuth/elevation pair $(\theta_{az}, \theta_{el})$ present only for UEs whose antenna count $N_{ant} \ge 2$. Multi-antenna UEs are modeled by maximum-ratio combining over the per-element channel,
+\begin{equation}
+  H_{\text{eff}}(f) = \sqrt{\textstyle\sum_{i=1}^{N_{ant}} \lvert H_i(f) \rvert^2},
+  \label{eq:mrc}
+\end{equation}
+with a device-specific antenna-gain offset applied additively in dB. Throughout this report, UEs with $N_{ant} \ge 2$ are referred to as multi-antenna devices and UEs with $N_{ant} = 1$ as single-antenna devices.
+
+\subsection{What History Can Add}
+\label{subsec:history-dof}
+
+% src: FINAL_REPORT.md §3.3
+Over the window $\mathcal{W}_h(t)$ of Equation~(\ref{eq:transition-history}), an estimator can form finite differences of the measurements, of which two carry geometric meaning. The rate of change of RSS,
+\begin{equation}
+  \frac{d\,\mathrm{RSS}}{dt} \approx -\frac{10\gamma}{\ln 10} \cdot \frac{\dot r}{r},
+  \label{eq:drss-dt}
+\end{equation}
+reflects the component of motion along the BS bearing, and the angular rate,
+\begin{equation}
+  \dot\theta_{az} = \frac{v_\perp}{r},
+  \label{eq:dtheta-dt}
+\end{equation}
+where AoA is available, gives the tangential component of the velocity $v_\perp$ and, jointly with $\dot r$, the heading. For a UE moving at roughly constant speed, the pair $(\dot r, \dot\theta_{az})$ constrains position to the intersection of a range ring and a motion-consistent arc, a far smaller set than the ring alone.
+
+% src: FINAL_REPORT.md §7.5 (dRSS/dr expression); Equation (path-loss) above
+Without AoA, only the first of these is available, and its usefulness is bounded by the path-loss gradient. Differentiating Equation~(\ref{eq:path-loss}) with respect to range gives
+\begin{equation}
+  \left\lvert \frac{d\,\mathrm{RSS}}{dr} \right\rvert = \frac{10\gamma}{r \ln 10}\ \text{dB/m},
+  \label{eq:rss-gradient}
+\end{equation}
+so a step of fixed length moves RSS by an amount that falls as $1/r$, while the shadow-fading term $\chi$ does not shrink with range. A sequence of RSS values can therefore carry useful information about motion relative to the BS only where the per-step change is not swamped by $\sigma$; how far from the BS that condition holds is an empirical question that the two study scales in this report bracket from either side.
+
+\subsection{Task Formulations}
+\label{subsec:task-formulations}
+
+% src: FINAL_REPORT.md §3.4; technical_documentation.md §7.4 (625-class memory limit)
+Two task formulations are evaluated. Classification predicts one of $G$ discrete grid cells, and is appropriate when grid spacing greatly exceeds position jitter. Regression predicts a continuous position relative to the serving BS and is scored by the 2D Euclidean error in meters. Regression is used for the larger deployment, where a $625$-class classifier proved memory-prohibitive and where evaluation is over unseen users rather than unseen time steps of known users.

@@ -1,0 +1,44 @@
+\section{Results: The Controlled Grid}
+\label{sec:results-controlled-grid}
+
+% src: technical_documentation.md §7.2.1 (center BS, XGB/RF), §7.3.1-7.3.3 (corner BS); RF corner snapshot = 88.1 - 5.9 pp (documented gain, §7.3.2)
+Without AoA, adding three steps of history to RSS and SINR raised exact-cell accuracy in every configuration of the controlled-grid study, for both classifiers and both BS placements~(Figure~\ref{fig:cg-placement}). The size of the gain depends strongly on the classifier. Random Forest gained $8.5$ percentage points with the BS at the center~($46.0\%$ to $54.5\%$) and $5.9$ points with the BS at the corner. XGBoost gained $22.4$ and $28.8$ points, but much of that is recovery from an unusually weak snapshot model: without history XGBoost reached only $28.6\%$ against Random Forest's $46.0\%$ at the center, and $57.2\%$ against about $82\%$ at the corner. Random Forest is therefore the better guide to how much history adds in this setting, and the direction of the effect, rather than its size, is the result.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.85\textwidth]{fig_controlled_grid_placement}
+  \caption{Controlled grid: exact-cell accuracy from RSS and SINR at history depth $h=0$ and $h=3$, the two depths recorded for this comparison, with the BS at the grid center~(left) and beyond its corner~(right). Open markers add AoA on top of $h=3$. Single run per configuration.}
+  \label{fig:cg-placement}
+\end{figure}
+% src: technical_documentation.md §7.2.1, §7.3.1, §7.3.3; figure_scripts/make_figures.py controlled_grid_placement()
+
+% src: technical_documentation.md §7.3.1 (AoA gain +31.4 -> +2.3 XGB; +25.7 -> +1.7 RF; residual gain attributed to elevation)
+The same placement change that leaves history's contribution positive removes almost all of AoA's. With history already in the input, adding AoA raised XGBoost's accuracy by $31.4$ points at the center BS but by only $2.3$ points at the corner, and Random Forest's by $25.7$ and $1.7$ points. From the corner the whole grid falls within a wedge of about $52^\circ$, and once a $5^\circ$ codebook and a few degrees of estimation noise are applied, azimuth no longer separates neighboring cells. The corner placement also widens the span of distances across the grid to $21$--$61\,\text{m}$, and with it the span of RSS values, so that both classifiers reach over $85\%$ accuracy there from RSS, SINR and history alone. This loss of AoA's value is specific to a short-range grid with $2\,\text{m}$ cells; it is not a general property of corner placements.
+
+% src: FINDINGS.md §3.3 (7x7, RSS+SINR, raw stacking: XGB 26.8/38.7/43.5/45.4; RF 28.0/38.3/42.6/43.6; MLP 24.8/36.9/38.6/41.6); analysis/regression_vs_classification.md §4.1-4.2 (15x15 single scenario with AoA: UMa NLOS 29.18/46.12/49.48/51.23; UMa LOS 92.59/95.90/95.54/95.86)
+Where history was swept one step at a time, most of the gain arrived with the first step~(Figure~\ref{fig:cg-depth}). On a single-user $7\times7$ grid, one step of history raised accuracy by $10$ to $12$ points for each of XGBoost, Random Forest and a multilayer perceptron, and the next two steps added about $5$ to $7$ points between them. With AoA available, the same profile appears in a uniform urban-macro NLOS scenario, where accuracy rose from $29\%$ to $46\%$ at the first step and to $51\%$ by $h=3$. In the corresponding LOS scenario, where AoA alone already placed $93\%$ of samples in the right cell, history added $3$ points at the first step and nothing after it.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.85\textwidth]{fig_controlled_grid_depth}
+  \caption{Controlled grid, single user: exact-cell accuracy as history depth grows. Left: $7\times7$ grid with RSS and SINR, three classifiers. Right: $15\times15$ grid with AoA in a single urban-macro propagation scenario, NLOS and LOS. Single run per point.}
+  \label{fig:cg-depth}
+\end{figure}
+% src: figure_scripts/make_figures.py controlled_grid_depth()
+
+% src: technical_documentation.md §7.1 (grid sweep, single user, XGBoost); §7.1 second table (7x7, four algorithms)
+The direction of the history effect is also stable across scale and estimator~(Figure~\ref{fig:cg-scale}). In the single-user version of the study, history raised accuracy at every grid size from $3\times3$ to $20\times20$ cells, by between $9.2$ and $21.8$ points, and on the $7\times7$ grid it raised the accuracy of all four estimators tried, from $4.7$ points for a Gaussian likelihood model to $18.2$ points for XGBoost.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.65\textwidth]{fig_controlled_grid_scale}
+  \caption{Controlled grid, single user: exact-cell accuracy with and without history as the grid grows from $3\times3$ to $20\times20$ cells, XGBoost with RSS and SINR at the best depth up to $h=3$. Single run per grid size.}
+  \label{fig:cg-scale}
+\end{figure}
+% src: technical_documentation.md §7.1; figure_scripts/make_figures.py controlled_grid_scale()
+
+% src: technical_documentation.md §7.2.6 (separate run: BASE_dp 48.5/59.3 -> BASE_H3_dp 56.9/65.3; with AoA BASE_A 81.7/81.6 -> BASE_A_H3 83.2/80.9)
+Because RSS and SINR are stacked in absolute form, part of what a history window carries is a stable, device-specific offset, and history could in principle be helping only by identifying the device. Supplying the device parameters directly rules this out as the whole story: with antenna count, gain and height already in the input, history still added $8.4$ points for XGBoost and $6.0$ for Random Forest. With AoA available at the center BS, by contrast, history added almost nothing, $1.5$ points for XGBoost and $-0.7$ for Random Forest, since a classifier that already reaches above $80\%$ from AoA has little ambiguity left for history to resolve.
+
+% src: technical_documentation.md §7.2.1 vs §7.2.6 (BASE 28.6 vs 25.7; BASE_H3 51.0 vs 48.9)
+Every number in this section comes from a single run, and the same configuration evaluated in two separate runs differs by $2$ to $3$ points, so only differences well above that are read as effects. The controlled grid also tests later time steps of users seen in training, at no more than $61\,\text{m}$ from the BS. Whether history keeps its value at macro-cell range, for users the model has never seen and a population with mixed hardware, is the question the macro-cell study answers.

@@ -1,0 +1,27 @@
+% -------------------------------------------------------
+% Nomenclature / notation table
+% Extend this table as new symbols are introduced; keep symbol
+% usage consistent with this list throughout the report.
+% -------------------------------------------------------
+\begin{table}[h]
+  \centering
+  \caption{Nomenclature}
+  \label{tab:nomenclature}
+  \begin{tabular}{@{}ll@{}}
+    \toprule
+    Symbol & Description \\
+    \midrule
+    $\mathbf{m}(t)$ & Measurement vector at snapshot time~$t$ \\
+    $h$ & History depth~(number of prior snapshots in the window) \\
+    $\mathcal{W}_h(t)$ & History window, $[\mathbf{m}(t-h),\dots,\mathbf{m}(t)]$ \\
+    $\mathbf{p}_{UE}$, $\mathbf{p}_{BS}$ & UE and serving-BS positions \\
+    $r$ & UE--BS range, $r = \lVert \mathbf{p}_{UE} - \mathbf{p}_{BS} \rVert$ \\
+    $\theta_{az}$, $\theta_{el}$ & AoA azimuth and elevation \\
+    $\gamma$ & Path-loss exponent \\
+    $\chi$ & Zero-mean shadow-fading term, standard deviation $\sigma$ \\
+    $\sigma_r$ & Range uncertainty implied by RSS alone \\
+    $N_{ant}$ & UE antenna count \\
+    $\Delta t$ & Time between consecutive snapshots of one UE \\
+    \bottomrule
+  \end{tabular}
+\end{table}
