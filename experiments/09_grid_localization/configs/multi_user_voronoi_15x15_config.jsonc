@@ -62,6 +62,13 @@
       "enabled": true,
       "auto_generate": false,
 
+      // Propagation scenario applied to the WHOLE walk of every user. Without it the
+      // generator used the scenario of the cell each walk started in (the track has
+      // one segment), so the per-cell "scenario" entries below never took effect.
+      // The voronoi_cells are therefore labels only: they give voronoi_cell_id for
+      // the per-cell breakdowns and carry no propagation difference.
+      "uniform_scenario": "3GPP_38.901_UMi_NLOS",
+
       "area_generator": {
         "num_areas": 4,
         "area_bounds": "auto",

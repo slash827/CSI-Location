@@ -438,6 +438,22 @@ if mixed_scenario_enabled
         end
     end
     l.rx_track.scenario = scenario_per_segment;
+
+    % The track above has a single segment, so QuaDRiGa applies only the first
+    % entry to the WHOLE walk: every user would silently run under the scenario of
+    % the cell its walk starts in. When the config sets
+    % channel.mixed_scenario.uniform_scenario, use that one scenario for the whole
+    % walk explicitly. The Voronoi cells then remain position labels only
+    % (voronoi_cell_id), with no propagation difference between them.
+    if isfield(config_json.channel.mixed_scenario, 'uniform_scenario') && ...
+       ~isempty(config_json.channel.mixed_scenario.uniform_scenario)
+        l.rx_track.scenario = {config_json.channel.mixed_scenario.uniform_scenario};
+        fprintf('  Scenario: UNIFORM %s for the whole walk (Voronoi cells are labels only)\n', ...
+            config_json.channel.mixed_scenario.uniform_scenario);
+    else
+        fprintf('  WARNING: one-segment track, scenario of the first cell applies to the whole walk: %s\n', ...
+            scenario_per_segment{1});
+    end
 else
     l.rx_track.scenario = {config.scenario};
 end

@@ -52,6 +52,7 @@ experiment_root = fileparts(fileparts(src_matlab_dir));     % 09_grid_localizati
 workspace_root  = fileparts(fileparts(experiment_root));    % CSI-Location/
 addpath(fullfile(src_matlab_dir, 'core'));
 addpath(fullfile(src_matlab_dir, 'lib'));
+ensure_quadriga();
 
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
 output_dir = fullfile(workspace_root, 'results', 'grid_localization', ...
@@ -122,9 +123,25 @@ for u = 1:n_users
     end
 end
 
+%% Save a copy of the config used and the provenance of this run
+config_name = 'multi_user_voronoi_15x15_config.jsonc';
+config_path = fullfile(experiment_root, 'configs', config_name);
+copyfile(config_path, fullfile(output_dir, 'data_generation_config.jsonc'));
+[~, git_commit] = system(sprintf('git -C "%s" rev-parse HEAD', workspace_root));
+[~, git_dirty]  = system(sprintf('git -C "%s" status --porcelain -- experiments/09_grid_localization/configs experiments/09_grid_localization/src/matlab', workspace_root));
+cfg_used = read_jsonc(config_path);
+
 %% Save experiment metadata (enables correct BS marker in Python plots)
 experiment_info = struct();
-experiment_info.config_name  = 'multi_user_voronoi_15x15_config.jsonc';
+experiment_info.git_commit        = strtrim(git_commit);
+experiment_info.git_dirty_matlab  = ~isempty(strtrim(git_dirty));
+experiment_info.center_frequency  = cfg_used.channel.center_frequency;
+experiment_info.bandwidth         = cfg_used.channel.bandwidth;
+experiment_info.scenario          = cfg_used.channel.scenario;
+experiment_info.uniform_scenario  = cfg_used.channel.mixed_scenario.uniform_scenario;
+experiment_info.tx_power_dbm      = cfg_used.base_station.tx_power_dbm;
+experiment_info.interferers       = cfg_used.base_station.interferers.positions;
+experiment_info.config_name  = config_name;
 experiment_info.profiles     = profiles;
 experiment_info.profile_names = profile_names;
 experiment_info.output_dir   = output_dir;
