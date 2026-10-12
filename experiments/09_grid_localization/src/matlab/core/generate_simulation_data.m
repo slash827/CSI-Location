@@ -371,6 +371,14 @@ end
 % Create layout
 l = qd_layout;
 
+% Apply the carrier frequency from the config. QuaDRiGa's default is 2.6 GHz, and
+% this generator never set it before 2026-10-13, so every earlier run of this file
+% (controlled-grid studies, single-user grid sweeps, 25x25 regression runs) was
+% simulated at 2.6 GHz whatever the config said.
+l.simpar.center_frequency = config.center_frequency;
+fprintf('Carrier frequency applied to QuaDRiGa: %.2f GHz
+', l.simpar.center_frequency / 1e9);
+
 % Set scenario (will be overridden per-snapshot if mixed_scenario enabled)
 if ~mixed_scenario_enabled
     l.set_scenario(config.scenario);
