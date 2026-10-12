@@ -87,7 +87,7 @@ Clean simulated arrival angles are degraded before use. In the controlled-grid s
   \sigma_{\text{AoA}}(t) = \operatorname{clamp}\!\left(2.0^\circ \cdot 10^{-\frac{\mathrm{SINR}_{dB}(t)-10}{15}},\ 1.0^\circ,\ 20.0^\circ\right),
   \label{eq:aoa-noise}
 \end{equation}
-while the macro-cell study applies a fixed $4^\circ$ Gaussian error. Both then quantize azimuth and elevation to a $5^\circ$ codebook. Single-antenna devices cannot form a beam and report no angle; in the macro-cell features their angle is set to $0^\circ$.
+while the macro-cell study applies a fixed $4^\circ$ Gaussian error, drawn independently for every report, an assumption that Section~\ref{subsec:averaging} shows to matter. Both then quantize azimuth and elevation to a $5^\circ$ codebook. Single-antenna devices cannot form a beam and report no angle; in the macro-cell features their angle is set to $0^\circ$.
 
 \subsection{Features}
 \label{subsec:features}

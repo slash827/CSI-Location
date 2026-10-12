@@ -1,3 +1,8 @@
 \begin{abstract}
-\pending{[Awaiting Gilad's results: the abstract is written once the mechanism experiment is in, since its outcome decides how the central claim is stated.]}
+% DRAFT for author review. Every number is from the results of record; see docs/REPORT_SKELETON_VALIDATION.md.
+A single serving base station fixes a device's range from received signal strength but not its bearing. We ask whether a short window of past measurements, the transition history, narrows this distance-ring ambiguity, in a simulated 5G NR deployment that compares a small controlled grid with a $96\,\text{m}$ macro cell, and across seven estimators from $k$-nearest neighbors to recurrent, convolutional and attention networks.
+For devices that report an angle of arrival, five steps of history ($20\,\text{m}$ of travel) lower the position error by $2.8$ to $4.1\,\text{m}$ ($15$ to $21\%$) in all seven families, and model choice barely matters.
+The gain comes entirely from the angle channels, and it is the averaging of imperfect angle reports: an unordered mean of the window reproduces it, elevation carries most of it, and with exact angles it disappears. It therefore depends on the angle error being independent between reports, falling from about $17\%$ to $2$ to $6\%$ when the error persists.
+Devices without an angle gain no more than about $1\%$ on uniform non-line-of-sight propagation, where their models beat a constant guess of the cell centre by only $5$ to $6\%$; with mixed LOS and NLOS propagation, tree ensembles gain about $1.2\,\text{m}$, an effect linked to the propagation state.
+Line-of-sight propagation, interfering base stations and a blocked line of sight do not change the multi-antenna gain.
 \end{abstract}

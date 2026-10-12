@@ -31,7 +31,7 @@ reflects the component of motion along the BS bearing, and the angular rate,
   \dot\theta_{az} = \frac{v_\perp}{r},
   \label{eq:dtheta-dt}
 \end{equation}
-where AoA is available, gives the tangential component of the velocity $v_\perp$ and, jointly with $\dot r$, the heading. For a UE moving at roughly constant speed, the pair $(\dot r, \dot\theta_{az})$ constrains position to the intersection of a range ring and a motion-consistent arc, a far smaller set than the ring alone.
+where AoA is available, gives the tangential component of the velocity $v_\perp$ and, jointly with $\dot r$, the heading. For a UE moving at roughly constant speed, the pair $(\dot r, \dot\theta_{az})$ constrains position to the intersection of a range ring and a motion-consistent arc, a far smaller set than the ring alone. This geometric reading motivates the hypothesis; Section~\ref{sec:results-mechanism} tests it against a simpler statistical one, in which a window helps only because it offers several noisy views of a nearly unchanged angle.
 
 % src: FINAL_REPORT.md §7.5 (dRSS/dr expression); Equation (path-loss) above
 Without AoA, only the first of these is available, and its usefulness is bounded by the path-loss gradient. Differentiating Equation~(\ref{eq:path-loss}) with respect to range gives
