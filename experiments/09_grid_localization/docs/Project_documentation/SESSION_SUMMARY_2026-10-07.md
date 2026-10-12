@@ -1,5 +1,15 @@
 # Session Summary — 2026-10-07
 
+> **Corrections, 2026-10-12** (evidence: `docs/REPORT_SKELETON_VALIDATION.md`):
+> * §4 "LOS/NLOS split … localizes the existing zone-gain finding to the angle
+>   channel" and the third bullet of §5 are wrong as statements about
+>   propagation. The same regional difference appears on the uniform-NLOS
+>   dataset, which has no LOS.
+> * §1's hypothesis that angle *changes* carry the gain is not what the
+>   follow-up found: the gain is the averaging of per-sample AoA error.
+> * The single-antenna exception in §4 replicates at 20 seeds and is partly
+>   explained (LOS/NLOS state and boundary-crossing windows).
+
 Alon (project instructor) sent a diagnostic script and run instructions to
 test a specific hypothesis about *why* history helps multi-antenna devices
 but not single-antenna devices at macro range. This session ran that
