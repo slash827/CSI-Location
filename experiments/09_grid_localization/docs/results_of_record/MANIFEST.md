@@ -148,7 +148,7 @@ E=experiments/09_grid_localization/src/python/experiments_ablation
 Runs that settle the open points of `docs/REPORT_SKELETON_VALIDATION.md`; that
 document is the narrative for everything here. Scripts:
 `history_mechanism_followup.py` (classical models, 11 unit tests) and
-`history_mechanism_deep.py` (1D-CNN, GRU), both in
+`history_mechanism_deep.py` (the four neural models), both in
 `src/python/experiments_ablation/`. Same protocol as the diagnostic. All
 intervals are Student-t 95% over seed-paired differences. Files are the
 scripts' JSON output with whitespace removed; nothing else was changed.
@@ -163,7 +163,13 @@ scripts' JSON output with whitespace removed; nothing else was changed.
 | `aoa_impairment/clean/…` | 10 seeds, uniform NLOS, exact AoA. Multi-antenna error ~2 m, **history gain zero** |
 | `aoa_impairment/quant5_only/…`, `noise4_only/…`, `noise8_quant5/…` | 10 seeds each: 5° quantization only (14.2 m, gain +1.9 m), 4° noise only (18.5 m, +3.1 m), 8° noise + 5° quantization (21.7 m, +2.4 m) |
 | `aoa_impairment/corr_rho{0,0.5,0.9,0.99}/…` | 10 seeds each: AoA error AR(1) along the walk with lag-1 correlation rho. **Gain falls from +3.1 m (17%) at rho=0 to about +1.0 m (5–6%) at rho>=0.9** |
-| `neural_uniform_nlos/history_mechanism_deep_summary.json` | 5 seeds, 1D-CNN and GRU, uniform NLOS: angle history alone equals full history (+3.1 / +3.4 m vs +3.1 / +3.2 m); RSS history +0.2 m |
+| `neural_uniform_nlos/{cnn-gru,cnn_attn,mask_aware_cnn}/history_mechanism_deep_summary.json` | 5 seeds each, uniform NLOS, all four neural models: angle history alone equals full history (+2.98 to +3.43 m vs +2.85 to +3.19 m); RSS history under +0.2 m |
+| `neural_exact_aoa/{cnn,gru,cnn_attn-mask_aware_cnn}/…` | 5 seeds, exact AoA, h=0 vs h=5. Error 1.8–3.2 m; **history gain negative in all four (−0.48 to −0.78 m)** |
+| `neural_corr_rho0.9/{cnn-gru,cnn_attn-mask_aware_cnn}/…` | 5 seeds, AoA error lag-1 correlation 0.9. **Gain +0.34 to +0.61 m (2–3%)** |
+| `neural_mixed/{cnn-gru,cnn_attn-mask_aware_cnn}/…` | 5 seeds, mixed dataset, `snap` / `rss_hist` / `full`. Multi-antenna +2.9 to +3.1 m; single-antenna RSS-history gain clears its interval for GRU and CNN+attention only |
+| `history_depth/h{1,3,10,20}/history_mechanism_followup_summary.json` | 10 seeds, uniform NLOS, `--history` 1, 3, 10, 20. Gain +1.2 / +2.5 / +3.5 / +3.7 m (XGBoost; h=5 is in `uniform_nlos/`). Window-mean-only input collapses at h=20 |
+| `single_share_50/{uniform_nlos,mixed_propagation}/…` | 20 seeds with `--single-ant-ratio 0.5` (14–22 single-antenna test users per seed). Uniform: XGBoost +0.30 ± 0.24 m, RF +0.18 ± 0.24 m. Mixed: +1.23 ± 0.15 m, +1.39 ± 0.14 m. **Different training mix from the report** |
+| `knn_uniform_nlos/…` | 5 seeds, k-NN through the follow-up conditions: elevation +3.34 m, azimuth +1.89 m |
 
 ### Reproducing
 
@@ -182,7 +188,17 @@ S="42 1 7 13 99 3 11 17 23 29"
 .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-std 4 --aoa-quant-step 0.000001
 .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-std 8 --aoa-quant-step 5
 for r in 0 0.5 0.9 0.99; do .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --aoa-noise-corr $r --conditions rss_hist angle_hist full az_hist el_hist angle_mean; done
-.venv/Scripts/python $E/history_mechanism_deep.py --data-dir $U --conditions snap rss_hist angle_hist angle_mean full   # ~3.5 h GPU
+ALL="cnn gru cnn_attn mask_aware_cnn"
+.venv/Scripts/python $E/history_mechanism_deep.py --data-dir $U --models $ALL --conditions snap rss_hist angle_hist angle_mean full
+.venv/Scripts/python $E/history_mechanism_deep.py --data-dir $U --models $ALL --conditions snap full --aoa-noise-std 0 --aoa-quant-step 0.000001
+.venv/Scripts/python $E/history_mechanism_deep.py --data-dir $U --models $ALL --conditions snap full --aoa-noise-corr 0.9
+.venv/Scripts/python $E/history_mechanism_deep.py --data-dir $M --models $ALL --conditions snap rss_hist full
+# neural runs: ~5 min per training alone at ~8% GPU use (CPU-bound batching); run several
+# processes side by side, one or two models each - the output folder is named after the models
+for h in 1 3 10 20; do .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds $S --history $h --conditions rss_hist angle_hist full el_hist az_hist angle_mean; done
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --single-ant-ratio 0.5 --conditions rss_hist angle_hist full
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $M --single-ant-ratio 0.5 --conditions rss_hist angle_hist full snap_los rss_hist_los
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds 42 1 7 13 99 --models knn
 ```
 
 ## `superseded/` — kept for provenance, do not cite

@@ -33,7 +33,9 @@ this file:
   With exact AoA the multi-antenna error is ~2 m and the gain is zero. An
   order-free window mean of the angle channels recovers the whole gain, and
   elevation carries more than 80% of it. The gain is ~17% when the AoA error is
-  independent between reports (the pipeline's model) and ~6% when it persists.
+  independent between reports (the pipeline's model) and ~6% (trees) or 2–3%
+  (neural models) when it persists. All four neural models were tested: same
+  channel pattern, and a negative gain with exact AoA.
 * **LOS propagation does not change the history gain** (§6.4 is withdrawn again).
 * **B6** (§1b): multi-antenna +6.3 m (36%) inside the blocked stretch and the
   same outside it; single-antenna devices gain nothing. The corridor shows

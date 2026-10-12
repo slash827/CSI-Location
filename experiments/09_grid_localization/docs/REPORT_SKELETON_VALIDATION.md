@@ -1,13 +1,13 @@
 # Validation of `REPORT_SKELETON.md`
 
-First pass 2026-10-09 (checked every claim against the files of record). Second pass 2026-10-12 (ran the experiments needed to settle what the first pass left open). This version replaces the first.
+First pass 2026-10-09 (checked every claim against the files of record). Second pass 2026-10-12 (ran the experiments needed to settle what the first pass left open), extended the same day with the overnight runs (all four neural models, AoA impairment for the neural models, history depth, a 50% single-antenna share, k-NN). This version replaces the first.
 
 ## How this was checked
 
 - **Pass 1.** Every number in the skeleton was re-read or recomputed from the JSON / `.npz` files under `docs/results_of_record/`, the code and the configs. Nothing was re-trained.
 - **Pass 2.** New runs, all under `docs/results_of_record/followup_2026_10/` (see `MANIFEST.md`):
   - `history_mechanism_followup.py`: the diagnostic protocol (unseen-user split, XGBoost and Random Forest at master-benchmark hyperparameters, h=5 windows, conditions paired by sample and by seed) with **20 seeds** on the uniform-NLOS, mixed and blocked-LOS datasets; extra conditions; error stratified by region, range band, real LOS and window type; and a sweep of the AoA impairment (10 seeds each).
-  - `history_mechanism_deep.py`: the channel test on the 1D-CNN and the GRU, 5 seeds, uniform NLOS.
+  - `history_mechanism_deep.py`: the channel test on all four neural models (5 seeds), on uniform NLOS and on mixed data, and with exact AoA and with persistent AoA error.
 - **Intervals.** All pass-2 intervals are Student-t 95% over seed-paired differences. The skeleton's "±" values come from `ci95()` = `1.96·s/√n` with n = 5, which is 1.42× narrower than the t interval. No conclusion in C1 flips, but the report should state which interval it uses.
 - **Verdict labels.** **Supported** / **Supported, caveat** / **Overstated** / **Contradicted** / **Interpretation** (not measured) / **Not verifiable here**.
 
@@ -17,10 +17,12 @@ First pass 2026-10-09 (checked every claim against the files of record). Second 
 |---|---|
 | "LOS advantage" might be geometry, not propagation | **Confirmed geometry.** The LOS-region minus NLOS-region gap is the same on both datasets (difference −0.16 ± 0.28 m). |
 | Mechanism "bearing turns more slowly with range" untested | **Rejected.** The gain is the averaging of per-sample AoA measurement error, mostly in elevation. With error-free AoA the gain is zero. |
-| C2 "inferred for the neural models" | **Now measured.** 1D-CNN and GRU show the same channel pattern. |
+| C2 "inferred for the neural models" | **Now measured for all four.** Same channel pattern; with exact AoA their gain is negative; with persistent AoA error it is 2–3%. |
 | Single-antenna gain on mixed data "unexplained" | **Robust (20/20 seeds) and partly explained:** it is tied to LOS/NLOS state and to boundary-crossing windows. |
 | P3 "not supported" vs "inconclusive" | **No consistent range trend at 20 seeds.** "Rises with range" on mixed data did not replicate. |
 | B6 pooled device groups | **Split.** Multi-antenna +6.3 m (36%); single-antenna no detectable gain. |
+| Single-antenna null rested on 5–10 users per split | **Tightened.** With 14–22 users per split: XGBoost about +0.3–0.4 m (1%), Random Forest none. |
+| Does the gain follow window length as averaging predicts? | **Yes up to ~10 steps**, then saturates; a plain mean fails at 20 steps because the user has moved. |
 
 ---
 
@@ -72,22 +74,38 @@ Same pipeline, 4° noise + 5° quantization, but the noise follows an AR(1) proc
 
 **Consequence.** The headline "14.7–20.8%" is specific to an impairment model with independent per-report error. The report must state this assumption with the headline, and should give the range: about 17% with independent error, about 6% when the error is persistent. Which end real hardware is nearer to was not studied.
 
-### A3. The channel result holds for the neural models
+### A3. The channel result, and the averaging result, hold for all four neural models
 
-Uniform NLOS, 5 seeds, multi-antenna gain over `snap`. Channels without history are held at their current value across the window. Source: `followup_2026_10/neural_uniform_nlos/`.
+All runs: 5 seeds, uniform NLOS unless stated, multi-antenna gain over `snap` in metres. Channels without history are held at their current value across the window. Source: `followup_2026_10/neural_*`.
 
-| Model | RSS history | Angle history | Window mean of angles | Full |
+**Which channels carry the gain**
+
+| Model | RSS history | Angle history | Window mean of angles | Full | Full − angle history (paired) |
+|---|---|---|---|---|---|
+| 1D-CNN | +0.17 ± 0.20 | +3.11 ± 0.72 | +3.04 ± 0.77 | +3.07 ± 0.55 | 0.04 ± 0.26 |
+| GRU | +0.19 ± 0.14 | +3.43 ± 0.79 | +2.99 ± 0.90 | +3.19 ± 0.60 | 0.23 ± 0.48 |
+| CNN+attention | +0.16 ± 0.29 | +3.27 ± 0.65 | +2.93 ± 0.85 | +3.19 ± 0.68 | 0.09 ± 0.14 |
+| Mask-aware CNN | +0.16 ± 0.23 | +2.98 ± 0.94 | +2.83 ± 0.84 | +2.85 ± 1.01 | 0.13 ± 0.18 |
+
+- Angle history alone equals full history in all four. RSS history adds under 0.2 m and never clears its interval.
+- Radial error falls by 3.0–3.2 m in every model (for example CNN+attention 17.0 → 13.8 m); tangential moves by 0.1–0.4 m.
+- Single-antenna: no condition clears its interval in any model.
+- The window mean recovers 87–98% of the angle-history gain. The ordered window is slightly better for the GRU (0.44 ± 0.22 m) and CNN+attention (0.34 ± 0.23 m), not for the two plain CNNs. A small order effect, the same size as the ≤ 0.4 m found for the trees.
+
+**What happens when the AoA impairment changes** (h=0 → h=5, full history)
+
+| Model | Report's impairment | Exact AoA: h=0 error | Exact AoA: gain | AoA error correlation 0.9: gain |
 |---|---|---|---|---|
-| 1D-CNN | +0.17 ± 0.20 | +3.11 ± 0.72 | +3.04 ± 0.77 | +3.07 ± 0.55 |
-| GRU | +0.19 ± 0.14 | +3.43 ± 0.79 | +2.99 ± 0.90 | +3.19 ± 0.60 |
+| 1D-CNN | +3.07 ± 0.55 (16%) | 2.86 m | −0.75 ± 0.31 | +0.58 ± 0.46 (3.0%) |
+| GRU | +3.19 ± 0.60 (17%) | 1.81 m | −0.48 ± 0.39 | +0.43 ± 0.30 (2.2%) |
+| CNN+attention | +3.19 ± 0.68 (17%) | 3.03 m | −0.78 ± 0.60 | +0.61 ± 0.26 (3.2%) |
+| Mask-aware CNN | +2.85 ± 1.01 (15%) | 3.16 m | −0.73 ± 0.67 | +0.34 ± 0.36 (1.8%) |
 
-- Angle history alone equals full history (paired difference 0.04 ± 0.26 m CNN, 0.23 ± 0.48 m GRU). RSS history adds under 0.2 m.
-- Radial error falls 17.1 → 14.0 m (CNN) and 17.4 → 14.3 m (GRU); tangential moves 5.4 → 5.1 and 5.2 → 4.8 m.
-- Single-antenna: no condition clears its interval.
-- For the GRU the ordered angle history is 0.44 ± 0.22 m better than the window mean; for the CNN there is no difference. A small order effect for the GRU, consistent with the ≤ 0.4 m found for the trees.
-- Caveat: checkpoints are selected on test MAE, as everywhere in `model_zoo.train_deep`, identically for every condition.
+- **With exact AoA every neural model gets slightly worse with history** (0 of 5 seeds positive in each). There is nothing to average, and the longer input only makes the fit harder.
+- **With persistent AoA error the gain is 0.3–0.6 m (2–3%)**, below the trees' ~1 m (5–6%).
+- So A1 and A2 are not properties of tree models. They hold for the two tree models and for all four neural models. k-NN was tested on the channel split only (A10).
 
-So C2 is now **established for XGBoost, Random Forest, k-NN (5 seeds), 1D-CNN and GRU**. CNN+attention and the mask-aware CNN were not run.
+Caveats: checkpoints are selected on test MAE, as everywhere in `model_zoo.train_deep`, identically for every condition. GPU training is not bit-reproducible: an accidental repeat of the mask-aware run gave +2.99 / +2.89 m where the recorded run gives +2.98 / +2.85 m.
 
 ### A4. Line-of-sight propagation does not change the history gain
 
@@ -192,6 +210,62 @@ Multi-antenna gain in the blocked stretch by strip width (full history):
 
 `pure_snap` vs `snap`, multi-antenna, 20 seeds: XGBoost −0.56 ± 0.16 m (uniform), −0.56 ± 0.11 m (mixed); Random Forest −0.37 ± 0.08 m, −0.44 ± 0.06 m. Against full-history gains of 3.15, 2.75, 2.75 and 2.36 m in the same order, that is 18%, 20%, 14% and 19%.
 
+### A10. k-NN shows the same elevation-dominant pattern
+
+Uniform NLOS, 5 seeds, multi-antenna. Source: `followup_2026_10/knn_uniform_nlos/`.
+
+| Angle history | Elevation history | Azimuth history | Window mean | Shuffled lags | Full |
+|---|---|---|---|---|---|
+| +5.19 ± 0.18 | +3.34 ± 0.20 | +1.89 ± 0.55 | +3.51 ± 0.27 | +4.72 ± 0.24 | +3.79 ± 0.47 |
+
+k-NN is the one model where the ordered angle history (+5.19 m) clearly beats the window mean (+3.51 m). Shuffling the lags keeps +4.72 m, so most of that advantage is having six values in the distance metric, not their order.
+
+### A11. The gain grows with window length and saturates near 40 m of travel
+
+Uniform NLOS, 10 seeds, multi-antenna gain over `snap`. Source: `followup_2026_10/history_depth/`.
+
+| Steps of history (distance) | 1 (4 m) | 3 (12 m) | 5 (20 m) | 10 (40 m) | 20 (80 m) |
+|---|---|---|---|---|---|
+| XGBoost, full history | +1.21 ± 0.08 | +2.53 ± 0.20 | +3.15 ± 0.12 | +3.51 ± 0.29 | +3.68 ± 0.25 |
+| XGBoost, window mean of angles only | +1.26 ± 0.13 | +2.72 ± 0.22 | +3.38 ± 0.19 | +3.16 ± 0.44 | +1.39 ± 0.39 |
+| Random Forest, full history | +1.30 ± 0.05 | +2.34 ± 0.09 | +2.75 ± 0.08 | +2.77 ± 0.14 | +2.61 ± 0.17 |
+| Random Forest, angle history only | +1.30 ± 0.06 | +2.51 ± 0.14 | +3.06 ± 0.13 | +3.40 ± 0.22 | +3.38 ± 0.25 |
+| Random Forest, window mean of angles only | +1.55 ± 0.10 | +2.95 ± 0.20 | +3.61 ± 0.19 | +3.39 ± 0.40 | +1.57 ± 0.40 |
+
+- One extra report is already worth 1.2–1.3 m. The gain saturates at about 10 steps.
+- The plain window mean is the best input up to 5 steps and collapses at 20 (+1.4 to +1.6 m): over 80 m of travel the true angle has changed, so an unweighted mean is biased. The ordered window keeps +3.4 to +3.7 m because the model can weight recent reports.
+- This refines A1: at the report's 5 steps the gain is plain averaging; at longer windows the order matters, as a way of discounting stale reports. It is still not evidence that bearing *rate* is used.
+- Elevation history exceeds azimuth history at every depth (XGBoost: 0.93 vs 0.22, 2.20 vs 0.38, 3.02 vs 0.90, 2.95 vs 0.95 m).
+
+### A12. With many more single-antenna users, the uniform-NLOS gain is small but not zero
+
+Same protocol with the single-antenna share raised from 15% to 50% (14–22 single-antenna test users per seed instead of 3–11), 20 seeds. The training mix differs from the report's, so this is a separate condition, not a replacement. Source: `followup_2026_10/single_share_50/`.
+
+| Dataset | Model | RSS history | Full history |
+|---|---|---|---|
+| Uniform NLOS | XGBoost | +0.41 ± 0.23 (1.1%, 16/20 seeds) | +0.30 ± 0.24 (0.8%, 13/20) |
+| Uniform NLOS | Random Forest | +0.03 ± 0.21 | +0.18 ± 0.24 |
+| Mixed | XGBoost | +1.20 ± 0.15 (20/20) | +1.23 ± 0.15 (20/20) |
+| Mixed | Random Forest | +1.42 ± 0.15 (20/20) | +1.39 ± 0.14 (20/20) |
+
+- Uniform NLOS: XGBoost shows a gain of about 1% that clears its interval; Random Forest shows none. The accurate statement is "no more than about 1%", not "zero".
+- Mixed: the exception is confirmed with intervals half as wide. The oracle LOS flag is worth +2.93 ± 0.28 m (XGBoost) and +2.55 ± 0.22 m (Random Forest), and RSS history adds +0.99 ± 0.15 m and +0.99 ± 0.16 m on top.
+
+### A13. The neural models share the mixed-data single-antenna gain only weakly
+
+Mixed dataset, 5 seeds, single-antenna gain over `snap`. Source: `followup_2026_10/neural_mixed/`.
+
+| Model | RSS history | Full history |
+|---|---|---|
+| 1D-CNN | +0.35 ± 0.61 | −1.08 ± 1.85 |
+| GRU | +0.62 ± 0.42 (5/5 seeds) | +0.22 ± 0.80 |
+| CNN+attention | +0.85 ± 0.76 (5/5 seeds) | −0.08 ± 1.29 |
+| Mask-aware CNN | +0.45 ± 0.99 | +0.24 ± 1.63 |
+
+- With RSS history alone all four are positive on average and two clear their interval. With the full window none does.
+- Multi-antenna gain on mixed data: +2.91 to +3.14 m (17–18%) in all four, RSS history +0.20 to +0.27 m.
+- So the tree-model exception (A6) is not clearly shared: the neural models show a sign of it only when the angle channels are held still. Five seeds with 5–10 single-antenna users each cannot settle it.
+
 ---
 
 ## Part B. Verdict on each skeleton claim
@@ -200,7 +274,7 @@ Multi-antenna gain in the blocked stretch by strip width (full history):
 
 | Bullet | Verdict | Notes |
 |---|---|---|
-| Gain 2.75–4.06 m (14.7–20.8%) in all seven families | **Supported, caveat** | Exact (`seed_repeats_all_models_summary.json`, per-run `multi_mae`, 5 seeds; positive in all 35 seed-pairs). Replicated at 20 seeds for XGBoost (+3.15 ± 0.12, 16.8%) and Random Forest (+2.75 ± 0.08, 14.6%). **Holds for the report's AoA impairment (independent 4° error + 5° quantization); see A1, A2.** |
+| Gain 2.75–4.06 m (14.7–20.8%) in all seven families | **Supported, caveat** | Exact (`seed_repeats_all_models_summary.json`, per-run `multi_mae`, 5 seeds; positive in all 35 seed-pairs). Replicated at 20 seeds for XGBoost (+3.15 ± 0.12, 16.8%) and Random Forest (+2.75 ± 0.08, 14.6%), and for the four neural models through a different input construction (+2.85 to +3.19 m, A3). **Holds for the report's AoA impairment (independent 4° error + 5° quantization) and not otherwise: with exact AoA the gain is zero or negative in all six models tested; see A1–A3.** |
 | CIs ±0.13–0.85 m | **Supported, caveat** | That is the 1.96 interval. Student-t: ±0.18–1.20 m. |
 | Overall 2.38–3.24 m (11.0–14.7%) | **Supported** | `verdict` block. |
 | Replicated under mixed propagation (11–15%, multi 2.3–3.9 m) | **Supported** | 11.37–15.43%; multi +2.34 to +3.89 m. |
@@ -214,7 +288,7 @@ Multi-antenna gain in the blocked stretch by strip width (full history):
 
 | Bullet | Verdict | Notes |
 |---|---|---|
-| Header: "established for XGBoost, RF, k-NN; inferred for the neural models" | **Update** | Now established for 1D-CNN and GRU as well (A3). |
+| Header: "established for XGBoost, RF, k-NN; inferred for the neural models" | **Update** | Now established for all seven families (A3, A10). |
 | Angle history alone matches or beats full history | **Supported** | 20 seeds, paired `full` − `angle_hist`: XGBoost +0.01 ± 0.06 m (uniform), −0.08 ± 0.04 m (mixed); Random Forest +0.31 ± 0.09 m (angle better), −0.02 ± 0.05 m. On mixed XGBoost full history is 0.08 m better, so "matches" (to within 0.1 m), not "beats", there. |
 | RSS history gives at most +0.3 m; makes k-NN worse (−2.27 m) | **Supported, caveat** | Multi-antenna only. 20 seeds: XGBoost +0.23 ± 0.09 (uniform), +0.38 ± 0.07 (mixed); Random Forest −0.22 ± 0.11, +0.14 ± 0.04. Write "at most about +0.4 m". −2.27 m is uniform NLOS; on mixed k-NN is −0.48 m. |
 | Radial 17.3 → 14.1 m, tangential 5.0 → 4.6 m | **Supported** | 20 seeds: 17.21 → 14.06 and 4.96 → 4.61 (XGBoost). Same for RF, CNN, GRU. |
@@ -230,7 +304,7 @@ Multi-antenna gain in the blocked stretch by strip width (full history):
 | "About 5× better than the RSS-only bound σ_r ≈ 68 m" | **Overstated** | 67.94 m is right (`pathloss_fit_summary.json`), but it is a standard deviation compared with a mean absolute error. Radial RMS at h=5 is 17.5 m, so **about 4×**. Also call it a single-snapshot RSS ranging resolution, not a bound. |
 | Single-antenna (~35 m): tangential 25.3 m > radial 20.1 m; history changes neither | **Supported** | 20 seeds: radial 21.0 → 21.1, tangential 25.2 → 25.3. |
 | "Placed at about the right distance but the wrong bearing" | **Contradicted** | A5: radial error is larger than for multi-antenna devices (21 m vs 14 m), range correlation 0.51, radial bias −10 m. Say "error is dominated by the bearing component (about 60% of squared error) and the range component is also worse". |
-| Single-antenna null on uniform NLOS, −1.39 to +0.32 m, XGBoost 0.06 ± 0.18 | **Supported, caveat** | Exact (5 seeds). At 20 seeds XGBoost −0.18 ± 0.34; Random Forest +0.42 ± 0.39, marginal. "No detectable gain; at most about 1%." |
+| Single-antenna null on uniform NLOS, −1.39 to +0.32 m, XGBoost 0.06 ± 0.18 | **Supported, caveat** | Exact (5 seeds). At 20 seeds XGBoost −0.18 ± 0.34; Random Forest +0.42 ± 0.39, marginal. With a 50% single-antenna share XGBoost +0.30 ± 0.24, Random Forest +0.18 ± 0.24 (A12). Write "no more than about 1%", not "none". |
 | 5–10 single-antenna test users per split | **Supported** | 3–11 over the 20 seeds. |
 | Supporting evidence: single-user 25×25, RF gets worse with history | **Contradicted (selective)** | Tech doc §7.4.3–7.4.4: RF 14.0 → 16.3 m and 13.8 → 17.3 m, **but XGBoost in the same tables, also without AoA, goes 29.2 → 13.4 m and 29.8 → 14.8 m**. Single-user, single-seed, no JSON of record. Drop the bullet or show both models. |
 | Open exception on mixed data, ~1.5 m | **Supported; now partly explained** | A6. Replace "unexplained" and the "one-split lead" sentence with the A6 result. |
@@ -250,7 +324,7 @@ Open question raised by Part A: the controlled-grid gain without AoA may be the 
 
 | # | Verdict | Corrected statement |
 |---|---|---|
-| 1 | **Contradicted in part** | "Helps every family" ✔. "Only for devices that report an angle" fails on mixed data for the tree models (A6). |
+| 1 | **Contradicted in part** | "Helps every family" ✔ under the report's AoA impairment. "Only for devices that report an angle" fails on mixed data for the tree models (A6, A12). "Cheap" ✔. |
 | 2 | **Contradicted in part** | "What that buys is better range estimates" ✔. "What history reads is how the bearing moves" ✘: it averages angle measurement error, mainly elevation (A1). |
 | 3 | **Supported** | ~19 m overall; ~15–16 m and ~35–37 m by group. |
 | 4 | **Supported, caveat** | 14–20% for the tree models, multi-antenna (A9). Untested for the deep models. |
@@ -262,7 +336,7 @@ Open question raised by Part A: the controlled-grid gain without AoA may be the 
 |---|---|---|
 | "Predictions fixed on 2026-10-04 before the diagnostic ran" | **Not verifiable here** | Nothing in the repository records P1–P3 before 2026-10-07. Keep the dated original. |
 | P1 confirmed | **Supported** | A1, A3. The "and/or `ray_hist`" branch did not occur (ray history +0.25 / −0.01 m). |
-| P2 confirmed on uniform NLOS, fails on mixed | **Supported** | A5, A6. |
+| P2 confirmed on uniform NLOS, fails on mixed | **Supported** | A5, A6, A12. "The neural models do not share the gain": mostly right; two of four show it with RSS history alone (A13). |
 | P3 not supported | **Supported at 20 seeds**, with one correction | A8. Delete "the single-antenna RSS-only gain *rises* with range (+0.4 → +2.4 m)": not replicated. |
 | "History mainly reduces radial error" | **Supported** | |
 | "h=0 baseline … worth 0.4–0.5 m" | **Supported** | 0.37–0.56 m (A9). |
@@ -296,11 +370,12 @@ Open question raised by Part A: the controlled-grid gain without AoA may be the 
 ## Part C. Claims the report can make as they now stand
 
 1. **History lowers multi-antenna error by 2.8–4.1 m (15–21%) in all seven model families** on uniform NLOS, and by 2.3–3.9 m under mixed propagation, with five steps (20 m) of history, under the report's AoA impairment model. Model family barely matters.
-2. **The gain comes entirely from the angle channels** in XGBoost, Random Forest, k-NN, the 1D-CNN and the GRU. RSS history adds at most about 0.4 m.
-3. **The gain is the averaging of angle measurement error.** An order-free mean of the window recovers all of it, elevation carries more than 80% of it, and with exact AoA it is zero. Because elevation maps to range, it appears as lower range error (radial 17.2 → 14.1 m; tangential 5.0 → 4.6 m).
-4. **Its size depends on the error model:** about 17% when the AoA error is independent between reports, about 6% when the error persists across the window. The persistent part comes from the user's motion across quantization steps.
-5. **Without an angle there is no detectable gain on uniform NLOS** (XGBoost −0.2 ± 0.3 m; at most about 1% for any model).
-6. **Under mixed propagation the tree models do gain about 1.3 m for single-antenna devices** (20/20 seeds). A single-antenna snapshot cannot tell LOS from NLOS; an oracle flag is worth about 3 m, and RSS history recovers part of that and adds most where the window crosses a boundary.
+2. **The gain comes entirely from the angle channels in all seven families.** RSS history adds at most about 0.4 m.
+3. **The gain is the averaging of angle measurement error.** At five steps an order-free mean of the window recovers all of it (87–98% for the neural models), elevation carries more than 80% of it, and with exact AoA it is zero for the trees and negative for all four neural models. Because elevation maps to range, it appears as lower range error (radial 17.2 → 14.1 m; tangential 5.0 → 4.6 m).
+4. **Its size depends on the error model:** about 17% when the AoA error is independent between reports; when the error persists across the window, about 6% for the trees and 2–3% for the neural models. The persistent part comes from the user's motion across quantization steps.
+5. **Without an angle the gain on uniform NLOS is no more than about 1%** (XGBoost +0.3 ± 0.2 m with 14–22 single-antenna test users per split; Random Forest and the neural models show none).
+5a. **The gain grows with window length and saturates near 10 steps (40 m):** +1.2 m at one step, +3.2 m at five, +3.5 m at ten, +3.7 m at twenty (XGBoost).
+6. **Under mixed propagation the tree models do gain about 1.2–1.4 m for single-antenna devices** (20/20 seeds, two independent 20-seed runs); the neural models show it only weakly. A single-antenna snapshot cannot tell LOS from NLOS; an oracle flag is worth about 3 m, and RSS history recovers part of that and adds most where the window crosses a boundary.
 7. **LOS propagation does not change the multi-antenna history gain.** Regional differences are range and geometry.
 8. **The two device groups fail differently:** multi-antenna error is 90% radial; single-antenna error is about 60% tangential with a worse radial component as well.
 9. **The blocked-LOS corridor shows a 30–41% multi-antenna gain at every strip width, the same outside the blocked stretch,** and nothing for single-antenna devices.
@@ -309,7 +384,8 @@ Open question raised by Part A: the controlled-grid gain without AoA may be the 
 ## Part D. What remains open or unverifiable
 
 - **How correlated real AoA errors are.** The report's headline sits between the ρ = 0 and ρ ≈ 1 rows of A2, and nothing here says where. This is the main limitation to state.
-- **CNN+attention and the mask-aware CNN** were not run through the channel test.
+- **Intermediate AoA error correlations for the neural models.** Only ρ = 0 and ρ = 0.9 were run for them; the trees have ρ = 0, 0.5, 0.9, 0.99.
+- **Whether the neural models share the mixed-data single-antenna gain** (A13): five seeds cannot settle it.
 - **The single-antenna mixed-data mechanism** (A6) is supported by an oracle experiment, not by a direct test that the model infers the state.
 - **The controlled grid** has no results of record, and whether its no-AoA history gain is also measurement averaging was not tested.
 - **Not in this repository:** `Project Report 2/`, `main.tex`, the figure scripts, section status, the exhibits sourced from `FINDINGS.md` and `analysis/regression_vs_classification.md`, and the 2026-10-04 date of the predictions.
