@@ -18,6 +18,9 @@ Usage:
 
   # Choose model and output dir:
   python plot_mae_heatmap.py --data-dir <path> --model rf --out-dir results/my_dir
+
+  # Same noise model as a --sinr-dependent-aoa pipeline run:
+  python plot_mae_heatmap.py --data-dir <path> --experiments BASE BASE_H3 BASE_A BASE_A_H3 --sinr-dependent-aoa
 """
 
 import argparse
@@ -369,6 +372,9 @@ def main():
                         help=f'Experiment(s) to plot. Choices: {all_exp_keys}')
     parser.add_argument('--model', choices=['xgboost', 'rf'], default='xgboost',
                         help='Model to use (default: xgboost)')
+    parser.add_argument('--sinr-dependent-aoa', action='store_true',
+                        help='Make AoA noise depend on snapshot SINR; must match the pipeline run '
+                             'whose results the heat map accompanies')
     args = parser.parse_args()
 
     if args.model == 'xgboost' and not HAS_XGBOOST:
@@ -382,7 +388,7 @@ def main():
 
     # ── Load & split data ──────────────────────────────────────────────────────
     print(f"Loading data from {args.data_dir} ...")
-    df = load_all_users(args.data_dir)
+    df = load_all_users(args.data_dir, sinr_dependent_aoa=args.sinr_dependent_aoa)
     df = make_split(df, test_ratio=0.2)
     grid_lookup = build_grid_lookup(df)
     print(f"  {len(df):,} samples | {df['grid_point_id'].nunique()} grid points | "
