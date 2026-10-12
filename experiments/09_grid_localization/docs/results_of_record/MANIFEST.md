@@ -170,6 +170,8 @@ scripts' JSON output with whitespace removed; nothing else was changed.
 | `history_depth/h{1,3,10,20}/history_mechanism_followup_summary.json` | 10 seeds, uniform NLOS, `--history` 1, 3, 10, 20. Gain +1.2 / +2.5 / +3.5 / +3.7 m (XGBoost; h=5 is in `uniform_nlos/`). Window-mean-only input collapses at h=20 |
 | `single_share_50/{uniform_nlos,mixed_propagation}/…` | 20 seeds with `--single-ant-ratio 0.5` (14–22 single-antenna test users per seed). Uniform: XGBoost +0.30 ± 0.24 m, RF +0.18 ± 0.24 m. Mixed: +1.23 ± 0.15 m, +1.39 ± 0.14 m. **Different training mix from the report** |
 | `knn_uniform_nlos/…` | 5 seeds, k-NN through the follow-up conditions: elevation +3.34 m, azimuth +1.89 m |
+| `no_interference/{uniform_nlos,mixed_propagation}/history_mechanism_followup_summary.json` | 20 seeds with `--no-interference` (SINR recomputed as SNR = the same simulation with the interfering BSs off). **Multi-antenna: h=0 error +0.6 to +1.0 m, history gain +0.3 to +0.4 m larger. Conclusions unchanged** |
+| `naive_baseline/{uniform_nlos,mixed_propagation}/naive_position_baseline_summary.json` | `naive_position_baseline.py`, 20 seeds: always predict the mean training position. 35.27 m multi-antenna, 38.50 m single-antenna, 35.67 m overall |
 
 ### Reproducing
 
@@ -199,6 +201,10 @@ for h in 1 3 10 20; do .venv/Scripts/python $E/history_mechanism_followup.py --d
 .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --single-ant-ratio 0.5 --conditions rss_hist angle_hist full
 .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $M --single-ant-ratio 0.5 --conditions rss_hist angle_hist full snap_los rss_hist_los
 .venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --seeds 42 1 7 13 99 --models knn
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $U --no-interference --conditions pure_snap rss_hist angle_hist full
+.venv/Scripts/python $E/history_mechanism_followup.py --data-dir $M --no-interference --conditions pure_snap rss_hist angle_hist full snap_los
+.venv/Scripts/python $E/naive_position_baseline.py --data-dir $U
+.venv/Scripts/python $E/naive_position_baseline.py --data-dir $M
 ```
 
 ## `superseded/` — kept for provenance, do not cite

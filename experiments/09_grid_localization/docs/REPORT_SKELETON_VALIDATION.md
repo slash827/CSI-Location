@@ -20,6 +20,8 @@ First pass 2026-10-09 (checked every claim against the files of record). Second 
 | C2 "inferred for the neural models" | **Now measured for all four.** Same channel pattern; with exact AoA their gain is negative; with persistent AoA error it is 2–3%. |
 | Single-antenna gain on mixed data "unexplained" | **Robust (20/20 seeds) and partly explained:** it is tied to LOS/NLOS state and to boundary-crossing windows. |
 | P3 "not supported" vs "inconclusive" | **No consistent range trend at 20 seeds.** "Rises with range" on mixed data did not replicate. |
+| Interference A/B (agreed with Alon 2026-10-07) | **Done.** Conclusions unchanged without the interfering BSs (A14). |
+| No naive baseline for the macro cell | **Added.** Constant guess 35–38 m; single-antenna devices on uniform NLOS are only 5–6% better (A15). |
 | B6 pooled device groups | **Split.** Multi-antenna +6.3 m (36%); single-antenna no detectable gain. |
 | Single-antenna null rested on 5–10 users per split | **Tightened.** With 14–22 users per split: XGBoost about +0.3–0.4 m (1%), Random Forest none. |
 | Does the gain follow window length as averaging predicts? | **Yes up to ~10 steps**, then saturates; a plain mean fails at 20 steps because the user has moved. |
@@ -266,6 +268,43 @@ Mixed dataset, 5 seeds, single-antenna gain over `snap`. Source: `followup_2026_
 - Multi-antenna gain on mixed data: +2.91 to +3.14 m (17–18%) in all four, RSS history +0.20 to +0.27 m.
 - So the tree-model exception (A6) is not clearly shared: the neural models show a sign of it only when the angle channels are held still. Five seeds with 5–10 single-antenna users each cannot settle it.
 
+### A14. The conclusions do not depend on the interfering base stations
+
+The A/B test agreed with Alon on 2026-10-07. The runners compute `sinr = p_sig / (p_int + p_noise)` with a fixed −104 dBm noise floor, so with the two interfering BSs switched off SINR becomes `rss − antenna_gain_db + 104` exactly. `--no-interference` makes that substitution: the same walks and the same serving-link channel, with interference removed. No new simulation is needed and nothing else changes. 20 seeds, same splits as A1, so every difference is seed-paired. Source: `followup_2026_10/no_interference/`.
+
+Context: the simulated cell is fully interference-limited. SINR is below the interference-free SNR in every sample, by a median of 34 dB (uniform NLOS) and 48 dB (mixed); median SINR is −3 dB.
+
+| Dataset, group | Model | h=0 error with / without | Cost of removing interference at h=0 | History gain with | History gain without |
+|---|---|---|---|---|---|
+| Uniform NLOS, multi | XGBoost | 18.74 / 19.30 m | +0.56 ± 0.13 | +3.15 ± 0.12 | +3.44 ± 0.17 |
+| Uniform NLOS, multi | Random Forest | 18.76 / 19.34 m | +0.58 ± 0.10 | +2.75 ± 0.08 | +3.15 ± 0.11 |
+| Mixed, multi | XGBoost | 17.48 / 18.46 m | +0.97 ± 0.09 | +2.75 ± 0.15 | +3.15 ± 0.17 |
+| Mixed, multi | Random Forest | 17.15 / 18.14 m | +0.99 ± 0.06 | +2.36 ± 0.08 | +2.80 ± 0.09 |
+| Uniform NLOS, single | XGBoost | 36.33 / 37.08 m | +0.75 ± 0.47 | −0.18 ± 0.34 | +0.43 ± 0.33 |
+| Uniform NLOS, single | Random Forest | 36.80 / 37.28 m | +0.47 ± 0.28 | +0.42 ± 0.39 | +0.36 ± 0.40 |
+| Mixed, single | XGBoost | 31.90 / 34.79 m | +2.89 ± 0.35 | +1.14 ± 0.29 | +1.04 ± 0.23 |
+| Mixed, single | Random Forest | 31.56 / 34.42 m | +2.86 ± 0.38 | +1.28 ± 0.37 | +1.17 ± 0.51 |
+
+- **Multi-antenna devices:** the interferers help a little (0.6–1.0 m at h=0), because SINR then carries the strength of two more transmitters. The history gain is slightly *larger* without them (+0.3 to +0.4 m). Angle history still carries all of it (XGBoost uniform: +3.50 ± 0.18 m of +3.44 m).
+- **Single-antenna devices:** almost no effect on uniform NLOS; on mixed data the interferers are worth about 2.9 m. The mixed-data history gain (A6) survives unchanged (+1.0 to +1.2 m).
+- So the headline, the channel result and the single-antenna exception all hold with and without interference. The report can state that the interfering BSs are part of the scenario, not a source of the result.
+- One caveat for the "single-BS" framing: with interference present, SINR is in effect a measurement relative to two other transmitters at known positions. That is worth at most 1 m for multi-antenna devices and about 3 m for single-antenna devices on mixed data.
+
+### A15. Against a constant guess, single-antenna localization on uniform NLOS has learned almost nothing
+
+`naive_position_baseline.py` ignores every measurement and always predicts the mean training position. Same data preparation and splits, 20 seeds. Source: `followup_2026_10/naive_baseline/`.
+
+| Group | Always guess the centroid | XGBoost h=0, uniform NLOS | XGBoost h=5, uniform NLOS | XGBoost h=0, mixed | XGBoost h=5, mixed |
+|---|---|---|---|---|---|
+| Multi-antenna | 35.27 ± 0.54 m | 18.74 m (47% better) | 15.59 m (56%) | 17.48 m (50%) | 14.74 m (58%) |
+| Single-antenna | 38.50 ± 1.21 m | 36.33 m (**6%**) | 36.51 m (**5%**) | 31.90 m (17%) | 30.76 m (20%) |
+| All devices | 35.67 ± 0.43 m | 21.26 m (40%) | 18.58 m (48%) | 19.54 m (45%) | 17.05 m (52%) |
+
+- Seed-paired, the single-antenna model beats the constant guess by only 2.17 ± 1.19 m on uniform NLOS (Random Forest: 1.70 ± 0.98 m). Without interference it is 1.42 ± 1.04 m.
+- This reframes C3. It is not that history fails to help single-antenna devices; **on uniform NLOS a single-antenna device is barely localized at all**, with or without history. RSS and SINR from one BS over a 96 m cell at 21–157 m carry almost no position information under 10 dB shadowing.
+- On mixed data the single-antenna models are 17–20% better than the guess, which is where A6's gain lives.
+- This also answers the reviewers' concern about "how large the errors are": the constant-guess figure is the reference to quote beside every macro-cell error. The 68 m RSS ranging figure is not a usable baseline, since guessing the centre already gives 36 m.
+
 ---
 
 ## Part B. Verdict on each skeleton claim
@@ -301,8 +340,8 @@ Mixed dataset, 5 seeds, single-antenna gain over `snap`. Source: `followup_2026_
 | Bullet | Verdict | Notes |
 |---|---|---|
 | Multi-antenna devices (~15 m) are range-limited; 90% of error variance radial | **Supported** | 20 seeds: radial share of squared error 92% at h=0, 90% at h=5 (XGBoost); RF 93% / 92%. |
-| "About 5× better than the RSS-only bound σ_r ≈ 68 m" | **Overstated** | 67.94 m is right (`pathloss_fit_summary.json`), but it is a standard deviation compared with a mean absolute error. Radial RMS at h=5 is 17.5 m, so **about 4×**. Also call it a single-snapshot RSS ranging resolution, not a bound. |
-| Single-antenna (~35 m): tangential 25.3 m > radial 20.1 m; history changes neither | **Supported** | 20 seeds: radial 21.0 → 21.1, tangential 25.2 → 25.3. |
+| "About 5× better than the RSS-only bound σ_r ≈ 68 m" | **Overstated; weak baseline** | 67.94 m is right (`pathloss_fit_summary.json`), but it is a standard deviation compared with a mean absolute error. Radial RMS at h=5 is 17.5 m, so **about 4×**. It is also not a meaningful reference: always guessing the centroid gives 35 m (A15). Quote the constant-guess baseline instead. |
+| Single-antenna (~35 m): tangential 25.3 m > radial 20.1 m; history changes neither | **Supported, but incomplete** | 20 seeds: radial 21.0 → 21.1, tangential 25.2 → 25.3. The report must add that a constant guess gives 38.5 m: these devices are localized only 5–6% better than no measurement at all (A15). |
 | "Placed at about the right distance but the wrong bearing" | **Contradicted** | A5: radial error is larger than for multi-antenna devices (21 m vs 14 m), range correlation 0.51, radial bias −10 m. Say "error is dominated by the bearing component (about 60% of squared error) and the range component is also worse". |
 | Single-antenna null on uniform NLOS, −1.39 to +0.32 m, XGBoost 0.06 ± 0.18 | **Supported, caveat** | Exact (5 seeds). At 20 seeds XGBoost −0.18 ± 0.34; Random Forest +0.42 ± 0.39, marginal. With a 50% single-antenna share XGBoost +0.30 ± 0.24, Random Forest +0.18 ± 0.24 (A12). Write "no more than about 1%", not "none". |
 | 5–10 single-antenna test users per split | **Supported** | 3–11 over the 20 seeds. |
@@ -380,9 +419,12 @@ Open question raised by Part A: the controlled-grid gain without AoA may be the 
 8. **The two device groups fail differently:** multi-antenna error is 90% radial; single-antenna error is about 60% tangential with a worse radial component as well.
 9. **The blocked-LOS corridor shows a 30–41% multi-antenna gain at every strip width, the same outside the blocked stretch,** and nothing for single-antenna devices.
 10. **The stored "no history" input already contains one step of change,** worth 0.4–0.6 m (14–20% of the gain) for the tree models.
+11. **None of this depends on the interfering base stations.** Switching them off costs multi-antenna devices 0.6–1.0 m and leaves the history gain slightly larger.
+12. **Reference level: always guessing the centroid gives 35–38 m.** Multi-antenna devices are 47% better at h=0 and 56% better at h=5. Single-antenna devices are 5–6% better on uniform NLOS, with or without history, and 17–20% better under mixed propagation.
 
 ## Part D. What remains open or unverifiable
 
+- **Interference geometry.** A14 switches the interferers off; rotating them to other positions (Gilad's first suggestion) was not run. Given how little they matter, it is unlikely to change anything.
 - **How correlated real AoA errors are.** The report's headline sits between the ρ = 0 and ρ ≈ 1 rows of A2, and nothing here says where. This is the main limitation to state.
 - **Intermediate AoA error correlations for the neural models.** Only ρ = 0 and ρ = 0.9 were run for them; the trees have ρ = 0, 0.5, 0.9, 0.99.
 - **Whether the neural models share the mixed-data single-antenna gain** (A13): five seeds cannot settle it.

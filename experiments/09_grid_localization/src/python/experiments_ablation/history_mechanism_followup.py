@@ -23,7 +23,9 @@ and by seed). It adds:
      impairment, to test whether the angle-history gain is the averaging of
      per-sample AoA error and how it depends on that error being independent
      from one sample to the next.
-  5. More seeds (default 20), Student-t intervals, and per-group radial /
+  5. --no-interference recomputes SINR as SNR: the same simulation with the two
+     interfering base stations switched off (an exact A/B, no new MATLAB run).
+  5b. More seeds (default 20), Student-t intervals, and per-group radial /
      tangential RMS, radial share of squared error and range correlation.
   6. --b6: the blocked line-of-sight corridor, stratified by device group,
      blocked / unblocked and strip width.
@@ -236,6 +238,23 @@ def prepare_correlated(data_dir, bs_pos, seed, single_ant_ratio, noise_std, quan
     return build_derived_features(df)
 
 
+NOISE_FLOOR_DBM = -104.0   # p_noise in the MATLAB runners
+
+
+def remove_interference(df):
+    """Copy of df with SINR recomputed as if the two interfering BSs were off.
+
+    The runners compute rss = 10log10(p_sig / 1 mW) + antenna_gain_db and
+    sinr = 10log10(p_sig / (p_int + p_noise)) with p_noise = -104 dBm. Without
+    interferers p_int = 0, so sinr = rss - antenna_gain_db + 104 exactly. The
+    serving-link channel, the walks and every other column are untouched, so
+    this is the exact counterfactual of the same simulation without interference.
+    """
+    df = df.copy()
+    df['sinr'] = (df['rss'] - df['antenna_gain_db'] - NOISE_FLOOR_DBM).astype(df['sinr'].dtype)
+    return df
+
+
 def keep_awake():
     """Stop Windows from sleeping while this process runs (no-op elsewhere)."""
     try:
@@ -315,6 +334,8 @@ def main():
     ap.add_argument('--aoa-noise-corr', type=float, default=None,
                     help='lag-1 correlation of the AoA error along a walk (AR(1)); '
                          'omit for the original independent error')
+    ap.add_argument('--no-interference', action='store_true',
+                    help='recompute SINR as SNR, i.e. the same simulation with the interfering BSs off')
     ap.add_argument('--conditions', nargs='+', default=None,
                     help='subset of conditions to run (snap is always included)')
     ap.add_argument('--history', type=int, default=5)
@@ -355,6 +376,8 @@ def main():
                else f'aoa{args.aoa_noise_std:g}n{args.aoa_quant_step:g}q_')
     if args.aoa_noise_corr is not None:
         aoa_tag += f'rho{args.aoa_noise_corr:g}_'
+    if args.no_interference:
+        aoa_tag += 'noint_'
     out_dir = (PROJECT_ROOT / 'results' / 'notebook_experiments' / 'multi_user_poc'
                / f'history_mechanism_followup_{aoa_tag}{data_dir.name}_{run_ts}')
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -380,6 +403,8 @@ def main():
         else:
             df = prepare_correlated(data_dir, bs_pos, seed, args.single_ant_ratio,
                                     args.aoa_noise_std, args.aoa_quant_step, args.aoa_noise_corr)
+        if args.no_interference:
+            df = remove_interference(df)
         if b6_extra is not None:
             df = df.merge(b6_extra, on=['user_id', 'step_index'], how='left', validate='one_to_one')
             if df['in_blocked_segment'].isna().any():
@@ -509,6 +534,7 @@ def main():
                  'single_ant_ratio': args.single_ant_ratio, 'has_real_los': has_los,
                  'aoa_noise_std_deg': args.aoa_noise_std, 'aoa_quant_step_deg': args.aoa_quant_step,
                  'aoa_noise_lag1_corr': args.aoa_noise_corr,
+                 'interference': 'removed (SINR recomputed as SNR)' if args.no_interference else 'as simulated',
                  'interval': 'Student-t 95% over seed-paired differences',
                  'regions': [{'name': n, 'label': s, 'centre': list(c)} for n, s, c in VORONOI],
                  'protocol': 'macro-cell protocol: unseen-user split, classical models, '

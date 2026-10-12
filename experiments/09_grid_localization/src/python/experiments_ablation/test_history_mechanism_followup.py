@@ -146,6 +146,15 @@ def test_ar1_noise_std_and_correlation():
     assert np.allclose(np.diff(F.ar1_noise(50, 4.0, 1.0, rng)), 0.0)
 
 
+def test_remove_interference_gives_snr():
+    df = pd.DataFrame({'rss': np.array([-60.0, -80.0], np.float32),
+                       'antenna_gain_db': np.array([3.0, 0.0], np.float32),
+                       'sinr': np.array([5.0, 7.0], np.float32), 'other': [1, 2]})
+    out = F.remove_interference(df)
+    assert np.allclose(out['sinr'], [-60.0 - 3.0 + 104.0, -80.0 + 104.0])
+    assert list(df['sinr']) == [5.0, 7.0] and list(out['other']) == [1, 2]
+
+
 if __name__ == '__main__':
     tests = [v for k, v in sorted(globals().items()) if k.startswith('test_') and callable(v)]
     for t in tests:
