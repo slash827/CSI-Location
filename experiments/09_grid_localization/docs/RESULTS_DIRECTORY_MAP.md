@@ -83,3 +83,16 @@ The three runs that matter use **different simulated data**. Sample counts and V
 ## 6. Decision for the author
 
 The 06-12 datasets can be kept, with the limits in §3 stated, or the two simulations can be regenerated from the committed configs and the full pipeline re-run, so that every controlled-grid number comes from one dataset and one noise model with a saved config snapshot. The second option costs about two hours of MATLAB plus about five hours of pipeline time per placement, changes the numbers in §7.2–7.3 slightly, and removes the mixing described in §2. It also lets defect 1 above be fixed first, using the per-segment approach from `run_multi_user_300_25x25_mixed.m`.
+
+## 7. Found while regenerating (2026-10-13)
+
+1. **Every run of `core/generate_simulation_data.m` used 2.6 GHz, not the configured carrier.** The generator read `channel.center_frequency` but never passed it to QuaDRiGa, whose default is 2.6 GHz; the MATLAB log of the 2026-06-12 NE run says "1 frequency (2.6 GHz)". This covers the controlled-grid simulations (config 3.5 GHz), the early single-user grid-size sweeps and the 25×25 regression simulation behind §7.4 (config 3.0 GHz). The macro-cell runners (`run_multi_user_300_25x25*.m`, `run_b6_los_blocked_los.m`) set `l.simpar.center_frequency` themselves and were not affected. The report's statement that the controlled grid ran at 3.5 GHz and the sweeps at 3.0 GHz is therefore wrong for every existing simulation of that generator. Fixed in commit `59b6f9f`; the regenerated 15×15 data is at 3.5 GHz.
+2. **Per-cell scenarios** never took effect (§4, defect 1). The generator now takes `channel.mixed_scenario.uniform_scenario` (UMi NLOS in both 15×15 configs) and applies it to the whole walk; Voronoi cells stay as labels. Commit `32f5158`.
+3. **Provenance is now saved.** Both runners copy the config into the output folder as `data_generation_config.jsonc` and store git commit, carrier frequency, bandwidth, scenario, transmit power and interferer positions in `experiment_info.mat`.
+
+### Regenerated set
+
+Simulations (MATLAB, 2026-10-13): `sim_data_multi_user_2026-10-13_*` and `sim_data_ne_bs_2026-10-13_*` under `results/grid_localization/grid_15x15/`, 3.5 GHz, uniform UMi NLOS, same walk seeds and device profiles as before, config from the repository at commit `a86ae4a`.
+Pipeline output, full run with every experiment, plots, per-grid-point MAE maps and the data-volume sweep, `--sinr-dependent-aoa`, default hyperparameters: `results/controlled_grid_2026_10/centre_bs` and `results/controlled_grid_2026_10/ne_bs`.
+XGBoost stays on the CPU: on a 200,000-sample 225-class test the GPU fit took 107 s against 148 s on the CPU (with MATLAB running), too small a gain to justify changing the numerics.
+
