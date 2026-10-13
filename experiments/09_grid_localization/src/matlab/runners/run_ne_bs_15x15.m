@@ -68,7 +68,11 @@ fprintf('Start time:       %s\n', datestr(now));
 fprintf('Output directory: %s\n\n', output_dir);
 
 %% Config and device profiles
-config_name = 'ne_bs_voronoi_15x15_config.jsonc';
+if evalin('base', 'exist(''RUNNER_CONFIG_NAME'', ''var'')') && ~isempty(evalin('base', 'RUNNER_CONFIG_NAME'))
+    config_name = evalin('base', 'RUNNER_CONFIG_NAME');
+else
+    config_name = 'ne_bs_voronoi_15x15_config.jsonc';
+end
 
 % Each row: [n_antennas, antenna_gain_db, ue_height_m, walk_seed]
 profiles = [

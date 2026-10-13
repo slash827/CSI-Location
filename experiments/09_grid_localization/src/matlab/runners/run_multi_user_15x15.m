@@ -45,6 +45,13 @@ global OVERRIDE_OUTPUT_DIR;
 global OVERRIDE_OUTPUT_FILENAME;
 global OVERRIDE_USER_ID;
 
+%% Config to use (RUNNER_CONFIG_NAME in the base workspace overrides the default)
+if evalin('base', 'exist(''RUNNER_CONFIG_NAME'', ''var'')') && ~isempty(evalin('base', 'RUNNER_CONFIG_NAME'))
+    config_name = evalin('base', 'RUNNER_CONFIG_NAME');
+else
+    config_name = 'multi_user_voronoi_15x15_config.jsonc';
+end
+
 %% Setup paths and shared output directory
 script_dir      = fileparts(mfilename('fullpath'));          % runners/
 src_matlab_dir  = fileparts(script_dir);                    % src/matlab/
@@ -83,7 +90,7 @@ for u = 1:n_users
             profiles(u, 1), profiles(u, 2), profiles(u, 3), profiles(u, 4));
 
     % Set override globals for this user
-    OVERRIDE_CONFIG_NAME    = 'multi_user_voronoi_15x15_config.jsonc';
+    OVERRIDE_CONFIG_NAME    = config_name;
     OVERRIDE_WALK_SEED      = profiles(u, 4);
     OVERRIDE_N_RX_ANTENNAS  = profiles(u, 1);
     OVERRIDE_ANTENNA_GAIN_DB = profiles(u, 2);
@@ -124,7 +131,6 @@ for u = 1:n_users
 end
 
 %% Save a copy of the config used and the provenance of this run
-config_name = 'multi_user_voronoi_15x15_config.jsonc';
 config_path = fullfile(experiment_root, 'configs', config_name);
 copyfile(config_path, fullfile(output_dir, 'data_generation_config.jsonc'));
 [~, git_commit] = system(sprintf('git -C "%s" rev-parse HEAD', workspace_root));

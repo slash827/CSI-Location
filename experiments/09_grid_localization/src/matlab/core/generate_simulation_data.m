@@ -457,6 +457,30 @@ if mixed_scenario_enabled
         l.rx_track.scenario = {config_json.channel.mixed_scenario.uniform_scenario};
         fprintf('  Scenario: UNIFORM %s for the whole walk (Voronoi cells are labels only)\n', ...
             config_json.channel.mixed_scenario.uniform_scenario);
+    elseif isfield(config_json.channel.mixed_scenario, 'per_cell_segments') && ...
+           config_json.channel.mixed_scenario.per_cell_segments
+        % Real per-cell propagation: split the track into one QuaDRiGa segment per
+        % run of snapshots inside the same Voronoi cell, each with that cell's scenario.
+        % Runs shorter than min_segment_snapshots (boundary jitter) are merged into the
+        % previous segment, and neighbouring runs of the same cell are joined.
+        min_run = 100;
+        if isfield(config_json.channel.mixed_scenario, 'min_segment_snapshots')
+            min_run = config_json.channel.mixed_scenario.min_segment_snapshots;
+        end
+        cid    = voronoi_assignments(:)';
+        starts = [1, find(diff(cid) ~= 0) + 1];
+        lens   = diff([starts, numel(cid) + 1]);
+        keep   = lens >= min_run;  keep(1) = true;
+        starts = starts(keep);
+        seg_cells = cid(starts);
+        dup    = [false, diff(seg_cells) == 0];
+        starts = starts(~dup);
+        seg_cells = seg_cells(~dup);
+        l.rx_track.segment_index = starts;
+        % one row per transmitter (serving BS and interferers use the same scenario)
+        seg_scen = voronoi_scenarios(seg_cells);
+        l.rx_track.scenario = repmat(seg_scen(:)', l.no_tx, 1);
+        fprintf('  Scenario: PER-CELL, %d segments (min run %d snapshots)\n', numel(starts), min_run);
     else
         fprintf('  WARNING: one-segment track, scenario of the first cell applies to the whole walk: %s\n', ...
             scenario_per_segment{1});
