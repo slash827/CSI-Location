@@ -53,7 +53,7 @@
 
   "channel": {
     "scenario": "3GPP_38.901_UMi_NLOS",
-    "center_frequency": 3.5e9,
+    "center_frequency": 3.0e9,
     "bandwidth": 1e8,
     "n_subcarriers": 256,
     "interference_per_sc_dbm": -999,
