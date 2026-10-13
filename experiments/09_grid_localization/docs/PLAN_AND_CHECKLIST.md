@@ -46,17 +46,21 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [x] M3 (macro): `error_maps_macro.py` writes error distribution, error maps by position, error by range and histogram from the saved per-sample errors (uniform NLOS and mixed). Results in `docs/results_of_record/error_audit/macro_*`
 - [x] M7: macro per-user `.mat` files store `grid_point_id`, `x_pos`, `y_pos`, `step_index`, `timestamp_sec`, `speed_ms`, plus a 300-row `user_manifest`; the 15x15 files store the same fields. Answer to Sarit: yes
 
+- [x] Reproduction attempt of the 2026-06-12 data with the committed code (`6c1c02a`) and configs, user 1, seed 100, 2.6 GHz default (finished 00:00). **Not reproducible.**
+  - Centre: walk, x/y and the clean AoA values are bit-identical to the June file, but RSS differs (per-cell map correlation 0.51, mean 1.9 dB, sd 4.7 dB) and SINR is uncorrelated (corr -0.14, mean 10 dB lower). So the June RSS/SINR came from settings that are not in the repository at that commit (probably an uncommitted working tree).
+  - NE: the walk itself differs (different grid points, positions, angles), so the June NE file was made with a different seed or walk configuration.
+  - Determinism holds (the old code and the current code give identical results on the same short walk), so the difference is real, not run-to-run noise.
+  - Consequence: the June results cannot be regenerated; say so to the instructors and rely on the documented regenerated sets. The centre no-AoA numbers happen to agree with the RMa LOS regeneration, the NE ones do not.
+
 ### 4.2 Running now
 
 - [ ] Extended history and CNN, RMa LOS, centre BS (started ~15:44, about 2 h)
-- [ ] Reproduce the June 2026-06-12 data exactly: old code (commit `6c1c02a`) and old configs, user 1 only, centre and NE, compare RSS arrays with the June files (started 23:15; about 40-60 min)
-  - Why: the June centre numbers are close to the RMa 3.0 GHz regeneration (BASE_H3 XGBoost 51.0 % against 50.6 %), but the June NE numbers (86.0 %) are far from every regeneration (48.6 % RMa, 57.3 % mixed) and even from the May NE run (60.9 %). If user 1 reproduces bit for bit, the difference is in the settings (listed in `OLD_VS_REGENERATED_RUNS.md`); if not, the June NE simulation was made under settings that are not in the repository.
 - [ ] NLOS 3.0 GHz simulations, centre and NE (started 15:47); then the headline-experiment pipelines
 
 ### 4.3 To do
 
 Explaining the old results to the instructors (requested 2026-10-13)
-- [ ] `docs/OLD_VS_REGENERATED_RUNS.md`: for every earlier result set, say whether it is reproduced, changed, or unaffected, and name the settings that differ (carrier, scenario, cells, walks, interferers, noise model)
+- [ ] `docs/OLD_VS_REGENERATED_RUNS.md` (add the reproduction result above): for every earlier result set, say whether it is reproduced, changed, or unaffected, and name the settings that differ (carrier, scenario, cells, walks, interferers, noise model)
   - Draft table is in section 7 below; finish after the June reproduction finishes.
 - [ ] Decide which old result sets stay in the report (centre June is reproduced by the RMa 3.0 set for the no-AoA experiments; NE June is not reproduced by anything)
 
