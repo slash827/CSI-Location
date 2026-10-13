@@ -89,7 +89,7 @@ Documentation
 - [ ] Rewrite report Section 5 (and Section 4 setup text) from the final sets; add the extended-history and CNN results to Section 5 or the mechanism section
 - [ ] Update the abstract, discussion and limitations for the new numbers and for the propagation caveat
 - [ ] Update `RESULTS_DIRECTORY_MAP.md`, `results_of_record/MANIFEST.md`, `CONTINUE_HERE.md`
-- [ ] Update `CLAUDE.md` baselines and `test_results_sanity.py` paths to the primary set
+- [ ] Update `CLAUDE.md` baselines and `test_results_sanity.py` paths to the primary set (the test now reads `centre_bs_nlos35` / `ne_bs_nlos35`, so it is not skipped; repoint it to the headline set)
 - [ ] Regenerate `compare_placements` and MAE heat map figures from the primary set
 - [ ] Section 8 "predictions fixed before the experiment": still unverifiable, remove or source it
 - [ ] `reference.bib` (citations are undefined), cut the report to about 12 pages, thesis conversion

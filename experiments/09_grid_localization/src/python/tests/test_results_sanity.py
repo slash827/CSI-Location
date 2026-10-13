@@ -22,8 +22,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 ROOT        = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-CENTER_CSV  = ROOT / 'results' / 'controlled_grid_2026_10' / 'centre_bs' / 'csvs' / 'results_summary.csv'
-NE_CSV      = ROOT / 'results' / 'controlled_grid_2026_10' / 'ne_bs' / 'csvs' / 'results_summary.csv'
+CENTER_CSV  = ROOT / 'results' / 'controlled_grid_2026_10' / 'centre_bs_nlos35' / 'csvs' / 'results_summary.csv'
+NE_CSV      = ROOT / 'results' / 'controlled_grid_2026_10' / 'ne_bs_nlos35' / 'csvs' / 'results_summary.csv'
 CENTER_DATA = ROOT / 'results' / 'grid_localization' / 'grid_15x15' / 'sim_data_multi_user_2026-10-13_01-02-45'
 NE_DATA     = ROOT / 'results' / 'grid_localization' / 'grid_15x15' / 'sim_data_ne_bs_2026-10-13_01-02-42'
 
