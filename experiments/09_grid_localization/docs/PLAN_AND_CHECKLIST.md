@@ -63,8 +63,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 ### 4.3 To do
 
 Explaining the old results to the instructors (requested 2026-10-13)
-- [ ] `docs/OLD_VS_REGENERATED_RUNS.md` (add the reproduction result above): for every earlier result set, say whether it is reproduced, changed, or unaffected, and name the settings that differ (carrier, scenario, cells, walks, interferers, noise model)
-  - Draft table is in section 7 below; finish after the June reproduction finishes.
+- [x] `docs/OLD_VS_REGENERATED_RUNS.md` written (first version, 2026-10-14): which earlier results are reproduced, changed or unaffected, the reproduction result, and the 20-30 m explanation. Update the NLOS 3.0 centre row and the extended-history numbers when the last runs finish
 - [ ] Decide which old result sets stay in the report (centre June is reproduced by the RMa 3.0 set for the no-AoA experiments; NE June is not reproduced by anything)
 
 Instructor requests from the 2026-10-12 meeting (section 6; do these before the next meeting)
