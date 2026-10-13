@@ -36,7 +36,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [x] Runners store the config copy, git commit and settings with each simulation
 - [x] NLOS 3.5 GHz simulations and full pipelines; technical documentation §7.2–7.3 and report Section 5 rewritten from them (commit `a585ca7`; to be redone from the final set, see 4.3)
 - [x] Configs switched to 3.0 GHz; RMa LOS simulations and full pipelines (finished 14:04 / 14:12)
-- [x] Mixed per-cell simulations (finished by 15:47)
+- [x] Mixed per-cell simulations and full pipelines, centre and NE (pipelines finished 21:30 / 21:32)
 - [x] `grid_history_extended.py` (h = 0…15 for XGBoost, RF, 1D-CNN) written and smoke-tested
 - [x] Extended history and CNN, RMa LOS, NE BS (finished 15:43). Trees stop improving at h≈3 (XGBoost flat, RF worse beyond h=3); the CNN keeps improving up to h=15 without reaching the trees.
 
@@ -49,10 +49,16 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 ### 4.2 Running now
 
 - [ ] Extended history and CNN, RMa LOS, centre BS (started ~15:44, about 2 h)
-- [ ] Mixed per-cell pipelines, centre and NE (started 15:47, about 2–3 h each)
+- [ ] Reproduce the June 2026-06-12 data exactly: old code (commit `6c1c02a`) and old configs, user 1 only, centre and NE, compare RSS arrays with the June files (started 23:15; about 40-60 min)
+  - Why: the June centre numbers are close to the RMa 3.0 GHz regeneration (BASE_H3 XGBoost 51.0 % against 50.6 %), but the June NE numbers (86.0 %) are far from every regeneration (48.6 % RMa, 57.3 % mixed) and even from the May NE run (60.9 %). If user 1 reproduces bit for bit, the difference is in the settings (listed in `OLD_VS_REGENERATED_RUNS.md`); if not, the June NE simulation was made under settings that are not in the repository.
 - [ ] NLOS 3.0 GHz simulations, centre and NE (started 15:47); then the headline-experiment pipelines
 
 ### 4.3 To do
+
+Explaining the old results to the instructors (requested 2026-10-13)
+- [ ] `docs/OLD_VS_REGENERATED_RUNS.md`: for every earlier result set, say whether it is reproduced, changed, or unaffected, and name the settings that differ (carrier, scenario, cells, walks, interferers, noise model)
+  - Draft table is in section 7 below; finish after the June reproduction finishes.
+- [ ] Decide which old result sets stay in the report (centre June is reproduced by the RMa 3.0 set for the no-AoA experiments; NE June is not reproduced by anything)
 
 Instructor requests from the 2026-10-12 meeting (section 6; do these before the next meeting)
 - [x] M1/M2: audit that MAE and accuracy are computed correctly (done, see 4.1; repeat the decomposition on the final headline set)
@@ -123,4 +129,26 @@ Source: `docs/File-פגישה עם דודי ושרית 12.10.26.srt` (machine tr
 | M10 | Next meeting with the answers | all | Pending M1–M3 |
 
 Cause of the confusion in M1: the slide put the 15×15 classification study (2 m cells, exact-cell accuracy) beside the 25×25 regression study (4 m, no classification), and their numbers were read as one experiment. The 15×15 numbers they saw (80 % accuracy, below 0.5 m) come from the June data, which is superseded (section 2).
+
+## 7. Old against regenerated controlled-grid runs (XGBoost accuracy % / MAE m)
+
+All with `--sinr-dependent-aoa`, history 3, default hyperparameters unless noted. "May run" is the May 2026 run (tuned RF, older simulations `sim_data_*_2026-03-02` and `2026-04-11`); "June" is `*_optimal` (simulations of 2026-06-12).
+
+| Centre BS | BASE | BASE_H3 | BASE_A | BASE_A_H3 |
+|---|---|---|---|---|
+| May run | 25.7 / 8.56 | 48.9 / 4.64 | 81.7 / 0.45 | 83.2 / 0.40 |
+| June | 28.6 / 8.66 | 51.0 / 4.86 | 80.2 / 1.16 | 82.4 / 0.85 |
+| RMa LOS, 3.0 GHz | 33.5 / 6.84 | 50.6 / 3.79 | 68.3 / 1.72 | 71.6 / 1.35 |
+| Mixed per-cell, 3.0 GHz | 31.7 / 8.06 | 59.1 / 3.77 | 75.5 / 1.43 | 78.6 / 1.00 |
+| NLOS, 3.5 GHz | 13.8 / 10.40 | 28.2 / 7.24 | 63.9 / 1.97 | 67.5 / 1.37 |
+
+| NE BS | BASE | BASE_H3 | BASE_A | BASE_A_H3 |
+|---|---|---|---|---|
+| May run | 37.5 / 6.28 | 60.9 / 2.93 | 61.4 / 2.05 | 68.4 / 1.32 |
+| June | 57.2 / 5.34 | 86.0 / 1.37 | 81.7 / 1.80 | 88.3 / 0.94 |
+| RMa LOS, 3.0 GHz | 31.4 / 6.03 | 48.6 / 3.48 | 46.0 / 3.39 | 52.6 / 2.51 |
+| Mixed per-cell, 3.0 GHz | 31.6 / 7.37 | 57.3 / 3.55 | 49.6 / 4.61 | 58.4 / 3.06 |
+| NLOS, 3.5 GHz | 11.3 / 10.49 | 24.6 / 7.42 | 23.2 / 6.74 | 30.9 / 4.86 |
+
+Reading: at the centre BS the no-AoA results of the old runs are reproduced by the RMa LOS regeneration (BASE_H3 51.0 against 50.6), the AoA results are lower (BASE_A_H3 82.4 against 71.6). At the NE BS the June run is an outlier even against the May run (BASE_H3 86.0 against 60.9); no regeneration comes near it. The settings that differ between June and the regeneration are: carrier 2.6 against 3.0 GHz; cell layout (June: `auto_generate` with seed 42 and area types; now explicit cells); scenario (June: the first auto cell, RMa LOS; now uniform or per cell); NE interferers ([19,-10] and [-10,19] in June, [-11,19] and [19,-11] now); the NE walks (differ between the June data and every regeneration).
 
