@@ -1,0 +1,64 @@
+{
+  "data_dir": "results\\grid_localization\\grid_15x15\\sim_data_ne_bs_2026-10-13_10-43-29",
+  "spacing_m": 2.0,
+  "model": "xgboost",
+  "results": {
+    "BASE": {
+      "h": 0,
+      "n_test": 90000,
+      "accuracy": 0.31362222222222225,
+      "mae_m": 6.061690604064633,
+      "mean_error_of_wrong_m": 8.831420247447422,
+      "identity_mae_equals_(1-acc)*wrong": 6.0616906040646334,
+      "share_exact": 0.31362222222222225,
+      "share_within_1_cell": 0.4895555555555556,
+      "share_within_2_cells": 0.6099333333333333,
+      "share_within_3_cells": 0.7241888888888889,
+      "median_m": 4.0,
+      "p90_m": 16.492422502470642,
+      "mae_per_grid_point_equal_weight_m": 6.206741993330296,
+      "test_rows_per_cell_min_max": [
+        156,
+        537
+      ]
+    },
+    "BASE_H3": {
+      "h": 3,
+      "n_test": 90000,
+      "accuracy": 0.4887666666666667,
+      "mae_m": 3.4835742827814475,
+      "mean_error_of_wrong_m": 6.81405936515899,
+      "identity_mae_equals_(1-acc)*wrong": 3.4835742827814475,
+      "share_exact": 0.4887666666666667,
+      "share_within_1_cell": 0.6850666666666667,
+      "share_within_2_cells": 0.7873,
+      "share_within_3_cells": 0.8624333333333334,
+      "median_m": 2.0,
+      "p90_m": 10.770329614269007,
+      "mae_per_grid_point_equal_weight_m": 3.462611137858969,
+      "test_rows_per_cell_min_max": [
+        156,
+        537
+      ]
+    },
+    "BASE_A_H3": {
+      "h": 3,
+      "n_test": 90000,
+      "accuracy": 0.5245333333333333,
+      "mae_m": 2.5099100195522905,
+      "mean_error_of_wrong_m": 5.278834870062304,
+      "identity_mae_equals_(1-acc)*wrong": 2.50991001955229,
+      "share_exact": 0.5245333333333333,
+      "share_within_1_cell": 0.7473333333333333,
+      "share_within_2_cells": 0.8518222222222223,
+      "share_within_3_cells": 0.9232111111111111,
+      "median_m": 0.0,
+      "p90_m": 7.211102550927978,
+      "mae_per_grid_point_equal_weight_m": 2.470564521148614,
+      "test_rows_per_cell_min_max": [
+        156,
+        537
+      ]
+    }
+  }
+}

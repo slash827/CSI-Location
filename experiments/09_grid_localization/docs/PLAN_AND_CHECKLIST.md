@@ -40,6 +40,12 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [x] `grid_history_extended.py` (h = 0…15 for XGBoost, RF, 1D-CNN) written and smoke-tested
 - [x] Extended history and CNN, RMa LOS, NE BS (finished 15:43). Trees stop improving at h≈3 (XGBoost flat, RF worse beyond h=3); the CNN keeps improving up to h=15 without reaching the trees.
 
+- [x] M1/M2 audit, part 1: `tests/test_error_metrics.py` (7 tests: known predictions give known accuracy and MAE; MAE = (1 - accuracy) x mean wrong-cell distance)
+- [x] M1/M2 audit, part 2: `error_audit_grid.py` on the RMa LOS NE set, XGBoost. The identity holds exactly (BASE_H3: 48.9 % exact, wrong predictions 6.81 m off, MAE 3.48 m = 0.511 x 6.81). Results in `docs/results_of_record/error_audit/grid_ne_rmalos/`
+- [x] M4: equal-weight (per grid point) MAE equals the sample-weighted MAE to within 0.06 m (BASE_H3 3.46 m against 3.48 m; BASE 6.21 against 6.06; BASE_A_H3 2.47 against 2.51)
+- [x] M3 (macro): `error_maps_macro.py` writes error distribution, error maps by position, error by range and histogram from the saved per-sample errors (uniform NLOS and mixed). Results in `docs/results_of_record/error_audit/macro_*`
+- [x] M7: macro per-user `.mat` files store `grid_point_id`, `x_pos`, `y_pos`, `step_index`, `timestamp_sec`, `speed_ms`, plus a 300-row `user_manifest`; the 15x15 files store the same fields. Answer to Sarit: yes
+
 ### 4.2 Running now
 
 - [ ] Extended history and CNN, RMa LOS, centre BS (started ~15:44, about 2 h)
@@ -47,6 +53,27 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [ ] NLOS 3.0 GHz simulations, centre and NE (started 15:47); then the headline-experiment pipelines
 
 ### 4.3 To do
+
+Instructor requests from the 2026-10-12 meeting (section 6; do these before the next meeting)
+- [x] M1/M2: audit that MAE and accuracy are computed correctly (done, see 4.1; repeat the decomposition on the final headline set)
+  - Synthetic check: known predictions must give known accuracy and MAE (all right = 0 m, all one cell off = 2 m, mixed case = (1 - accuracy) x mean wrong-cell distance). Put it in a test file so it stays checked.
+  - Decomposition on a real run: re-train XGBoost on a 15x15 set, save the predictions, and show MAE = (1 - accuracy) x mean error of the wrong predictions, plus the histogram of the error distance. This answers Dudi's "80 % exact cannot give 30 m".
+  - Same identity for the macro study (regression: no exact-cell accuracy; show fraction of samples within 5, 10, 20 m instead).
+- [ ] M1: write the explanation of the 20-30 m errors (numbers are in; the paragraph and the slide are not)
+  - Finding: with multi-antenna devices the macro error is 19.0 m without and 15.4 m with history, against 37.1 m for always guessing the mean training position; only 8 % of samples are within 5 m and 60 % within 20 m. For single-antenna devices the error is 34.7 m against a constant guess of 33.6 m, so they are not localized at all (the map shows error above 50 m at the far corners).
+  - So the 20-30 m values are real and consistent with the weak information in one RSS reading at 20-160 m range; they are not a computation error. They cannot be compared with the 15x15 exact-cell accuracies, which are a different task at a different scale.
+  - Still to do: put this in the report (Section 6 already has the constant guess) and in the meeting slide, labelled by study.
+  - Compare them with the constant guess (35.3 m multi, 38.5 m single antenna): the best models are about 2x better, not near-perfect.
+  - Show where the error is: error against range from the BS, against cell, and the position map.
+  - State in one paragraph that the left (15x15 classification, 2 m cells) and right (25x25 regression, 4 m cells, 300 users, unseen users) plots are different experiments with different error scales.
+- [ ] M3: error maps for the single-user 25x25 regression runs (the macro study is done, see 4.1); 15x15 maps exist
+  - The macro per-sample errors are in `diagnostics_2026_10/baseline_uniform_nlos/errors_first_seed.npz`; check whether positions are stored, else re-run one seed with positions saved.
+  - Output: a figure for the report plus PNGs for the meeting.
+- [ ] M5: comparative figure across all settings tested (accuracy and MAE per setting, one consistent layout), for the meeting and for the report
+- [ ] M4: mention the equal-weight check (difference below 0.1 m) in the report or the meeting notes
+- [ ] M6: give the 25x25 regression and macro runs the same set of plots and a short README of settings, like the 15x15 sets
+- [ ] M10: prepare the slides/notes for the next meeting: old vs new 15x15 numbers and why they differ (section 2), M1-M5
+
 
 Experiments
 - [ ] Extended history and CNN on the mixed set (centre and NE)
