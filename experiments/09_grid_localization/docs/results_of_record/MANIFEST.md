@@ -249,3 +249,7 @@ file here is correct.
 
 All of these require the simulation data under `results/grid_localization/grid_25x25/`,
 which is gitignored — see `docs/Project_documentation/SHARING.md` for how to obtain it.
+
+## controlled_grid_2026_10 — regenerated 15x15 controlled grid (2026-10-13)
+
+Source: `results/controlled_grid_2026_10/{centre_bs,ne_bs}` (local, gitignored); data `sim_data_multi_user_2026-10-13_01-02-45` (centre) and `sim_data_ne_bs_2026-10-13_01-02-42` (NE), generated at 3.5 GHz with one uniform UMi NLOS scenario for every walk (generator commit `a86ae4a`). Pipeline: `multi_user_pipeline.py --sinr-dependent-aoa --models xgboost rf --history 3 --n-jobs 8`, all experiments, no tuned parameters. Each folder holds `results_summary.csv`, `per_user_breakdown.csv`, `per_cell_breakdown.csv`, `data_volume_sweep.csv`, `experiment_config.json`, `PIPELINE_REPORT.md` and the simulation's `data_generation_config.jsonc`. Backs technical_documentation.md §7.2–7.3 and report Section 5. Supersedes the 2026-06-12 results (data at 2.6 GHz, walk-start scenarios).

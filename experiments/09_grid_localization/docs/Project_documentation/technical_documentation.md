@@ -388,16 +388,16 @@ Both models are trained on 0-indexed labels for XGBoost compatibility, then mapp
 
 > **TODO (length):** target half a page in the final write-up.
 
-**Core thesis confirmed:** Transition history improves localization accuracy at every scale tested — 6 grid sizes (9–400 classes), 4 ML algorithms, and 2 BS placements — with a consistent gain of **+22 pp to +29 pp** (XGBoost, RSS+SINR).
+**Core thesis confirmed:** Transition history improves localization accuracy at every scale tested — 6 grid sizes (9–400 classes), 4 ML algorithms, and 2 BS placements. On the regenerated 15×15 controlled grid (§7.2–7.3) the gain is +9.7 to +14.4 pp (XGBoost and RF, RSS+SINR), a 27–33 % lower mean error; the larger gains quoted for the grid-size sweeps come from earlier single-user simulations.
 
 **Central comparative result:**
 
 | Metric | Center BS (360°) | NE BS (52°) |
 |---|---|---|
-| History gain (BASE → BASE_H3, XGB) | +22.4 pp | +28.8 pp |
-| AoA gain (BASE_H3 → BASE_A_H3, XGB) | +31.4 pp | +2.3 pp |
+| History gain (BASE → BASE_H3, XGB) | +14.4 pp | +13.3 pp |
+| AoA gain (BASE_H3 → BASE_A_H3, XGB) | +39.2 pp | +6.2 pp |
 
-History gain is **placement-independent** (and actually stronger in the NE layout due to cleaner distance gradients). AoA gain collapses from **+31.4 pp** to **+2.3 pp** when azimuth spread narrows from 360° to 52° — the residual gain comes from elevation encoding distance. Device parameters add +8–9 pp on top of history; knowing the device type or UE height provides orthogonal information. AoA generalizes better across unknown devices than RSS/SINR because angle is geometrically, not electronically, determined.
+History gain is **placement-independent**. AoA gain collapses from **+39.2 pp** to **+6.2 pp** when azimuth spread narrows from 360° to 52°. Device parameters add +5–6 pp on top of history, but the user id alone is as informative, so this is a device-identity effect. On the unseen device, AoA models keep their accuracy at the centre BS.
 
 **Recommended feature set by deployment:**
 
@@ -539,162 +539,164 @@ All four algorithms benefit from history. Tree-based methods (RF, XGBoost) benef
 
 ### 7.2 Multi-User Voronoi 15×15 — Center BS
 
-The main experiment combines multi-user device heterogeneity with the full Voronoi environment. 5 device profiles, 450,005 samples, center BS.
+> **Regenerated 2026-10-13.** All numbers in §7.2 and §7.3 come from `results/controlled_grid_2026_10/{centre_bs,ne_bs}`, produced from simulations regenerated after two generator defects were fixed (see `RESULTS_DIRECTORY_MAP.md` §7): the configured 3.5 GHz carrier is now applied (the old data was at QuaDRiGa's 2.6 GHz default), and one propagation scenario (3GPP 38.901 UMi NLOS) now applies to the whole walk of every user (the old data ran each user under the scenario of the cell its walk started in, so some users had line of sight). Same grid, walks, seeds, device profiles and pipeline settings (XGBoost and RF, `--history 3`, `--sinr-dependent-aoa`, no tuned parameters). The earlier tables (centre BASE_H3 51.0 %, NE BASE_H3 86.0 %, and so on) came from the old data and are superseded; they survive only in the archived result folders. Absolute accuracies are much lower now; the ordering of the experiments is mostly kept.
+
+The main experiment combines multi-user device heterogeneity with the Voronoi layout. 5 device profiles, 450,005 samples (80/20 chronological split per user), center BS at (19, 19, 10).
+
+**Reference level.** Always guessing the grid centre gives an MAE of about 10.9 m on the test portion. The `BASE` XGBoost model (10.40 m) is only 5 % better than that, `BASE` RF (9.18 m) is 16 % better. Treat the no-AoA experiments as modest gains over a near-trivial baseline.
 
 #### 7.2.1 Overall Results
 
-The table below shows the performance of the core configurations under the optimal dynamic, SINR-dependent AoA noise model evaluated on the 100% full dataset (360k training samples, 90k test samples):
-
 | Experiment | XGB Acc | XGB MAE | RF Acc | RF MAE |
 |------------|---------|---------|--------|--------|
-| BASE | 28.6% | 8.66 m | 46.0% | 6.41 m |
-| **BASE_H3** | **51.0%** | **4.86 m** | **54.5%** | **4.50 m** |
-| BASE_H3_dp | 59.1% | 3.31 m | 62.8% | 2.94 m |
-| BASE_A | 80.2% | 1.16 m | 78.3% | 1.46 m |
-| BASE_A_H3 | 82.4% | 0.85 m | 80.2% | 1.08 m |
-| **BASE_A_H3_dp** | **83.3%** | **0.82 m** | **81.2%** | **1.02 m** |
+| BASE | 13.8% | 10.40 m | 22.7% | 9.18 m |
+| **BASE_H3** | **28.2%** | **7.24 m** | **34.3%** | **6.13 m** |
+| BASE_H3_dp | 33.8% | 5.53 m | 39.7% | 4.66 m |
+| BASE_A | 63.9% | 1.97 m | 64.8% | 1.92 m |
+| BASE_A_H3 | 67.5% | 1.37 m | 67.3% | 1.35 m |
+| **BASE_A_H3_dp** | **68.4%** | **1.32 m** | **67.9%** | **1.29 m** |
 
-**Core thesis result:** `BASE → BASE_H3`: **+22.4 pp** accuracy (XGB), **+8.5 pp** (RF). **History alone — with no other additions — provides significant improvement over the static baseline.**
+**History:** `BASE → BASE_H3` is +14.4 pp accuracy and −3.16 m MAE (−30 %) for XGBoost, +11.7 pp and −3.05 m (−33 %) for RF. With AoA, `BASE_A → BASE_A_H3` is +3.6 pp and −0.60 m (−30 %) for XGBoost, +2.6 pp and −0.58 m (−30 %) for RF. The relative MAE reduction is the same with and without AoA (30 %), but small in absolute terms once AoA is present.
 
-**AoA dominance (center BS):** `BASE_H3 → BASE_A_H3`: **+31.4 pp** (XGB). AoA is the largest single feature contribution when the BS is at the grid center (full 360° angular coverage). See §7.3 for the geometry dependence of this result.
+**AoA (center BS):** `BASE_H3 → BASE_A_H3` is +39.2 pp (XGB) and +33.0 pp (RF); without history `BASE → BASE_A` is +50.0 pp (XGB) and +42.1 pp (RF).
 
-**Device knowledge:** `BASE_H3 → BASE_H3_dp`: **+8.1 pp** (XGB). Knowing the device type — which determines the systematic RSS/SINR offset — provides orthogonal information to history. The combination BASE_H3_dp outperforms both BASE_H3 and BASE_dp.
+**Device knowledge:** `BASE_H3 → BASE_H3_dp` is +5.5 pp (XGB) and +5.4 pp (RF). `BASE_dp` (no history) already gives +12.0 pp (XGB). See §7.2.6.
 
 #### 7.2.2 History Depth Analysis
 
-Accuracy vs h for BASE experiments (XGBoost, RSS+SINR) on the 100% full dataset:
+| h | XGB BASE Acc / MAE | XGB BASE_A Acc / MAE | RF BASE Acc / MAE | RF BASE_A Acc / MAE |
+|---|---|---|---|---|
+| 0 | 13.8% / 10.40 m | 63.9% / 1.97 m | 22.7% / 9.18 m | 64.8% / 1.92 m |
+| 1 | 26.6% / 7.93 m | 67.3% / 1.50 m | 32.1% / 7.22 m | 67.8% / 1.47 m |
+| 2 | 27.5% / 7.49 m | 67.5% / 1.41 m | 34.3% / 6.47 m | 67.5% / 1.38 m |
+| 3 | 28.2% / 7.24 m | 67.5% / 1.37 m | 34.3% / 6.13 m | 67.3% / 1.35 m |
 
-| h | Accuracy | MAE |
-|---|----------|-----|
-| 0 | 28.6% | 8.66 m |
-| 3 | 51.0% | 4.86 m |
+Most of the gain comes from the first previous report (h = 1: −2.5 m of the −3.2 m for XGBoost without AoA). Depth 2 and 3 add a further 0.3 to 0.7 m. This is consistent with the averaging account of the history gain (Section 9 of the report): the first extra report removes most of the independent measurement error that averaging can remove.
 
-Transition history of depth 3 achieves a massive **+22.4 pp** accuracy gain and reduces MAE by **43.9%** (from 8.66 m to 4.86 m), reflecting that sequential direction-of-approach information resolves most static-snapshot ambiguity.
+#### 7.2.3 Per-User Breakdown (XGBoost accuracy)
 
-#### 7.2.3 Per-User Breakdown (XGBoost, BASE_H3 vs BASE_A_H3)
+| User | Device | BASE | BASE_H3 | BASE_A | BASE_A_H3 | AoA gain (A_H3 − H3) |
+|------|--------|------|---------|--------|-----------|----------|
+| U1 | 4-ant flagship | 13.5% | 33.0% | 78.3% | 79.6% | +46.6 pp |
+| U2 | 2-ant mid-range | 9.0% | 23.0% | 57.2% | 60.3% | +37.3 pp |
+| U3 | 1-ant budget | 18.1% | 34.9% | 35.1% | 44.2% | +9.3 pp |
+| U4 | 4-ant flagship | 16.8% | 30.1% | 93.8% | 93.6% | +63.5 pp |
+| U5 | tablet/IoT | 11.7% | 20.3% | 54.9% | 59.7% | +39.4 pp |
 
-| User | Device | BASE_H3 Acc | BASE_A_H3 Acc | AoA Gain |
-|------|--------|------------|--------------|----------|
-| U1 | 4-ant flagship | 60.6% | 91.0% | +30.4 pp |
-| U2 | 2-ant mid-range | 43.7% | 83.2% | +39.5 pp |
-| U3 | 1-ant budget | 50.6% | 60.9% | **+10.3 pp** |
-| U4 | 4-ant flagship | 59.5% | 90.5% | +31.0 pp |
-| U5 | tablet/IoT | 40.5% | 86.4% | +45.9 pp |
+The 4-antenna flagship devices (U1, U4) reach 78 to 94 % with AoA; the 2-antenna and tablet devices reach 55 to 60 %. The ordering follows the SINR-dependent angle error: lower SINR gives noisier angles.
 
-Weaker multi-antenna devices (U2, U5) benefit more from AoA — angular information compensates for degraded RSS/SINR quality. Flagship devices (U1, U4) achieve high accuracy (90.5%–91.0%) with AoA. Crucially, **User 3** (1-antenna) shows a minor AoA gain of only **+10.3 pp** (from 50.6% to 60.9%) because its AoA measurements are entirely missing (`NaN`), demonstrating that the pipeline gracefully falls back to RSS+SINR features when hardware limitations prevent angle estimation.
+**User 3 is not an AoA gain.** U3 has one antenna, so its angle fields are NaN, and the pipeline replaces NaN by 0 before training. The AoA columns of U3 therefore hold a constant that identifies the device. The gain of U3 from BASE to BASE_A (+17.0 pp) matches the gain from adding the user id alone (`BASE_uid`: 32.7 % for U3, +14.6 pp), and adding the user id on top of BASE_A changes nothing for U3 (`BASE_A_uid`: 35.0 % against 35.1 %). So the U3 gain is an implicit device indicator, not angle information. The same holds at the NE BS (BASE 12.5 %, BASE_A 26.2 %, BASE_uid 26.0 %, BASE_A_uid 26.3 %). The earlier text said the pipeline "falls back to RSS+SINR"; that was incomplete.
 
-#### 7.2.4 Per-Cell Breakdown (XGBoost, BASE_H3 vs BASE_A)
+#### 7.2.4 Per-Cell Breakdown (XGBoost accuracy)
 
-| Cell | Scenario | BASE_H3 Acc | BASE_A Acc | AoA Gain |
-|------|----------|------------|------------|----------|
-| 1 (Highway) | RMa_LOS | 29.4% | 73.6% | **+44.2 pp** |
-| 2 (Shopping) | UMi_NLOS | 56.1% | 72.1% | +16.0 pp |
-| 3 (Residential) | Mixed | 62.6% | 86.8% | +24.2 pp |
-| 4 (Park) | UMi_LOS | 66.9% | 87.0% | +20.1 pp |
+| Cell | Label | BASE | BASE_H3 | BASE_A | BASE_A_H3 |
+|------|-------|------|---------|--------|-----------|
+| 1 | Highway | 13.4% | 26.3% | 67.4% | 70.4% |
+| 2 | Shopping | 13.0% | 29.1% | 59.3% | 63.1% |
+| 3 | Residential | 12.5% | 22.7% | 61.1% | 65.3% |
+| 4 | Park | 14.8% | 31.1% | 62.4% | 66.4% |
 
-The Highway cell (RMa_LOS) benefits most from AoA. Under Rural Macro LOS, a dominant single-ray path means adjacent grid points have nearly identical RSS/SINR — distance-ring ambiguity is worst here. AoA is the only reliable discriminant, yielding a huge **+44.2 pp** improvement.
+The cells are position labels only; every cell now runs the same UMi NLOS propagation. The remaining spread between cells (BASE_H3 from 22.7 % to 31.1 %) comes from geometry (distance from the BS, grid edge) and device mix, not from propagation. The earlier "RMa_LOS Highway gains +44 pp from AoA" finding came from the old data, where the scenario of the walk start applied to the whole walk, and is withdrawn.
 
 #### 7.2.5 Cross-User Generalization
 
-Model trained on U1–U4, evaluated on U5 (unseen device, different height 0.9 m):
+Model trained on U1–U4, evaluated on U5 (unseen device, height 0.9 m):
 
-| Experiment | In-distribution | Cross-user | Drop |
-|---|---|---|---|
-| BASE_H3 | 48.9% / 4.64 m | 45.2% / 5.15 m | −3.7 pp |
-| BASE_A_H3 | 83.2% / 0.40 m | **76.3% / 0.62 m** | −6.9 pp |
+| Experiment | In-distribution (all users) | Cross-user (U5) |
+|---|---|---|
+| BASE_H3 (XGB) | 28.2% / 7.24 m | 27.1% / 7.91 m |
+| BASE_A_H3 (XGB) | 67.5% / 1.37 m | 61.6% / 1.98 m |
+| BASE_H3 (RF) | 34.3% / 6.13 m | 30.9% / 7.27 m |
+| BASE_A_H3 (RF) | 67.3% / 1.35 m | 61.3% / 1.78 m |
 
-AoA generalizes better across devices (+6.9 pp drop vs accessible 3.7 pp without AoA from a much lower baseline). This is because AoA is geometrically determined — the angle from BS to UE depends only on position, not device electronics.
-
-The residual 6.9 pp cross-user gap in BASE_A_H3 is attributable to U5's different UE height (0.9 m vs 1.5 m), which shifts the elevation angle. This is a physical, not electronic, difference.
+The in-distribution column is over all five users, the cross-user column is U5 only. U5 is also the weakest user in-distribution (20.3 % BASE_H3, 59.7 % BASE_A_H3 for XGBoost). Against U5 in-distribution, the cross-user change is +6.8 pp for BASE_H3 (XGB) and +1.9 pp for BASE_A_H3 (XGB): the models do not lose accuracy on the unseen device. The earlier text attributed a residual gap to U5's different height; that attribution was not tested and is not repeated.
 
 #### 7.2.6 Device Knowledge vs. History — Isolation
 
-Four new h=0 baselines isolate the contribution of device knowledge from history:
+**Without AoA (accuracy):**
 
-**Without AoA:**
-
-| Experiment | XGB Acc | RF Acc |
+| Experiment | XGB | RF |
 |---|---|---|
-| BASE | 25.7% | 45.9% |
-| BASE_dp (device only, h=0) | 48.5% | 59.3% |
-| BASE_H3 (history only, h=3) | 48.9% | 56.9% |
-| BASE_H3_dp (both) | 56.9% | 65.3% |
+| BASE | 13.8% | 22.7% |
+| BASE_dp (device parameters, h=0) | 25.9% | 30.6% |
+| BASE_uid (user id, h=0) | 27.7% | 32.8% |
+| BASE_H3 (history only, h=3) | 28.2% | 34.3% |
+| BASE_H3_dp (both) | 33.8% | 39.7% |
+| BASE_H3_uid (both) | 35.3% | 41.8% |
 
 **With AoA:**
 
-| Experiment | XGB Acc | RF Acc |
+| Experiment | XGB | RF |
 |---|---|---|
-| BASE_A | 81.7% | 81.6% |
-| BASE_A_dp (AoA + device, h=0) | 83.7% | 86.7% |
-| BASE_A_H3 (AoA + history, h=3) | 83.2% | 80.9% |
-| BASE_A_H3_dp (all three) | 84.2% | 82.8% |
+| BASE_A | 63.9% | 64.8% |
+| BASE_A_dp | 65.4% | 67.3% |
+| BASE_A_uid | 65.4% | 67.1% |
+| BASE_A_H3 | 67.5% | 67.3% |
+| BASE_A_H3_dp | 68.4% | 67.9% |
 
-Without AoA: device knowledge and history provide almost identical gains, and combining both adds another +8 pp. With AoA: marginal gains from device params (+2 pp XGB) or history (+1.4 pp XGB) are small — AoA already captures most of the spatial information available.
+Without AoA, knowing the device alone gives about the same gain as history alone (+12 to +14 pp XGB), and both together add a further 5 to 6 pp. With AoA, device knowledge adds 1.5 to 2.5 pp and history 2.6 to 3.6 pp. The user id is as informative as the device parameters, so the gain from `dp` is a device-identity effect.
 
 ### 7.3 BS Placement Study — AoA Geometry Dependence
 
-The center-BS result (+34 pp AoA gain) raised a critical question: was this gain due to genuine angular discrimination, or an artefact of the full 360° angular coverage that the center position provides?
-
-This experiment places the serving BS at the NE corner (48, 48, 10) — 15 m beyond the grid boundary — compressing all 225 grid points into a ~52° azimuth wedge. All other parameters are unchanged.
+The center-BS result raised the question whether the AoA gain reflects real angular discrimination or the full 360° azimuth coverage of the centre position. The NE experiment places the serving BS at (48, 48, 10), 15 m beyond the grid corner, so all 225 grid points fall into a narrow azimuth wedge. All other parameters are unchanged (same regenerated 3.5 GHz, uniform UMi NLOS setup; interferers at [−11, 19, 10] and [19, −11, 10]).
 
 #### 7.3.1 Primary Finding — AoA Gain
 
-| Metric | Center BS (360°) | NE BS (52°) |
+| Metric | Center BS (360°) | NE BS (≈52°) |
 |---|---|---|
-| BASE_H3 accuracy (XGB) | 51.0% | 86.0% |
-| BASE_A_H3 accuracy (XGB) | 82.4% | 88.3% |
-| **AoA gain (XGB)** | **+31.4 pp** | **+2.3 pp** |
-| BASE_H3 accuracy (RF) | 54.5% | 88.1% |
-| BASE_A_H3 accuracy (RF) | 80.2% | 89.8% |
-| **AoA gain (RF)** | **+25.7 pp** | **+1.7 pp** |
+| BASE_H3 accuracy (XGB) | 28.2% | 24.7% |
+| BASE_A_H3 accuracy (XGB) | 67.5% | 30.9% |
+| **AoA gain (XGB, A_H3 − H3)** | **+39.2 pp** | **+6.2 pp** |
+| BASE_H3 accuracy (RF) | 34.3% | 28.5% |
+| BASE_A_H3 accuracy (RF) | 67.3% | 34.3% |
+| **AoA gain (RF)** | **+33.0 pp** | **+5.8 pp** |
+| BASE → BASE_A (XGB) | +50.0 pp | +11.9 pp |
+| BASE_A_H3 MAE (XGB) | 1.37 m | 4.86 m |
 
-**AoA gain drops from +31.4 pp to +2.3 pp (XGB) when azimuth spread shrinks from 360° to 52°.** The center-BS AoA advantage was primarily geometric: each grid point had a unique azimuth from the BS. In the NE placement, all points appear in the same quadrant (195°–251°, a 56° span). The model cannot distinguish adjacent grid points by azimuth alone.
+The AoA gain falls from +39 pp to +6 pp when the azimuth spread shrinks from 360° to about 52°. The qualitative conclusion of the earlier version stands (AoA depends on geometry), with a larger residual gain at NE (+6 pp, was +2 pp). Azimuth is compressed at NE; the remaining gain is mostly elevation, which encodes distance (vertical gap 8.5 m; elevation from about 9° to 31° across the grid).
 
-The residual +2.3 pp gain is attributable to **elevation angle**, which encodes distance: BS height = 10 m, UE height = 1.5 m → vertical gap = 8.5 m. Elevation spans ~9° (SW corner, d=61 m) to ~31° (NE corner, d=21 m) — a 22° spread that still carries distance information even when azimuth is compressed.
-
-#### 7.3.2 History Gain is Geometry-Independent
+#### 7.3.2 History Gain Is Geometry-Independent
 
 | Metric | Center BS | NE BS |
 |---|---|---|
-| BASE → BASE_H3 (XGB) | +22.4 pp | **+28.8 pp** |
-| BASE → BASE_H3 (RF) | +8.5 pp | **+5.9 pp** |
+| BASE → BASE_H3 (XGB) | +14.4 pp, −3.16 m | +13.3 pp, −3.07 m |
+| BASE → BASE_H3 (RF) | +11.7 pp, −3.05 m | +9.7 pp, −2.47 m |
+| BASE_A → BASE_A_H3 (XGB) | +3.6 pp, −0.60 m | +7.6 pp, −1.88 m |
+| BASE_A → BASE_A_H3 (RF) | +2.6 pp, −0.58 m | +8.3 pp, −1.98 m |
 
-The transition history benefit is **highly robust regardless of BS placement** (and is even larger for the NE-Corner layout under XGBoost, resolving RSS distance contours from the corner). History captures trajectory dynamics that depend on how measurements change as the UE moves — this is independent of the BS's angular view.
-
-This is the key differentiating result: **transition features are robust to BS deployment geometry; AoA is not**.
+History helps by a similar amount at both placements without AoA. With AoA it helps more at NE, where the AoA model is weaker and has more error left to average away. The earlier headline that the NE BS gives a *larger* XGBoost history gain (+28.8 vs +22.4 pp) does not hold on the regenerated data (+13.3 vs +14.4 pp).
 
 #### 7.3.3 RSS/SINR Discrimination with Edge BS
 
-Notably, the NE BS placement actually *improves* non-AoA experiments:
-
 | Experiment | Center BS XGB | NE BS XGB | Change |
 |---|---|---|---|
-| BASE | 28.6% | 57.2% | **+28.6 pp** |
-| BASE_H3 | 51.0% | 86.0% | **+35.0 pp** |
-| BASE_A | 80.2% | 81.7% | **+1.5 pp** |
-The edge BS creates a larger distance dynamic range (21–61 m vs 0–28 m), giving RSS a stronger gradient and better positional discrimination. Grid points near the NE corner are far from those near the SW corner, making amplitude alone more informative.
+| BASE | 13.8% / 10.40 m | 11.3% / 10.49 m | −2.5 pp |
+| BASE_H3 | 28.2% / 7.24 m | 24.7% / 7.42 m | −3.6 pp |
+| BASE_A | 63.9% / 1.97 m | 23.2% / 6.74 m | −40.6 pp |
 
-#### 7.3.4 Spatial Distribution of Errors — NE BS
+The earlier claim that the NE BS improves the no-AoA experiments (BASE 28.6 % → 57.2 %, BASE_H3 51.0 % → 86.0 %) is **withdrawn**. It came from the old data, where the walk-start scenarios gave some users line of sight. With uniform NLOS the no-AoA experiments are about the same at both placements, and the edge placement is worse once AoA is used.
 
-Per-Voronoi-cell breakdown (XGBoost, BASE_H3):
+#### 7.3.4 Spatial Distribution of Errors — NE BS (XGBoost accuracy)
 
-| Cell | NE BS Acc | NE BS MAE | Center BS Acc | Center BS MAE |
-|------|-----------|-----------|---------------|---------------|
-| 1 | 83.5% | 1.57 m | 29.4% | 8.27 m |
-| 2 | 85.1% | 1.66 m | 56.1% | 3.16 m |
-| 3 | 80.3% | 2.16 m | 62.6% | 3.05 m |
-| 4 | 89.4% | 0.96 m | 66.9% | 2.58 m |
+| Cell | BASE | BASE_H3 | BASE_A | BASE_A_H3 |
+|------|------|---------|--------|-----------|
+| 1 | 11.1% | 22.6% | 20.3% | 27.5% |
+| 2 | 10.9% | 23.5% | 23.9% | 32.1% |
+| 3 | 9.4% | 20.4% | 15.1% | 22.6% |
+| 4 | 12.0% | 27.8% | 27.7% | 35.6% |
 
-All cells in the NE-Corner BS layout achieve $\ge 80\%$ accuracy and MAE under 2.2 m without any AoA. Cells closer to the NE corner (Cell 4) achieve the highest accuracy (89.4%) and lowest MAE (0.96 m), demonstrating the strength of edge-based RSS tracking.
+No cell reaches 36 % in any experiment. The earlier statement that all NE cells reach ≥ 80 % without AoA is withdrawn (old data). Per-grid-point MAE maps are in `results/controlled_grid_2026_10/ne_bs/images/mae/`.
 
 #### 7.3.5 Cross-User Generalization Under Edge BS
 
 | Experiment | Center BS | NE BS |
 |---|---|---|
-| cross_user_BASE_H3 | 45.2% / 5.15 m | 52.5% / 3.96 m |
-| cross_user_BASE_A_H3 | **76.3% / 0.62 m** | 58.4% / 2.05 m |
+| cross_user_BASE_H3 (XGB) | 27.1% / 7.91 m | 23.6% / 8.17 m |
+| cross_user_BASE_A_H3 (XGB) | 61.6% / 1.98 m | 29.3% / 5.78 m |
+| cross_user_BASE_H3 (RF) | 30.9% / 7.27 m | 26.2% / 7.80 m |
+| cross_user_BASE_A_H3 (RF) | 61.3% / 1.78 m | 31.0% / 5.69 m |
 
-With NE BS: BASE_H3 cross-user *improves* (+7.3 pp) because the stronger RSS gradient is inherently more device-agnostic. BASE_A_H3 cross-user *degrades* significantly (−17.9 pp) — when AoA is weak, the model falls back on RSS/SINR, which varies across devices.
+At NE the AoA model with history on the unseen device (29.3 % XGB) is 5.7 pp above the no-AoA history model (23.6 %); at the centre it is 34.5 pp above. The earlier statement that NE cross-user BASE_H3 improves over the centre (52.5 % vs 45.2 %) is withdrawn.
 
 ---
 

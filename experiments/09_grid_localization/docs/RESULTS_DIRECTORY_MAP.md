@@ -96,3 +96,17 @@ Simulations (MATLAB, 2026-10-13): `sim_data_multi_user_2026-10-13_*` and `sim_da
 Pipeline output, full run with every experiment, plots, per-grid-point MAE maps and the data-volume sweep, `--sinr-dependent-aoa`, default hyperparameters: `results/controlled_grid_2026_10/centre_bs` and `results/controlled_grid_2026_10/ne_bs`.
 XGBoost stays on the CPU: on a 200,000-sample 225-class test the GPU fit took 107 s against 148 s on the CPU (with MATLAB running), too small a gain to justify changing the numerics.
 
+### Outcome of the regeneration (finished 2026-10-13, ~05:30–05:45)
+
+Both placements ran the full pipeline (50 result rows each, 17 plots, MAE maps, data-volume sweep). Condensed CSVs and configs are committed in `docs/results_of_record/controlled_grid_2026_10/`. **All controlled-grid numbers changed a lot**, because the old data had line of sight for some users (walk-start scenario) and a different carrier:
+
+| XGBoost accuracy, centre BS | old `_optimal` (06-12 data) | regenerated |
+|---|---|---|
+| BASE | 28.6 % | 13.8 % |
+| BASE_H3 | 51.0 % | 28.2 % |
+| BASE_A | 80.2 % | 63.9 % |
+| BASE_A_H3 | 82.4 % | 67.5 % |
+
+NE BS, XGBoost: BASE 57.2 % -> 11.3 %, BASE_H3 86.0 % -> 24.7 %, BASE_A 81.7 % -> 23.2 %, BASE_A_H3 88.3 % -> 30.9 %. What survives: history gains in all four model/placement cells (+9.7 to +14.4 pp, -2.5 to -3.2 m), AoA gain much larger at the centre than at the corner (+39 vs +6 pp). What does not: the corner BS no longer helps the no-AoA models, the XGBoost history gain is no longer larger at the corner, the Highway-cell AoA gain, the "all NE cells >= 80 %" statement. User 3 (one antenna, AoA = NaN -> 0) still gains from `BASE_A`; the gain equals the gain from the user id alone, so it is an implicit device indicator (technical_documentation.md §7.2.3). Technical documentation §7.2–7.3, report Section 5 and the sanity tests were updated to the new numbers; the older docs under `docs/plans`, `docs/session_summary` and the Drive snapshots are historical and still quote the old values.
+
+Not regenerated: the 25×25 regression simulation (2.6 GHz), the early single-user grid-size sweeps and the 7×7 depth sweep (report Section 5 depth and scale paragraphs). The §7.4.3 figure 11.486 m has no source.

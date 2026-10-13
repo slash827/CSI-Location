@@ -9,7 +9,9 @@ Figures
     fig_aoa_error_model       the gain under different AoA impairments
     fig_region_control        LOS-region vs NLOS-region gain, with and without real LOS
     fig_blocked_by_width      multi-antenna gain in the blocked stretch, by strip width
+    fig_controlled_grid_placement  regenerated 15x15 grid, BS at centre vs beyond the corner
 """
+import csv
 import json
 from pathlib import Path
 
@@ -175,9 +177,32 @@ def blocked_by_width():
     save(fig, 'fig_blocked_by_width')
 
 
+def controlled_grid_placement():
+    rec = HERE.parents[1] / 'results_of_record' / 'controlled_grid_2026_10'
+    exps = ['BASE', 'BASE_H3', 'BASE_A', 'BASE_A_H3']
+    labs = ['RSS+SINR\n$h=0$', 'RSS+SINR\n$h=3$', '+AoA\n$h=0$', '+AoA\n$h=3$']
+    fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.5), sharey=True)
+    for ax, (folder, title) in zip(axes, (('centre_bs', 'BS at the grid center'), ('ne_bs', 'BS beyond the corner'))):
+        rows = list(csv.DictReader(open(rec / folder / 'results_summary.csv', encoding='utf-8')))
+        acc = {(r['model'], r['experiment']): float(r['accuracy_%']) for r in rows}
+        x = np.arange(len(exps))
+        for k, (m, name, col) in enumerate((('xgboost', 'XGBoost', BLUE), ('rf', 'Random Forest', ORANGE))):
+            v = [acc[(m, e)] for e in exps]
+            ax.bar(x + (k - 0.5) * 0.38, v, 0.36, color=col, label=name if folder == 'centre_bs' else None)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labs, fontsize=7)
+        ax.set_ylim(0, 80)
+        ax.set_title(title, loc='left')
+        ax.grid(axis='x', visible=False)
+    axes[0].set_ylabel('Exact-cell accuracy (%)')
+    axes[0].legend(frameon=False, loc='upper left', fontsize=7)
+    save(fig, 'fig_controlled_grid_placement')
+
+
 if __name__ == '__main__':
     FIG.mkdir(exist_ok=True)
     angle_decomposition()
     aoa_error_model()
     region_control()
     blocked_by_width()
+    controlled_grid_placement()

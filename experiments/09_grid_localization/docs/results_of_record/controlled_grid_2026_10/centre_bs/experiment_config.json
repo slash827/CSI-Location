@@ -1,0 +1,57 @@
+{
+  "n_users": 5,
+  "h_primary": 3,
+  "max_history_curve": 4,
+  "models": [
+    "xgboost",
+    "rf"
+  ],
+  "train_test_split": "80/20 chronological per user",
+  "naming_convention": {
+    "BASE": "RSS+SINR, h=0",
+    "BASE_H1": "RSS+SINR absolute stacking h=1",
+    "BASE_H2": "RSS+SINR absolute stacking h=2",
+    "BASE_H3": "RSS+SINR absolute stacking h=3",
+    "BASE_H3_dp": "BASE_H3 + device params",
+    "BASE_H3_uid": "BASE_H3 + user_id",
+    "BASE_A": "RSS+SINR+AoA (4\u00b0/5\u00b0 noise), h=0",
+    "BASE_A_H1": "BASE_A absolute stacking h=1",
+    "BASE_A_H2": "BASE_A absolute stacking h=2",
+    "BASE_A_H3": "BASE_A absolute stacking h=3",
+    "BASE_A_H3_dp": "BASE_A_H3 + device params"
+  },
+  "device_profiles": {
+    "U1": {
+      "n_antennas": 4,
+      "antenna_gain_db": 0.0,
+      "ue_height_m": 1.5,
+      "seed": 100
+    },
+    "U2": {
+      "n_antennas": 2,
+      "antenna_gain_db": -2.0,
+      "ue_height_m": 1.5,
+      "seed": 200
+    },
+    "U3": {
+      "n_antennas": 1,
+      "antenna_gain_db": -4.0,
+      "ue_height_m": 1.5,
+      "seed": 300
+    },
+    "U4": {
+      "n_antennas": 4,
+      "antenna_gain_db": 0.0,
+      "ue_height_m": 1.5,
+      "seed": 400
+    },
+    "U5": {
+      "n_antennas": 2,
+      "antenna_gain_db": -1.0,
+      "ue_height_m": 0.9,
+      "seed": 500
+    }
+  },
+  "n_classes": 225,
+  "total_samples": 450005
+}

@@ -1,0 +1,17 @@
+model,experiment,data_fraction,accuracy_%,mae_m
+xgboost,BASE_H3,0.1,20.23,8.1108
+xgboost,BASE_H3,0.25,22.94,7.6886
+xgboost,BASE_H3,0.5,24.15,7.4413
+xgboost,BASE_H3,1.0,24.65,7.4227
+xgboost,BASE_H3_delta,0.1,17.42,8.7751
+xgboost,BASE_H3_delta,0.25,20.24,8.3412
+xgboost,BASE_H3_delta,0.5,21.67,8.0933
+xgboost,BASE_H3_delta,1.0,22.28,7.9624
+rf,BASE_H3,0.1,19.11,8.2686
+rf,BASE_H3,0.25,23.35,7.5032
+rf,BASE_H3,0.5,26.4,6.967
+rf,BASE_H3,1.0,28.51,6.7337
+rf,BASE_H3_delta,0.1,13.97,9.2429
+rf,BASE_H3_delta,0.25,15.83,8.8549
+rf,BASE_H3_delta,0.5,19.15,8.0961
+rf,BASE_H3_delta,1.0,21.34,7.7664
