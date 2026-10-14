@@ -112,6 +112,21 @@ Housekeeping
 - [ ] Commit results of record, push, merge `followup-2026-10` into `main`
 - [ ] Untracked on purpose: `docs/Meeting with Alon 7.10.26.md`, `docs/Transition_History.zip`
 
+## 4.4 Your tasks (author)
+
+These need your decision, your judgement or your presence. Claude's tasks are in 4.3 and wait on the first three.
+
+- [ ] 1. Choose the headline set for the controlled grid in the report (suggestion: mixed per-cell as the headline, RMa LOS and NLOS as the propagation sweep; alternative: RMa LOS, closest to the old centre numbers)
+- [ ] 2. Look at the results (section 8 says where everything is) and tell Claude which figures and tables you want in the report and on the meeting slides
+- [ ] 3. Approve the archive proposal for the 25x25 folders (section 8) and whether the 25x25 single-user simulation should be regenerated at 3.0 GHz
+- [ ] 4. Decide what to do with the claim in Section 8 of the report that the predictions were fixed before the experiment (unverifiable from the repository: keep with a source, or remove)
+- [ ] 5. Meeting with the instructors (Dudi, Sarit, Alon): agree on the date; review the slide on the 20-30 m errors (M1), the comparative figure (M5) and `OLD_VS_REGENERATED_RUNS.md` before the meeting (M10)
+- [ ] 6. Report length and form: cut to about 12 pages (what goes to the appendix), thesis conversion, and the consortium report due at the end of October
+- [ ] 7. Bibliography: supply the references or the Zotero/BibTeX export for `reference.bib` (the citations are undefined)
+- [ ] 8. Overleaf: upload the updated `docs/Transition_History/` once Sections 4, 5, abstract and discussion are rewritten (the local copy is ahead of Overleaf)
+- [ ] 9. Merge `followup-2026-10` into `main` when you are satisfied (not merged since `d3d48ba`)
+- [ ] 10. Stop the sleep-prevention process (a Python process holding the machine awake) if you no longer need long runs
+
 ## 5. Decisions needed from the author
 
 1. Which set is the headline for the controlled grid: RMa LOS (closest to the June data), mixed per-cell (the design the config describes), or NLOS (hardest)? Suggested: mixed per-cell as the headline, the others as a propagation sweep.
@@ -157,4 +172,34 @@ All with `--sinr-dependent-aoa`, history 3, default hyperparameters unless noted
 | NLOS, 3.5 GHz | 11.3 / 10.49 | 24.6 / 7.42 | 23.2 / 6.74 | 30.9 / 4.86 |
 
 Reading: at the centre BS the no-AoA results of the old runs are reproduced by the RMa LOS regeneration (BASE_H3 51.0 against 50.6), the AoA results are lower (BASE_A_H3 82.4 against 71.6). At the NE BS the June run is an outlier even against the May run (BASE_H3 86.0 against 60.9); no regeneration comes near it. The settings that differ between June and the regeneration are: carrier 2.6 against 3.0 GHz; cell layout (June: `auto_generate` with seed 42 and area types; now explicit cells); scenario (June: the first auto cell, RMa LOS; now uniform or per cell); NE interferers ([19,-10] and [-10,19] in June, [-11,19] and [19,-11] now); the NE walks (differ between the June data and every regeneration).
+
+## 8. Where the results are
+
+Everything local is under `C:\Git\CSI-Locationesults` (gitignored); the small committed copies are in `docs/results_of_record/`.
+
+| What | Local folder |
+|---|---|
+| Controlled-grid pipelines (plots, MAE maps, CSVs, sweeps) | `results/controlled_grid_2026_10/{centre,ne}_bs_{rmalos_30,mixed_30,nlos_30,nlos35}` (plots in `images/`, tables in `csvs/`, `PIPELINE_REPORT.md`) |
+| Table across the propagation sets | `results/controlled_grid_2026_10/comparison_sets.md` and `.csv` |
+| Extended history and 1D-CNN | `results/history_extended/{ne,centre}_rmalos/history_extended_summary.csv` |
+| Metric audit and error maps | `results/error_audit/` (`grid_ne_rmalos`, `macro_uniform_nlos`, `macro_mixed_propagation`) |
+| 15x15 simulations (data) | `results/grid_localization/grid_15x15/sim_data_*_2026-10-13_*` (each with `data_generation_config.jsonc`) |
+| Macro-cell and follow-up analyses (Python ablations) | `results/notebook_experiments/multi_user_poc/` (summaries in `docs/results_of_record/`) |
+| Older controlled-grid runs | `results/multi_user_voronoi_15x15*`, `results/ne_bs_voronoi_15x15*` (June and May), see `RESULTS_DIRECTORY_MAP.md` |
+| Logs of the regeneration | `results/_logs/` (`drive30.log`) |
+
+## 9. The 25x25 folders
+
+| Folder | What it is | Used by | Proposal |
+|---|---|---|---|
+| `ne_bs_voronoi_25x25_regression` | Single user, spherical regression, untuned, data `sim_data_ne_bs_2026-06-13_14-54-18` (2.6 GHz) | Report Section 8 via technical documentation §7.4.1 | Keep |
+| `..._regression_tuned` | RF tuned spherical | §7.4.2/7.4.3 | Keep |
+| `..._regression_ab_testing`, `..._regression_cartesian_custom` | Cartesian targets, XGBoost with MSE and custom loss | Report Section 8 (§7.4.3: XGBoost 29.239 to 13.430 m) | Keep |
+| `..._regression_segment_shuffle` | Block-shuffled split, the leakage check | Report Section 8 (§7.4.4) | Keep |
+| `..._regression_features_test` | Delta and hybrid feature modes | Report Section 8 (§7.4.5) | Keep |
+| `..._regression_cartesian`, `test_regression_tuning` | Intermediate and smoke tests | Nothing | Already in `_archive/superseded` |
+
+So none of the six remaining 25x25 folders is obsolete: the report cites all of them. To reduce clutter without breaking the references they could be moved under one parent folder (for example `results/single_user_25x25_regression/`) with a README, and the folder names in the documents updated; propose this only if you want it.
+
+No new 25x25 simulation has been made since 2026-09-18 (the 300-user mixed simulation). The 2026-10-07 to 2026-10-12 follow-up experiments (uniform NLOS, mixed propagation, angle error models, neural models, history depth, no-interference, naive baseline) ran on the existing 300-user macro data (`sim_data_300users_2026-07-25_11-46-11` and `..._mixed_2026-09-18_20-25-01`) and their outputs are in `results/notebook_experiments/multi_user_poc/`. The 25x25 single-user data is still the 2.6 GHz simulation from 2026-06-13 (not regenerated).
 
