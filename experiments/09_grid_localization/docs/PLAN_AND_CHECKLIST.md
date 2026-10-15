@@ -68,7 +68,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 25x25 regression (new, 2026-10-15)
 - [ ] Update technical documentation 7.4 and report Section 8 from the regenerated 25x25 tables (comparison in section 10: the no-AoA and untuned numbers reproduce within about 1 m; the AoA numbers with tuned parameters are 2.6 to 4.5 m worse, and the hybrid-feature advantage for Random Forest disappears)
-  - First find out why the AoA runs differ: the June command lines are unknown (AoA noise model, subsample, tuned parameters). Test the fixed 4-degree noise (without `--sinr-dependent-aoa`) and the full training set, then decide which version the report quotes.
+  - Resolved 2026-10-16: the June runs used the fixed 4-degree AoA noise (no `--sinr-dependent-aoa`). Rerun with it, the June data gives the June numbers (RF BASE_A 7.56, hybrid h=1 7.51, XGBoost BASE_A_H3 8.16) and the new 3.0 GHz data gives 8.24, 8.14 and 8.36. The report should quote the fixed-noise numbers for the 25x25 regression (the same noise model as the macro study) and say that the controlled-grid pipelines use the SINR-dependent noise. Full-training-set runs (`aoa_gap/new_full_train`, `new_fixed_noise_full_train`) are still running; they are optional.
 - [ ] Decide whether to add the other two 25x25 propagation variants (`ne_bs_voronoi_25x25_nlos_config`, `ne_bs_voronoi_25x25_mixed_config` exist, not run), for symmetry with the 15x15 sweep
 - [ ] Section 8 of the report calls the 25x25 regression "single-user"; the data are the five device profiles pooled (one simulated user per profile). Check the wording against the pipeline and fix
 
@@ -242,4 +242,17 @@ June: simulation 2026-06-13 (2.6 GHz), folders `ne_bs_voronoi_25x25_regression*`
 | features | RF BASE_A_H1_dp_HYBRID | 7.51 | 12.30 |
 
 Reading: everything without AoA reproduces within about 1 m, including the main history result (XGBoost 29.4 to 13.7 m, Random Forest worse with history) and the block-shuffled check. Everything with AoA and tuned parameters is 2.6 to 4.5 m worse than June, and the June advantage of the hybrid features for Random Forest (7.5 against 8.1 m) is gone (12.3 against 12.25). The untuned AoA numbers agree (13.1 against 13.5), so the difference sits in the tuned runs or in the AoA noise model used then.
+
+## 11. 25x25 AoA gap test (2026-10-16), 3D MAE m, tuned, 30 % subsample
+
+| Experiment | June folders | June data, fixed 4 deg noise | New data, fixed 4 deg noise | June data, SINR-dependent noise | New data, SINR-dependent noise |
+|---|---|---|---|---|---|
+| XGBoost BASE | 29.24 | 29.24 | 29.39 | 29.24 | 29.39 |
+| XGBoost BASE_A | 12.03 | 12.11 | 12.50 | 16.49 | 16.97 |
+| XGBoost BASE_A_H3_dp | 7.96 | 8.01 | 7.97 | 10.99 | 10.67 |
+| RF BASE_A | 7.56 | 7.56 | 8.24 | 11.98 | 12.04 |
+| RF BASE_A_H3_dp | 8.09 | 8.09 | 8.85 | 12.42 | 12.25 |
+| RF hybrid h=1 | 7.51 | 7.51 | 8.14 | 12.39 | 12.30 |
+
+The BASE row reproduces the June folder to the second decimal on the June data (same pipeline code). The AoA rows reproduce only with the fixed noise. The data change (2.6 to 3.0 GHz) costs at most 0.7 m. Raw outputs: `results/regression_25x25_2026_10/aoa_gap/`.
 
