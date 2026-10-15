@@ -52,22 +52,23 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
   - Determinism holds (the old code and the current code give identical results on the same short walk), so the difference is real, not run-to-run noise.
   - Consequence: the June results cannot be regenerated; say so to the instructors and rely on the documented regenerated sets. The centre no-AoA numbers happen to agree with the RMa LOS regeneration, the NE ones do not.
 
+- [x] 25x25 regression regenerated at 3.0 GHz (simulation finished 22:59, all five pipelines finished 23:21 on 2026-10-15). Results: `results/regression_25x25_2026_10/umilos_30/{untuned,tuned,custom_loss,segment_shuffle,features_test}`, small copies in `docs/results_of_record/regression_25x25_2026_10/umilos_30/`.
+  - Simulation: `run_ne_bs_25x25` with `ne_bs_voronoi_25x25_umilos_config.jsonc` (25x25, 4 m, NE BS [116,116,10], interferers [-25,53,10] and [53,-25,10], five device profiles, seeds 100-500, 400 steps per point, UMi LOS for the whole walk = the effective scenario of the 2026-06-13 data, carrier 3.0 GHz), `sim_data_ne_bs_2026-10-15_09-40-11`.
+  - Pipelines: `--sinr-dependent-aoa --history 3 --subsample 0.3 --n-jobs 8`, Cartesian targets, tuned runs with the parameters of technical documentation 7.4.3 (`configs/tuned_params_25x25_regression.json`). The June command lines were never recorded, so these flags are the best reading of the documentation.
+  - Incident: the machine slept from 09:56 to 18:55 (Modern Standby) while the simulation ran; nothing was lost. The sleep-prevention process (`keep_awake.py`) must be started first after any reboot or new session.
+  - The comparison with the June numbers is in section 10.
 - [x] `compare_controlled_grid_sets.py`: one table across the propagation sets (`results/controlled_grid_2026_10/comparison_sets.md`, copied to results of record when the runs finish). First reading: history helps in every row (+4.9 to +27.4 pp, +0.96 to +4.29 m, no-AoA); NLOS at 3.0 GHz equals NLOS at 3.5 GHz within about 1 pp (NE XGBoost BASE_H3 25.8 % against 24.6 %), so the carrier change does not matter; the AoA gain depends on placement in every set (centre +10 to +39 pp, NE -0.4 to +6 pp)
 - [x] A background job (`finalize.sh`) waits for the driver and the centre history run, builds the comparison table, copies the CSVs and configs into `docs/results_of_record/`, then commits and pushes
 
 ### 4.2 Running now
 
-- [ ] 25x25 single-placement regression regenerated at 3.0 GHz (started 2026-10-15 09:40)
-  - Status 2026-10-15 22:55: simulation users 5, 4, 3, 2 finished (10:03, 19:23, 19:50, 21:31); user 1 started 21:31 and is in the interference step (expected about 23:15-23:30). The users run one after another in this runner, about 25-100 min each depending on contention. The pipelines (about 3-5 h) start automatically after that; results expected between 03:00 and 04:30.
-  - Incident: the machine went into Modern Standby (idle timeout) at 09:56 and stayed asleep until 18:55; the simulation was frozen for about 9 hours (no data lost, it resumed). The earlier sleep-prevention process had been lost at the reboot of 08:58. A new one was started at 18:57 (`keep_awake.py`, holds ES_SYSTEM_REQUIRED). If a long run is started again after a reboot or a new session, start it first.
-  - Simulation: `run_ne_bs_25x25` with `ne_bs_voronoi_25x25_umilos_config.jsonc` (same grid 25x25, 4 m, NE BS [116,116,10], interferers [-25,53,10] and [53,-25,10], five device profiles with walk seeds 100 to 500, 400 steps per point; propagation: UMi LOS for the whole walk, which is what the 2026-06-13 data effectively ran because the first cell is UMi LOS; carrier 3.0 GHz instead of 2.6). Output: `results/grid_localization/grid_25x25/sim_data_ne_bs_2026-10-15_09-40-11`, about 1-2 h.
-  - Pipelines (driver `drive25.sh`, starts when the simulation ends), all with `--sinr-dependent-aoa --history 3 --subsample 0.3 --n-jobs 8`, Cartesian targets, into `results/regression_25x25_2026_10/umilos_30/`: `untuned` (6 experiments), `tuned` (Optuna parameters of technical documentation 7.4.3 from `configs/tuned_params_25x25_regression.json`, 6 experiments plus `_INT`), `custom_loss` (xgboost_custom), `segment_shuffle` (segment length 5), `features_test` (absolute against hybrid h = 1, 2, 3). About 3-5 h in total.
-  - The June folders' exact command lines were never recorded; the settings above are taken from technical documentation 7.4 and the report text. The spherical-target variant of 7.4.1 is no longer in the code (the pipeline predicts Cartesian x, y, z), so the untuned table is the Cartesian one.
+(none: all runs have finished)
 
 ### 4.3 To do
 
 25x25 regression (new, 2026-10-15)
-- [ ] Compare the regenerated 25x25 tables with technical documentation 7.4 and the report Section 8 numbers (RF `BASE_A_H3_dp` 13.5 m untuned, XGBoost 29.2 to 13.4 m with history, block-shuffled split, hybrid features) and update 7.4 and Section 8 accordingly
+- [ ] Update technical documentation 7.4 and report Section 8 from the regenerated 25x25 tables (comparison in section 10: the no-AoA and untuned numbers reproduce within about 1 m; the AoA numbers with tuned parameters are 2.6 to 4.5 m worse, and the hybrid-feature advantage for Random Forest disappears)
+  - First find out why the AoA runs differ: the June command lines are unknown (AoA noise model, subsample, tuned parameters). Test the fixed 4-degree noise (without `--sinr-dependent-aoa`) and the full training set, then decide which version the report quotes.
 - [ ] Decide whether to add the other two 25x25 propagation variants (`ne_bs_voronoi_25x25_nlos_config`, `ne_bs_voronoi_25x25_mixed_config` exist, not run), for symmetry with the 15x15 sweep
 - [ ] Section 8 of the report calls the 25x25 regression "single-user"; the data are the five device profiles pooled (one simulated user per profile). Check the wording against the pipeline and fix
 
@@ -211,4 +212,34 @@ Everything local is under `C:\Git\CSI-Locationesults` (gitignored); the small c
 So none of the six remaining 25x25 folders is obsolete: the report cites all of them. To reduce clutter without breaking the references they could be moved under one parent folder (for example `results/single_user_25x25_regression/`) with a README, and the folder names in the documents updated; propose this only if you want it.
 
 No new 25x25 simulation has been made since 2026-09-18 (the 300-user mixed simulation). The 2026-10-07 to 2026-10-12 follow-up experiments (uniform NLOS, mixed propagation, angle error models, neural models, history depth, no-interference, naive baseline) ran on the existing 300-user macro data (`sim_data_300users_2026-07-25_11-46-11` and `..._mixed_2026-09-18_20-25-01`) and their outputs are in `results/notebook_experiments/multi_user_poc/`. The 25x25 regression data of the existing folders is still the 2.6 GHz simulation from 2026-06-13; a 3.0 GHz regeneration was started on 2026-10-15 (section 4.2).
+
+## 10. 25x25 regression: June against regenerated (3D MAE in metres)
+
+June: simulation 2026-06-13 (2.6 GHz), folders `ne_bs_voronoi_25x25_regression*`. New: simulation 2026-10-15 (3.0 GHz, UMi LOS), same configuration otherwise, `--sinr-dependent-aoa`, 30 % training subsample.
+
+| Run | Model / experiment | June | New |
+|---|---|---|---|
+| untuned | XGBoost BASE | 26.12 | 26.07 |
+| untuned | XGBoost BASE_H3 | 24.93 | 24.55 |
+| untuned | XGBoost BASE_A_H3_dp | 17.19 | 16.50 |
+| untuned | RF BASE | 15.24 | 15.28 |
+| untuned | RF BASE_H3 | 18.06 | 18.08 |
+| untuned | RF BASE_A_H3_dp | 13.50 | 13.08 |
+| tuned (ab_testing) | XGBoost BASE | 29.24 | 29.39 |
+| tuned | XGBoost BASE_H3 | 13.43 | 13.70 |
+| tuned | XGBoost BASE_A | 12.03 | 16.97 |
+| tuned | XGBoost BASE_A_H3_dp | 7.96 | 10.67 |
+| tuned | XGBoost BASE_A_H3_dp_INT | 7.37 | 9.63 |
+| tuned | RF BASE | 14.02 | 14.52 |
+| tuned | RF BASE_H3 | 16.27 | 17.06 |
+| tuned | RF BASE_A | 7.56 | 12.04 |
+| tuned | RF BASE_A_H3_dp | 8.09 | 12.25 |
+| custom loss | XGBoost BASE_H3 | 15.87 | 16.77 |
+| custom loss | XGBoost BASE_A_H3_dp | 12.03 | 12.85 |
+| segment shuffle | XGBoost BASE / BASE_H3 | 29.77 / 14.80 | 29.27 / 14.97 |
+| segment shuffle | RF BASE / BASE_H3 | 13.81 / 17.34 | 14.73 / 18.32 |
+| features | RF BASE_A_H3_dp_HYBRID | 7.64 | 12.47 |
+| features | RF BASE_A_H1_dp_HYBRID | 7.51 | 12.30 |
+
+Reading: everything without AoA reproduces within about 1 m, including the main history result (XGBoost 29.4 to 13.7 m, Random Forest worse with history) and the block-shuffled check. Everything with AoA and tuned parameters is 2.6 to 4.5 m worse than June, and the June advantage of the hybrid features for Random Forest (7.5 against 8.1 m) is gone (12.3 against 12.25). The untuned AoA numbers agree (13.1 against 13.5), so the difference sits in the tuned runs or in the AoA noise model used then.
 
