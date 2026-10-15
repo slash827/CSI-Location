@@ -1,3 +1,5 @@
+> **Superseded in part (2026-10-16).** The simulation settings, the controlled-grid results (7.2, 7.3) and the 25x25 regression (7.4) of this edition were revised after the carrier-frequency and scenario defects of the generator were found; see `technical_documentation_revised.md`, section 9 for the status of each section here.
+
 # Technical Documentation
 # CSI-Based UE Localization Using Transition History
 

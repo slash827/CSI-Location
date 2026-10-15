@@ -57,6 +57,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
   - Pipelines: `--sinr-dependent-aoa --history 3 --subsample 0.3 --n-jobs 8`, Cartesian targets, tuned runs with the parameters of technical documentation 7.4.3 (`configs/tuned_params_25x25_regression.json`). The June command lines were never recorded, so these flags are the best reading of the documentation.
   - Incident: the machine slept from 09:56 to 18:55 (Modern Standby) while the simulation ran; nothing was lost. The sleep-prevention process (`keep_awake.py`) must be started first after any reboot or new session.
   - The comparison with the June numbers is in section 10.
+- [x] Revised technical documentation written: `docs/Project_documentation/technical_documentation_revised.md` (2026-10-16): what changed, the three propagation sets, the 25x25 regeneration and the AoA noise finding, extended history and CNN, the metric audit, limitations, reproduction steps, and a status map of the sections of the old edition. Open: review it, then decide whether to retire the old file (a pointer to the new edition was added at its top)
 - [x] `compare_controlled_grid_sets.py`: one table across the propagation sets (`results/controlled_grid_2026_10/comparison_sets.md`, copied to results of record when the runs finish). First reading: history helps in every row (+4.9 to +27.4 pp, +0.96 to +4.29 m, no-AoA); NLOS at 3.0 GHz equals NLOS at 3.5 GHz within about 1 pp (NE XGBoost BASE_H3 25.8 % against 24.6 %), so the carrier change does not matter; the AoA gain depends on placement in every set (centre +10 to +39 pp, NE -0.4 to +6 pp)
 - [x] A background job (`finalize.sh`) waits for the driver and the centre history run, builds the comparison table, copies the CSVs and configs into `docs/results_of_record/`, then commits and pushes
 
@@ -107,7 +108,7 @@ Experiments
 
 Documentation
 - [ ] Choose the primary controlled-grid set for the report and say which propagation each number comes from
-- [ ] Rewrite technical documentation §7.2–7.3 from the final sets (currently NLOS 3.5 GHz)
+- [x] Technical documentation 7.2-7.4 rewritten from the final sets: done in the revised edition (sections 6.1 to 6.4)
 - [ ] Rewrite report Section 5 (and Section 4 setup text) from the final sets; add the extended-history and CNN results to Section 5 or the mechanism section
 - [ ] Update the abstract, discussion and limitations for the new numbers and for the propagation caveat
 - [ ] Update `RESULTS_DIRECTORY_MAP.md`, `results_of_record/MANIFEST.md`, `CONTINUE_HERE.md`
