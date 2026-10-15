@@ -63,6 +63,12 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
+- [ ] Overnight queue started 2026-10-16 00:58 (`results/_logs/overnight.log` lists the steps; the job commits and pushes the small result copies at the end, and writes `ALL DONE` when finished)
+  - Track 1, 25x25 regression with the fixed 4-degree AoA noise (the June setting, same as the macro study; no `--sinr-dependent-aoa`, 30 % subsample, same five pipeline variants as before): (a) UMi LOS data of 2026-10-15 (about 30 min), (b) a new simulation with uniform UMi NLOS (`ne_bs_voronoi_25x25_nlos_config`, about 2 h) and its pipelines, (c) a new simulation with per-cell mixed propagation (`ne_bs_voronoi_25x25_mixed_config`, 2-3 h) and its pipelines. Output: `results/regression_25x25_2026_10/{umilos_30_fixednoise, nlos_30_fixednoise, mixed_30_fixednoise}`.
+  - Track 2, extended history (h = 0 to 15) and 1D-CNN on the mixed 15x15 set, NE then centre (about 2 h each with contention). Output: `results/history_extended/{ne_mixed, centre_mixed}`.
+  - Still running from earlier: `aoa_gap/new_fixed_noise_full_train` and `june_data_fixed_noise` (optional full-training-set tests).
+  - Expected finish: between 06:00 and 08:00. Morning to-do: read `overnight.log`, build the three-set 25x25 table, add the mixed-set history/CNN rows to the revised technical documentation 6.2, update report Section 8.
+
 (none: all runs have finished)
 
 ### 4.3 To do
