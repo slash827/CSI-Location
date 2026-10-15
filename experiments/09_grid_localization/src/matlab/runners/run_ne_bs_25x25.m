@@ -34,6 +34,7 @@ experiment_root = fileparts(fileparts(src_matlab_dir));     % 09_grid_localizati
 workspace_root  = fileparts(fileparts(experiment_root));    % CSI-Location/
 addpath(fullfile(src_matlab_dir, 'core'));
 addpath(fullfile(src_matlab_dir, 'lib'));
+ensure_quadriga();
 
 %% Shared output directory
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
@@ -53,7 +54,11 @@ fprintf('Start time:       %s\n', datestr(now));
 fprintf('Output directory: %s\n\n', output_dir);
 
 %% Config and device profiles
-config_name = 'ne_bs_voronoi_25x25_config.jsonc';
+if evalin('base', 'exist(''RUNNER_CONFIG_NAME'', ''var'')') && ~isempty(evalin('base', 'RUNNER_CONFIG_NAME'))
+    config_name = evalin('base', 'RUNNER_CONFIG_NAME');
+else
+    config_name = 'ne_bs_voronoi_25x25_config.jsonc';
+end
 
 % Each row: [n_antennas, antenna_gain_db, ue_height_m, walk_seed]
 profiles = [
@@ -124,8 +129,27 @@ for u = 1:n_users
 end
 fprintf('Total data: %.0f MB\n', total_mb);
 
+%% Save a copy of the config used and the provenance of this run
+config_path = fullfile(experiment_root, 'configs', config_name);
+copyfile(config_path, fullfile(output_dir, 'data_generation_config.jsonc'));
+[~, git_commit] = system(sprintf('git -C "%s" rev-parse HEAD', workspace_root));
+[~, git_dirty]  = system(sprintf('git -C "%s" status --porcelain -- experiments/09_grid_localization/configs experiments/09_grid_localization/src/matlab', workspace_root));
+cfg_used = read_jsonc(config_path);
+
 %% Save experiment metadata
 experiment_info = struct();
+experiment_info.git_commit        = strtrim(git_commit);
+experiment_info.git_dirty_matlab  = ~isempty(strtrim(git_dirty));
+experiment_info.center_frequency  = cfg_used.channel.center_frequency;
+experiment_info.bandwidth         = cfg_used.channel.bandwidth;
+experiment_info.scenario          = cfg_used.channel.scenario;
+if isfield(cfg_used.channel, 'mixed_scenario') && isfield(cfg_used.channel.mixed_scenario, 'uniform_scenario')
+    experiment_info.uniform_scenario = cfg_used.channel.mixed_scenario.uniform_scenario;
+else
+    experiment_info.uniform_scenario = '';
+end
+experiment_info.tx_power_dbm      = cfg_used.base_station.tx_power_dbm;
+experiment_info.interferers       = cfg_used.base_station.interferers.positions;
 experiment_info.config_name     = config_name;
 experiment_info.profiles        = profiles;
 experiment_info.profile_names   = profile_names;

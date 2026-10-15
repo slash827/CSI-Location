@@ -1,0 +1,136 @@
+{
+  // NE-BS Heterogeneous Environment — 25x25 Voronoi Grid
+  //
+  // OBJECTIVE: Test localization on a larger 25x25 grid (625 classes/points)
+  //   using 3D regression to avoid OOM exceptions.
+  //
+  // NETWORK SETUP:
+  //   Grid: X ∈ [5, 101],  Y ∈ [5, 101],  NE corner = (101, 101)
+  //   Serving BS: (116, 116, 10) — 15m north + 15m east of NE corner
+  //   IBS-1: (-25, 53, 10) — west of grid   (E-W SINR gradient)
+  //   IBS-2: (53, -25, 10) — south of grid  (N-S SINR gradient)
+  //   Features extracted: RSS, SINR, AoA from serving BS
+  //
+  // DEVICE PROFILES (5 users — applied via MATLAB override globals):
+  //   U1: 4 antennas, 0 dB gain,  1.5 m height  (Flagship A,  seed=100)
+  //   U2: 2 antennas, -2 dB gain, 1.5 m height  (Mid-range,   seed=200)
+  //   U3: 1 antenna,  -4 dB gain, 1.5 m height  (Budget/Old,  seed=300)
+  //   U4: 4 antennas,  0 dB gain, 1.5 m height  (Flagship B,  seed=400)
+  //   U5: 2 antennas, -1 dB gain, 0.9 m height  (Tablet/IoT,  seed=500)
+
+  "experiment": {
+    "name": "ne_bs_voronoi_25x25",
+    "description": "NE-corner BS placement — 25x25 Voronoi grid, 5 device profiles, 4m spacing",
+    "random_seed": 42
+  },
+
+  "data_split": {
+    "method": "temporal",
+    "test_ratio": 0.2
+  },
+
+  "grid": {
+    "size": 25,
+    "spacing": 4.0,
+    "ue_height": 1.5,
+    "grid_offset": [5, 5],
+    "position_jitter": 0.1,
+    "neighbor_connectivity": 8
+  },
+
+  "movement": {
+    "steps_per_point": 400,
+    "ue_speed": 1.5,
+    "starting_point": "center"
+  },
+
+  "channel": {
+    "scenario": "3GPP_38.901_UMi_NLOS",
+    "center_frequency": 3.0e9,
+    "bandwidth": 1e8,
+    "n_subcarriers": 256,
+    "interference_per_sc_dbm": -999,
+
+    "mixed_scenario": {
+      "enabled": true,
+      "auto_generate": false,
+      // Real per-cell propagation: one QuaDRiGa segment per run inside a Voronoi cell.
+      "uniform_scenario": "",
+      "per_cell_segments": true,
+      "min_segment_snapshots": 100,
+
+      "area_generator": {
+        "num_areas": 4,
+        "area_bounds": "auto",
+        "transition_width": 3,
+        "area_types": [
+          "shopping_center",
+          "residential",
+          "highway",
+          "park"
+        ],
+        "scenario_mapping": {
+          "highway": "3GPP_38.901_UMi_LOS",
+          "park": "3GPP_38.901_UMi_LOS",
+          "shopping_center": "3GPP_38.901_UMi_NLOS",
+          "residential": "3GPP_38.901_UMi_NLOS"
+        }
+      },
+
+      "voronoi_cells": [
+        {
+          "center": [35.0, 15.0],
+          "scenario": "3GPP_38.901_UMi_LOS",
+          "name": "highway"
+        },
+        {
+          "center": [95.0, 15.0],
+          "scenario": "3GPP_38.901_UMi_NLOS",
+          "name": "shopping_center"
+        },
+        {
+          "center": [75.0, 5.0],
+          "scenario": "3GPP_38.901_UMi_NLOS",
+          "name": "residential"
+        },
+        {
+          "center": [60.0, 90.0],
+          "scenario": "3GPP_38.901_UMi_LOS",
+          "name": "park"
+        }
+      ]
+    }
+  },
+
+  "base_station": {
+    // Serving BS: 15m north + 15m east of NE grid corner (101, 101)
+    "position": [116, 116, 10],
+    "tx_power_dbm": 30,
+
+    "interferers": {
+      "enabled": true,
+      // IBS-1: west of grid
+      // IBS-2: south of grid
+      "positions": [
+        [-25,  53, 10],
+        [ 53, -25, 10]
+      ],
+      "tx_power_dbm": 30
+    }
+  },
+
+  "ml_task": {
+    "type": "regression",
+    "test_ratio": 0.2,
+    "metrics": ["RSS", "SINR"],
+    "max_history_length": 4
+  },
+
+  "output": {
+    "save_results": true,
+    "generate_plots": false,
+    "save_raw_data": true,
+    "verbose": true,
+    "auto_run_pipeline": false
+  }
+}

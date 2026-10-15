@@ -57,10 +57,17 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
-- [ ] Extended history and CNN, RMa LOS, centre BS (started ~15:44, about 2 h)
-- [ ] NLOS 3.0 GHz simulations, centre and NE (started 15:47); then the headline-experiment pipelines
+- [ ] 25x25 single-placement regression regenerated at 3.0 GHz (started 2026-10-15 09:40)
+  - Simulation: `run_ne_bs_25x25` with `ne_bs_voronoi_25x25_umilos_config.jsonc` (same grid 25x25, 4 m, NE BS [116,116,10], interferers [-25,53,10] and [53,-25,10], five device profiles with walk seeds 100 to 500, 400 steps per point; propagation: UMi LOS for the whole walk, which is what the 2026-06-13 data effectively ran because the first cell is UMi LOS; carrier 3.0 GHz instead of 2.6). Output: `results/grid_localization/grid_25x25/sim_data_ne_bs_2026-10-15_09-40-11`, about 1-2 h.
+  - Pipelines (driver `drive25.sh`, starts when the simulation ends), all with `--sinr-dependent-aoa --history 3 --subsample 0.3 --n-jobs 8`, Cartesian targets, into `results/regression_25x25_2026_10/umilos_30/`: `untuned` (6 experiments), `tuned` (Optuna parameters of technical documentation 7.4.3 from `configs/tuned_params_25x25_regression.json`, 6 experiments plus `_INT`), `custom_loss` (xgboost_custom), `segment_shuffle` (segment length 5), `features_test` (absolute against hybrid h = 1, 2, 3). About 3-5 h in total.
+  - The June folders' exact command lines were never recorded; the settings above are taken from technical documentation 7.4 and the report text. The spherical-target variant of 7.4.1 is no longer in the code (the pipeline predicts Cartesian x, y, z), so the untuned table is the Cartesian one.
 
 ### 4.3 To do
+
+25x25 regression (new, 2026-10-15)
+- [ ] Compare the regenerated 25x25 tables with technical documentation 7.4 and the report Section 8 numbers (RF `BASE_A_H3_dp` 13.5 m untuned, XGBoost 29.2 to 13.4 m with history, block-shuffled split, hybrid features) and update 7.4 and Section 8 accordingly
+- [ ] Decide whether to add the other two 25x25 propagation variants (`ne_bs_voronoi_25x25_nlos_config`, `ne_bs_voronoi_25x25_mixed_config` exist, not run), for symmetry with the 15x15 sweep
+- [ ] Section 8 of the report calls the 25x25 regression "single-user"; the data are the five device profiles pooled (one simulated user per profile). Check the wording against the pipeline and fix
 
 Explaining the old results to the instructors (requested 2026-10-13)
 - [x] `docs/OLD_VS_REGENERATED_RUNS.md` written (first version, 2026-10-14): which earlier results are reproduced, changed or unaffected, the reproduction result, and the 20-30 m explanation. Update the NLOS 3.0 centre row and the extended-history numbers when the last runs finish
@@ -118,7 +125,7 @@ These need your decision, your judgement or your presence. Claude's tasks are in
 
 - [ ] 1. Choose the headline set for the controlled grid in the report (suggestion: mixed per-cell as the headline, RMa LOS and NLOS as the propagation sweep; alternative: RMa LOS, closest to the old centre numbers)
 - [ ] 2. Look at the results (section 8 says where everything is) and tell Claude which figures and tables you want in the report and on the meeting slides
-- [ ] 3. Approve the archive proposal for the 25x25 folders (section 8) and whether the 25x25 single-user simulation should be regenerated at 3.0 GHz
+- [ ] 3. Approve the archive proposal for the 25x25 folders (section 9). The regeneration of the 25x25 data at 3.0 GHz was decided on 2026-10-15 and is running (4.2)
 - [ ] 4. Decide what to do with the claim in Section 8 of the report that the predictions were fixed before the experiment (unverifiable from the repository: keep with a source, or remove)
 - [ ] 5. Meeting with the instructors (Dudi, Sarit, Alon): agree on the date; review the slide on the 20-30 m errors (M1), the comparative figure (M5) and `OLD_VS_REGENERATED_RUNS.md` before the meeting (M10)
 - [ ] 6. Report length and form: cut to about 12 pages (what goes to the appendix), thesis conversion, and the consortium report due at the end of October
@@ -201,5 +208,5 @@ Everything local is under `C:\Git\CSI-Locationesults` (gitignored); the small c
 
 So none of the six remaining 25x25 folders is obsolete: the report cites all of them. To reduce clutter without breaking the references they could be moved under one parent folder (for example `results/single_user_25x25_regression/`) with a README, and the folder names in the documents updated; propose this only if you want it.
 
-No new 25x25 simulation has been made since 2026-09-18 (the 300-user mixed simulation). The 2026-10-07 to 2026-10-12 follow-up experiments (uniform NLOS, mixed propagation, angle error models, neural models, history depth, no-interference, naive baseline) ran on the existing 300-user macro data (`sim_data_300users_2026-07-25_11-46-11` and `..._mixed_2026-09-18_20-25-01`) and their outputs are in `results/notebook_experiments/multi_user_poc/`. The 25x25 single-user data is still the 2.6 GHz simulation from 2026-06-13 (not regenerated).
+No new 25x25 simulation has been made since 2026-09-18 (the 300-user mixed simulation). The 2026-10-07 to 2026-10-12 follow-up experiments (uniform NLOS, mixed propagation, angle error models, neural models, history depth, no-interference, naive baseline) ran on the existing 300-user macro data (`sim_data_300users_2026-07-25_11-46-11` and `..._mixed_2026-09-18_20-25-01`) and their outputs are in `results/notebook_experiments/multi_user_poc/`. The 25x25 regression data of the existing folders is still the 2.6 GHz simulation from 2026-06-13; a 3.0 GHz regeneration was started on 2026-10-15 (section 4.2).
 

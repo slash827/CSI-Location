@@ -1,0 +1,5 @@
+{
+  "xgboost": {"n_estimators": 250, "max_depth": 8, "learning_rate": 0.1556, "subsample": 0.7496, "colsample_bytree": 0.6758},
+  "rf": {"n_estimators": 200, "max_depth": 15, "min_samples_leaf": 5},
+  "xgboost_custom": {"n_estimators": 100, "max_depth": 9, "learning_rate": 0.18267215261378822, "subsample": 0.8969185264404376, "colsample_bytree": 0.8333643072307773}
+}
