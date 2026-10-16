@@ -63,6 +63,12 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
+- [ ] Why do the trees plateau (and Random Forest degrade) beyond h about 3 while the CNN keeps improving? Theory in section 12; tests running since 12:50 (`results/history_extended/{ne_rmalos,ne_mixed,centre_rmalos,centre_mixed}_wmgru`, log `results/_logs/wmgru.log`)
+  - Test 1, window-mean trees (`xgboost_wm`, `rf_wm`): only the current report and the window mean of each channel are given, for h = 0 to 15. If the plateau comes from the trees being unable to form an average of the lags, these must keep improving with h.
+  - Test 2, a GRU (3 seeds, same protocol as the CNN) added to the grid study as requested, so the neural family is CNN and GRU.
+  - Both are queued for the four sets (RMa LOS and mixed, NE and centre); about 3-5 h under the present load.
+- [x] Extended history and CNN on the mixed 15x15 set finished (NE 10:40, centre 12:18). Same pattern as RMa LOS, stronger: the CNN overtakes the trees (section 12 and the 11:30 note below)
+
 - [ ] Overnight queue started 2026-10-16 00:58 (`results/_logs/overnight.log` lists the steps; the job commits and pushes the small result copies at the end, and writes `ALL DONE` when finished)
   - Track 1, 25x25 regression with the fixed 4-degree AoA noise (the June setting, same as the macro study; no `--sinr-dependent-aoa`, 30 % subsample, same five pipeline variants as before): (a) UMi LOS data of 2026-10-15 (about 30 min), (b) a new simulation with uniform UMi NLOS (`ne_bs_voronoi_25x25_nlos_config`, about 2 h) and its pipelines, (c) a new simulation with per-cell mixed propagation (`ne_bs_voronoi_25x25_mixed_config`, 2-3 h) and its pipelines. Output: `results/regression_25x25_2026_10/{umilos_30_fixednoise, nlos_30_fixednoise, mixed_30_fixednoise}`.
   - Track 2, extended history (h = 0 to 15) and 1D-CNN on the mixed 15x15 set, NE then centre (about 2 h each with contention). Output: `results/history_extended/{ne_mixed, centre_mixed}`.
@@ -266,4 +272,17 @@ Reading: everything without AoA reproduces within about 1 m, including the main 
 | RF hybrid h=1 | 7.51 | 7.51 | 8.14 | 12.39 | 12.30 |
 
 The BASE row reproduces the June folder to the second decimal on the June data (same pipeline code). The AoA rows reproduce only with the fixed noise. The data change (2.6 to 3.0 GHz) costs at most 0.7 m. Raw outputs: `results/regression_25x25_2026_10/aoa_gap/`.
+
+## 12. Why trees plateau with longer history while the CNN does not (theory and tests)
+
+Observation (RMa LOS and mixed, both placements): XGBoost takes nearly all of its history gain by h = 1 to 3 and is flat afterwards; Random Forest is best at h = 3 to 5 and gets worse by h = 15 (mixed NE: 2.78 m at h=3, 3.35 m at h=15); the 1D-CNN keeps improving up to h = 15 and on the mixed set ends below both trees (2.49 m against 3.35 and 3.46 m). Earlier macro runs (CNN, GRU against trees) showed the same ordering.
+
+What is known about the data: the walker stays on each cell for 400 consecutive reports, so a window of up to 16 reports almost always comes from one position; the simulated AoA error is independent between reports. Averaging N reports of one position should therefore keep reducing the error like 1/sqrt(N).
+
+Hypotheses:
+1. No averaging operator in a tree. A split looks at one feature, so a tree cannot form the mean (or any weighted sum) of several noisy lags; it can only approximate it by a staircase of axis-aligned splits, and that approximation does not get better with more lags. A CNN with global average pooling and a GRU that integrates over time contain the averaging operator by construction. Prediction: trees fed the window mean directly should keep improving with h.
+2. Dilution and collinearity (mostly Random Forest). With raw lags there are 4(h+1) strongly correlated features; `max_features = sqrt` makes each split choose among a few of them, so many splits use redundant lags, while the number of training rows and the forest size (50 trees, depth 15, minimum leaf 20) stay fixed, so variance grows with the dimension. XGBoost uses 80 % of the columns per tree and picks the useful ones, so it stays flat rather than degrading. Prediction: Random Forest degrades with raw lags, not with window-mean features.
+3. Window bias (not expected here). If the window spanned several positions, old reports would describe other places and long windows would hurt. On this grid the window stays in one cell, so this should not matter; it would matter at higher speed or on the macro grid. The CNN can also learn to weight recent reports more.
+
+Tests: window-mean trees (hypotheses 1 and 2) and a GRU (the second integrating architecture) at h = 0 to 15 on four sets. Reading the result: if `rf_wm` and `xgboost_wm` keep improving and approach the CNN, the plateau is an input-representation problem of trees, not a limit of the information in the window; if they plateau too, the limit is in the data (hypothesis 3 or a noise floor) and the CNN's advantage comes from something else (weighting, nonlinearity). Whichever way it comes out, it belongs in the revised technical documentation 6.2 and in the report's mechanism section as the second half of the averaging account: the gain is averaging, models differ in whether they can average.
 

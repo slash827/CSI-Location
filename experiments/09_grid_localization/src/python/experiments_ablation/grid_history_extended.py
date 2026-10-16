@@ -1,5 +1,7 @@
 """
-Extended history depth and a 1D-CNN on the 15x15 controlled grid.
+Extended history depth, a 1D-CNN and a GRU on the 15x15 controlled grid, plus window-mean tree variants
+(xgboost_wm, rf_wm: only the current report and the window mean are given, to test whether trees plateau because
+they cannot form an average of the lags themselves).
 
 Two questions the controlled-grid study has not answered:
   1. Where does the history gain stop growing (h = 0, 1, 3, 5, 7, 10, 15)?
@@ -68,12 +70,47 @@ def make_cnn(in_ch, n_classes):
         nn.Linear(256, n_classes))
 
 
-def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device):
+def make_gru(in_ch, n_classes):
+    import torch.nn as nn
+
+    class GRUNet(nn.Module):
+        """2-layer GRU over the report sequence (oldest to newest); the last hidden state feeds the classifier."""
+
+        def __init__(self):
+            super().__init__()
+            self.gru = nn.GRU(in_ch, 64, num_layers=2, batch_first=True, dropout=0.2)
+            self.head = nn.Sequential(nn.Linear(64, 128), nn.LeakyReLU(0.1), nn.Dropout(DROPOUT),
+                                      nn.Linear(128, n_classes))
+
+        def forward(self, x):                      # x: [B, C, T]
+            out, _ = self.gru(x.permute(0, 2, 1))
+            return self.head(out[:, -1])
+
+    return GRUNet()
+
+
+def window_mean_features(feat_df, h, aoa):
+    """[current value, window mean] per channel; azimuth is averaged as a unit vector. Isolates the averaging
+    operator that a tree cannot build from raw lags: no individual old reports are given to the model."""
+    lags = range(h + 1)
+    cols = []
+    for ch in ('rss', 'sinr'):
+        v = np.stack([feat_df[f'{ch}_lag{l}'].values for l in lags], axis=1)
+        cols += [v[:, 0], v.mean(axis=1)]
+    if aoa:
+        az = np.deg2rad(np.stack([feat_df[f'aoa_az_lag{l}'].values for l in lags], axis=1))
+        el = np.stack([feat_df[f'aoa_el_lag{l}'].values for l in lags], axis=1)
+        az_mean = np.rad2deg(np.arctan2(np.sin(az).mean(axis=1), np.cos(az).mean(axis=1)))
+        cols += [np.rad2deg(az[:, 0]), az_mean, el[:, 0], el.mean(axis=1)]
+    return np.stack(cols, axis=1).astype(np.float32)
+
+
+def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device, kind='cnn'):
     import torch
     import torch.nn as nn
     torch.manual_seed(seed)
     np.random.seed(seed)
-    net = make_cnn(Xtr.shape[1], n_classes).to(device)
+    net = (make_gru if kind == 'gru' else make_cnn)(Xtr.shape[1], n_classes).to(device)
     opt = torch.optim.AdamW(net.parameters(), lr=LR, weight_decay=WD)
     lossf = nn.CrossEntropyLoss()
     Xtr_t, ytr_t = torch.from_numpy(Xtr).to(device), torch.from_numpy(ytr).to(device)
@@ -114,7 +151,7 @@ def main():
     ap.add_argument('--data-dir', required=True)
     ap.add_argument('--out-dir', required=True)
     ap.add_argument('--depths', type=int, nargs='+', default=[0, 1, 3, 5, 7, 10, 15])
-    ap.add_argument('--models', nargs='+', choices=['xgboost', 'rf', 'cnn'], default=['xgboost', 'rf', 'cnn'])
+    ap.add_argument('--models', nargs='+', choices=['xgboost', 'rf', 'cnn', 'gru', 'xgboost_wm', 'rf_wm'], default=['xgboost', 'rf', 'cnn'])
     ap.add_argument('--experiments', nargs='+', choices=list(EXPERIMENTS), default=list(EXPERIMENTS))
     ap.add_argument('--cnn-seeds', type=int, default=3)
     ap.add_argument('--n-jobs', type=int, default=6)
@@ -140,7 +177,7 @@ def main():
     log(f'{len(df):,} rows, {len(labels)} cells, spacing {spacing} m, data {data_dir.name}')
 
     device = None
-    if 'cnn' in args.models:
+    if 'cnn' in args.models or 'gru' in args.models:
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         log(f'CNN device: {device}')
@@ -163,13 +200,18 @@ def main():
                     continue
                 t0 = time.time()
                 out = []
-                if model in ('xgboost', 'rf'):
-                    Xtr = feat.loc[tr, cols].values.astype(np.float32)
-                    Xte = feat.loc[te, cols].values.astype(np.float32)
-                    if model == 'rf':   # as in the pipeline: RF gets zeros, XGBoost keeps NaN natively
+                if model in ('xgboost', 'rf', 'xgboost_wm', 'rf_wm'):
+                    base = model.split('_')[0]
+                    if model.endswith('_wm'):
+                        Xall_wm = window_mean_features(feat, h, aoa)
+                        Xtr, Xte = Xall_wm[tr.values], Xall_wm[te.values]
+                    else:
+                        Xtr = feat.loc[tr, cols].values.astype(np.float32)
+                        Xte = feat.loc[te, cols].values.astype(np.float32)
+                    if base == 'rf':   # as in the pipeline: RF gets zeros, XGBoost keeps NaN natively
                         Xtr, Xte = np.nan_to_num(Xtr), np.nan_to_num(Xte)
                     ytr = feat.loc[tr, 'grid_point_id'].map(l2i).values
-                    clf = mu.get_model(model, len(labels))
+                    clf = mu.get_model(base, len(labels))
                     clf.fit(Xtr, ytr)
                     pred = i2l[clf.predict(Xte)]
                     r = mu.evaluate_split(y_te_lab, pred, grid_lookup, spacing=spacing)
@@ -190,9 +232,9 @@ def main():
                     Xte = sequence_tensor(feat[te], h, aoa, stats)
                     for seed in range(args.cnn_seeds):
                         pred_i, ep, best = train_cnn(Xall[~val_mask], yall[~val_mask], Xall[val_mask],
-                                                     yall[val_mask], Xte, len(labels), seed, device)
+                                                     yall[val_mask], Xte, len(labels), seed, device, kind=model)
                         r = mu.evaluate_split(y_te_lab, i2l[pred_i], grid_lookup, spacing=spacing)
-                        out.append(dict(model='cnn', experiment=exp, h=h, seed=seed, accuracy=r['accuracy'],
+                        out.append(dict(model=model, experiment=exp, h=h, seed=seed, accuracy=r['accuracy'],
                                         mae=r['mae'], epochs=ep, secs=round(time.time() - t0, 1)))
                 f.write_text(json.dumps(out))
                 rows.extend(out)
