@@ -1,0 +1,23 @@
+{
+  "data_dir": "results\\grid_localization\\grid_15x15\\sim_data_ne_bs_2026-10-13_11-23-43",
+  "depths": [
+    0,
+    1,
+    3,
+    5,
+    7,
+    10,
+    15
+  ],
+  "models": [
+    "xgboost",
+    "rf",
+    "cnn"
+  ],
+  "cnn_seeds": 3,
+  "subsample": 1.0,
+  "epochs": 40,
+  "batch": 512,
+  "lr": 0.001,
+  "patience": 5
+}

@@ -1,0 +1,7 @@
+model,experiment,3d_mae_m,mpe_pts,dist_mae,az_mae,el_mae,train_time_s
+xgboost_custom,BASE,33.1904,8.2976,19.6922,14.1505,1.4225,4.99
+xgboost_custom,BASE_H3,25.4856,6.3714,15.76,10.6587,1.1283,5.48
+xgboost_custom,BASE_H3_dp,21.5966,5.3991,13.1234,9.0673,0.9224,5.73
+xgboost_custom,BASE_A,17.7539,4.4385,13.8893,4.9054,0.9922,5.66
+xgboost_custom,BASE_A_H3,15.3645,3.8411,12.0646,4.3996,0.855,6.72
+xgboost_custom,BASE_A_H3_dp,14.507,3.6267,11.1888,4.4098,0.806,6.68
