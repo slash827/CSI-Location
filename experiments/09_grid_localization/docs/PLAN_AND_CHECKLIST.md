@@ -63,7 +63,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
-- [ ] Why do the trees plateau (and Random Forest degrade) beyond h about 3 while the CNN keeps improving? Theory in section 12; tests running since 12:50 (`results/history_extended/{ne_rmalos,ne_mixed,centre_rmalos,centre_mixed}_wmgru`, log `results/_logs/wmgru.log`)
+- [x] Why do the trees plateau (and Random Forest degrade) beyond h about 3 while the CNN keeps improving? Tests finished 2026-10-16 19:44 (`results/history_extended/*_wmgru`); the averaging hypothesis is rejected and an information (order) account remains, see section 12.4
   - Test 1, window-mean trees (`xgboost_wm`, `rf_wm`): only the current report and the window mean of each channel are given, for h = 0 to 15. If the plateau comes from the trees being unable to form an average of the lags, these must keep improving with h.
   - Test 2, a GRU (3 seeds, same protocol as the CNN) added to the grid study as requested, so the neural family is CNN and GRU.
   - Both are queued for the four sets (RMa LOS and mixed, NE and centre); about 3-5 h under the present load.
@@ -82,6 +82,10 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 (none: all runs have finished)
 
 ### 4.3 To do
+
+Plateau follow-up (new, 2026-10-16)
+- [ ] Order test: train the GRU and the CNN on windows whose reports are shuffled inside each window (same data, same protocol). If they stay as good, the advantage is a weighted mean; if they lose it, the order carries the information. This is the direct test of section 12.4, point 3
+- [ ] Add section 12.4 (the table and the reading) to the revised technical documentation 6.2 and to the report's mechanism section as a hypothesis with its evidence, after the order test
 
 25x25 regression (new, 2026-10-15)
 - [ ] Update technical documentation 7.4 and report Section 8 from the regenerated 25x25 tables (comparison in section 10: the no-AoA and untuned numbers reproduce within about 1 m; the AoA numbers with tuned parameters are 2.6 to 4.5 m worse, and the hybrid-feature advantage for Random Forest disappears)
@@ -315,4 +319,63 @@ With AoA the window mean alone does as well as the raw lags for both trees (RF 2
 ### 12.3 25x25 NLOS regression with fixed AoA noise (3D MAE m, finished 14:57)
 
 Tuned: XGBoost BASE 33.25, BASE_H3 24.51, BASE_A 18.02, BASE_A_H3_dp 11.63, INT 11.17; RF BASE 29.32, BASE_H3 26.61, BASE_A 15.99, BASE_A_H3_dp 12.41. Untuned: RF BASE 29.43, BASE_H3 27.04, BASE_A_H3_dp 13.01. Segment shuffle: XGBoost 33.20 to 25.18, RF 29.36 to 27.01. Against the UMi LOS set (tuned XGBoost BASE 29.39, BASE_H3 13.72, BASE_A_H3_dp 7.99) uniform NLOS is much harder: no-AoA error stays near the constant-guess level and history helps less (XGBoost 8.7 m against 15.7 m), but still helps for XGBoost; Random Forest gains only 2.7 m. The mixed 25x25 set is running (started 14:57).
+
+### 12.4 All four sets (finished 2026-10-16 19:44; MAE m)
+
+| Set | AoA | model | h=0 | h=3 | h=15 |
+|---|---|---|---|---|---|
+| RMa LOS NE | no | XGBoost raw lags | 6.06 | 3.48 | 3.40 |
+| RMa LOS NE | no | XGBoost window mean | 4.53 | 3.93 | 4.06 |
+| RMa LOS NE | no | RF raw lags | 3.88 | 2.92 | 3.15 |
+| RMa LOS NE | no | RF window mean | 3.88 | 3.35 | 3.44 |
+| RMa LOS NE | no | 1D-CNN | 6.66 | 5.29 | 3.91 |
+| RMa LOS NE | no | GRU | 4.49 | 3.34 | 2.48 |
+| RMa LOS NE | yes | XGBoost raw lags | 3.38 | 2.51 | 2.32 |
+| RMa LOS NE | yes | XGBoost window mean | 3.33 | 2.58 | 2.45 |
+| RMa LOS NE | yes | RF raw lags | 2.94 | 2.20 | 2.38 |
+| RMa LOS NE | yes | RF window mean | 2.97 | 2.34 | 2.30 |
+| RMa LOS NE | yes | 1D-CNN | 4.59 | 2.83 | 2.61 |
+| RMa LOS NE | yes | GRU | 3.35 | 2.25 | 1.87 |
+| Mixed NE | no | XGBoost raw lags | 7.34 | 3.58 | 3.46 |
+| Mixed NE | no | XGBoost window mean | 5.47 | 4.49 | 4.52 |
+| Mixed NE | no | RF raw lags | 4.93 | 2.78 | 3.35 |
+| Mixed NE | no | RF window mean | 4.83 | 3.78 | 3.80 |
+| Mixed NE | no | 1D-CNN | 8.34 | 3.86 | 2.49 |
+| Mixed NE | no | GRU | 5.37 | 2.58 | 1.42 |
+| Mixed NE | yes | XGBoost raw lags | 4.63 | 3.06 | 2.82 |
+| Mixed NE | yes | XGBoost window mean | 4.58 | 3.48 | 3.15 |
+| Mixed NE | yes | RF raw lags | 4.25 | 2.62 | 3.15 |
+| Mixed NE | yes | RF window mean | 4.34 | 3.33 | 3.15 |
+| Mixed NE | yes | 1D-CNN | 6.04 | 2.53 | 1.67 |
+| Mixed NE | yes | GRU | 4.37 | 2.02 | 1.30 |
+| RMa LOS centre | no | XGBoost raw lags | 6.83 | 3.81 | 3.65 |
+| RMa LOS centre | no | XGBoost window mean | 5.12 | 4.37 | 4.38 |
+| RMa LOS centre | no | RF raw lags | 5.34 | 3.32 | 3.56 |
+| RMa LOS centre | no | RF window mean | 5.54 | 4.25 | 3.84 |
+| RMa LOS centre | no | 1D-CNN | 7.72 | 5.20 | 3.53 |
+| RMa LOS centre | no | GRU | 5.25 | 3.28 | 2.19 |
+| RMa LOS centre | yes | XGBoost raw lags | 1.74 | 1.35 | 1.34 |
+| RMa LOS centre | yes | XGBoost window mean | 1.71 | 1.48 | 1.57 |
+| RMa LOS centre | yes | RF raw lags | 1.78 | 1.38 | 1.57 |
+| RMa LOS centre | yes | RF window mean | 1.73 | 1.54 | 1.63 |
+| RMa LOS centre | yes | 1D-CNN | 2.68 | 1.64 | 1.38 |
+| RMa LOS centre | yes | GRU | 2.00 | 1.22 | 1.01 |
+| Mixed centre | no | XGBoost raw lags | 8.05 | 3.77 | 3.53 |
+| Mixed centre | no | XGBoost window mean | 5.90 | 4.82 | 4.74 |
+| Mixed centre | no | RF raw lags | 5.21 | 2.76 | 3.21 |
+| Mixed centre | no | RF window mean | 5.21 | 4.04 | 3.90 |
+| Mixed centre | no | 1D-CNN | 8.96 | 3.83 | 2.01 |
+| Mixed centre | no | GRU | 5.74 | 2.52 | 1.24 |
+| Mixed centre | yes | XGBoost raw lags | 1.44 | 1.00 | 0.99 |
+| Mixed centre | yes | XGBoost window mean | 1.42 | 1.18 | 1.26 |
+| Mixed centre | yes | RF raw lags | 1.25 | 1.04 | 1.31 |
+| Mixed centre | yes | RF window mean | 1.24 | 1.11 | 1.18 |
+| Mixed centre | yes | 1D-CNN | 1.90 | 0.88 | 0.75 |
+| Mixed centre | yes | GRU | 1.38 | 0.80 | 0.60 |
+
+Reading (all four sets, with and without AoA, the same direction every time):
+1. The GRU is the best model at long history in every set and keeps improving to h = 15 (mixed centre with AoA 0.60 m against 0.99 m for XGBoost; mixed NE without AoA 1.42 m against 3.46 m). The CNN follows the GRU and overtakes the trees at long history on the mixed sets.
+2. Window-mean trees do not keep improving. Without AoA they are worse than the raw-lag trees for h >= 3 (mixed NE XGBoost 4.52 m against 3.51 m, RF 3.78 against 2.78 m). With AoA they equal the raw-lag trees (RF 3.19 against 2.83 at h=5, XGBoost 3.15 against 2.82 at h=15 on mixed NE). So the trees' plateau is not a missing averaging operator; supplying the mean does not help and, without AoA, removes information.
+3. Hypothesis 1 of section 12 is therefore rejected, and hypothesis 3 was never plausible on this grid. What remains is an information account: without AoA a single RSS+SINR report is ambiguous between cells (equal RSS on the same contour around the BS) and a mean of the window cannot remove that ambiguity, whereas the ordered sequence of reports traces the movement across contours, which is exactly the transition information the thesis is about. The sequence models (GRU, then CNN) use it; trees on raw lags use only the first one or two lags effectively (the gain at h = 1 to 3) and the extra lags are redundant, correlated inputs (the Random Forest degradation, hypothesis 2, remains plausible and is consistent with RF being worse than XGBoost at large h). With AoA, the ordering still matters for the GRU but less for the mean.
+4. This changes what the report can say: on the controlled grid the history gain has an averaging part (shared by all models, and the only part the macro study isolated) and a sequence part that only recurrent and convolutional models exploit. It is an interpretation supported by the four sets, not a direct test: the direct test is to shuffle the order of the reports inside each window for the GRU (a model that stays as good after shuffling uses only the mean). That test is queued as a to-do below.
 
