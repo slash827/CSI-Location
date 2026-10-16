@@ -286,3 +286,16 @@ Hypotheses:
 
 Tests: window-mean trees (hypotheses 1 and 2) and a GRU (the second integrating architecture) at h = 0 to 15 on four sets. Reading the result: if `rf_wm` and `xgboost_wm` keep improving and approach the CNN, the plateau is an input-representation problem of trees, not a limit of the information in the window; if they plateau too, the limit is in the data (hypothesis 3 or a noise floor) and the CNN's advantage comes from something else (weighting, nonlinearity). Whichever way it comes out, it belongs in the revised technical documentation 6.2 and in the report's mechanism section as the second half of the averaging account: the gain is averaging, models differ in whether they can average.
 
+### 12.1 First result of the tests (RMa LOS, NE BS, RSS+SINR only; MAE m; written 2026-10-16 14:00, other sets and the AoA experiment still running)
+
+| h | 0 | 1 | 3 | 5 | 7 | 10 | 15 |
+|---|---|---|---|---|---|---|---|
+| XGBoost, raw lags | 6.06 | 3.69 | 3.48 | 3.44 | 3.43 | 3.40 | 3.40 |
+| XGBoost, window mean only | 4.53 | 3.83 | 3.93 | 3.97 | 4.00 | 4.06 | 4.06 |
+| RF, raw lags | 3.88 | 3.14 | 2.92 | 2.94 | 2.92 | 3.04 | 3.15 |
+| RF, window mean only | 3.88 | 3.21 | 3.35 | 3.38 | 3.38 | 3.41 | 3.44 |
+| 1D-CNN | 6.66 | 5.56 | 5.29 | 4.84 | 4.47 | 4.28 | 3.91 |
+| GRU | 4.49 | 3.78 | 3.34 | 3.05 | 2.88 | 2.64 | 2.48 |
+
+Reading: hypothesis 1 is not supported for the no-AoA case. Giving the trees the window mean does not make them keep improving: they gain at h=1 (RF 3.88 to 3.21) and then drift upward, and they are slightly worse than with the raw lags. So the plateau is not just the trees' inability to form an average. The GRU improves at every depth and reaches 2.48 m at h=15, better than every tree and the CNN. A window mean throws away the order of the reports; the recurrent model uses it. The remaining candidate is that, without AoA, the useful information in a long window is the ordered sequence of RSS values (movement from cell to cell, the transition itself), which a mean cannot carry and which the trees' axis-aligned splits on raw lags cannot exploit either. That would make the no-AoA grid gain two things: a first-report effect that the trees capture (h = 1 to 3) and a trajectory effect that only sequence models capture. This is a hypothesis; the AoA experiment (where the earlier macro finding was that an unordered mean reproduces the gain) and the other sets will show whether the two regimes differ. Do not put it in the report as established.
+
