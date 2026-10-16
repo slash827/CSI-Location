@@ -299,3 +299,20 @@ Tests: window-mean trees (hypotheses 1 and 2) and a GRU (the second integrating 
 
 Reading: hypothesis 1 is not supported for the no-AoA case. Giving the trees the window mean does not make them keep improving: they gain at h=1 (RF 3.88 to 3.21) and then drift upward, and they are slightly worse than with the raw lags. So the plateau is not just the trees' inability to form an average. The GRU improves at every depth and reaches 2.48 m at h=15, better than every tree and the CNN. A window mean throws away the order of the reports; the recurrent model uses it. The remaining candidate is that, without AoA, the useful information in a long window is the ordered sequence of RSS values (movement from cell to cell, the transition itself), which a mean cannot carry and which the trees' axis-aligned splits on raw lags cannot exploit either. That would make the no-AoA grid gain two things: a first-report effect that the trees capture (h = 1 to 3) and a trajectory effect that only sequence models capture. This is a hypothesis; the AoA experiment (where the earlier macro finding was that an unordered mean reproduces the gain) and the other sets will show whether the two regimes differ. Do not put it in the report as established.
 
+### 12.2 AoA experiment, RMa LOS NE (MAE m, written 2026-10-16 15:20)
+
+| h | 0 | 1 | 3 | 5 | 7 | 10 | 15 |
+|---|---|---|---|---|---|---|---|
+| XGBoost, raw lags | 3.38 | 2.72 | 2.51 | 2.41 | 2.37 | 2.35 | 2.32 |
+| XGBoost, window mean only | 3.33 | 2.73 | 2.58 | 2.47 | 2.45 | 2.44 | 2.45 |
+| RF, raw lags | 2.94 | 2.43 | 2.20 | 2.25 | 2.25 | 2.32 | 2.38 |
+| RF, window mean only | 2.97 | 2.47 | 2.34 | 2.25 | 2.22 | 2.24 | 2.30 |
+| 1D-CNN | 4.59 | 3.50 | 2.83 | 2.75 | 2.56 | 2.60 | 2.61 |
+| GRU | 3.35 | 2.64 | 2.25 | 2.05 | 1.97 | 1.89 | 1.87 |
+
+With AoA the window mean alone does as well as the raw lags for both trees (RF 2.25 against 2.25 at h=5, XGBoost 2.44 against 2.35 at h=10), which agrees with the macro finding that an unordered mean reproduces the AoA-driven gain; the trees' plateau at about 2.3 m therefore looks like a floor of what an averaged angle can give them. The GRU keeps improving to 1.87 m at h=15, 0.4 m below every tree, so it extracts something beyond the mean even here (candidates: weighting recent reports more, ordering, interaction between RSS and AoA over time). Not yet established; the mixed set and the centre BS are still to come.
+
+### 12.3 25x25 NLOS regression with fixed AoA noise (3D MAE m, finished 14:57)
+
+Tuned: XGBoost BASE 33.25, BASE_H3 24.51, BASE_A 18.02, BASE_A_H3_dp 11.63, INT 11.17; RF BASE 29.32, BASE_H3 26.61, BASE_A 15.99, BASE_A_H3_dp 12.41. Untuned: RF BASE 29.43, BASE_H3 27.04, BASE_A_H3_dp 13.01. Segment shuffle: XGBoost 33.20 to 25.18, RF 29.36 to 27.01. Against the UMi LOS set (tuned XGBoost BASE 29.39, BASE_H3 13.72, BASE_A_H3_dp 7.99) uniform NLOS is much harder: no-AoA error stays near the constant-guess level and history helps less (XGBoost 8.7 m against 15.7 m), but still helps for XGBoost; Random Forest gains only 2.7 m. The mixed 25x25 set is running (started 14:57).
+
