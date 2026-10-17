@@ -39,19 +39,16 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [x] Mixed per-cell simulations and full pipelines, centre and NE (pipelines finished 21:30 / 21:32)
 - [x] `grid_history_extended.py` (h = 0…15 for XGBoost, RF, 1D-CNN) written and smoke-tested
 - [x] Extended history and CNN, RMa LOS, NE BS (finished 15:43). Trees stop improving at h≈3 (XGBoost flat, RF worse beyond h=3); the CNN keeps improving up to h=15 without reaching the trees.
-
 - [x] M1/M2 audit, part 1: `tests/test_error_metrics.py` (7 tests: known predictions give known accuracy and MAE; MAE = (1 - accuracy) x mean wrong-cell distance)
 - [x] M1/M2 audit, part 2: `error_audit_grid.py` on the RMa LOS NE set, XGBoost. The identity holds exactly (BASE_H3: 48.9 % exact, wrong predictions 6.81 m off, MAE 3.48 m = 0.511 x 6.81). Results in `docs/results_of_record/error_audit/grid_ne_rmalos/`
 - [x] M4: equal-weight (per grid point) MAE equals the sample-weighted MAE to within 0.06 m (BASE_H3 3.46 m against 3.48 m; BASE 6.21 against 6.06; BASE_A_H3 2.47 against 2.51)
 - [x] M3 (macro): `error_maps_macro.py` writes error distribution, error maps by position, error by range and histogram from the saved per-sample errors (uniform NLOS and mixed). Results in `docs/results_of_record/error_audit/macro_*`
 - [x] M7: macro per-user `.mat` files store `grid_point_id`, `x_pos`, `y_pos`, `step_index`, `timestamp_sec`, `speed_ms`, plus a 300-row `user_manifest`; the 15x15 files store the same fields. Answer to Sarit: yes
-
 - [x] Reproduction attempt of the 2026-06-12 data with the committed code (`6c1c02a`) and configs, user 1, seed 100, 2.6 GHz default (finished 00:00). **Not reproducible.**
   - Centre: walk, x/y and the clean AoA values are bit-identical to the June file, but RSS differs (per-cell map correlation 0.51, mean 1.9 dB, sd 4.7 dB) and SINR is uncorrelated (corr -0.14, mean 10 dB lower). So the June RSS/SINR came from settings that are not in the repository at that commit (probably an uncommitted working tree).
   - NE: the walk itself differs (different grid points, positions, angles), so the June NE file was made with a different seed or walk configuration.
   - Determinism holds (the old code and the current code give identical results on the same short walk), so the difference is real, not run-to-run noise.
   - Consequence: the June results cannot be regenerated; say so to the instructors and rely on the documented regenerated sets. The centre no-AoA numbers happen to agree with the RMa LOS regeneration, the NE ones do not.
-
 - [x] 25x25 regression regenerated at 3.0 GHz (simulation finished 22:59, all five pipelines finished 23:21 on 2026-10-15). Results: `results/regression_25x25_2026_10/umilos_30/{untuned,tuned,custom_loss,segment_shuffle,features_test}`, small copies in `docs/results_of_record/regression_25x25_2026_10/umilos_30/`.
   - Simulation: `run_ne_bs_25x25` with `ne_bs_voronoi_25x25_umilos_config.jsonc` (25x25, 4 m, NE BS [116,116,10], interferers [-25,53,10] and [53,-25,10], five device profiles, seeds 100-500, 400 steps per point, UMi LOS for the whole walk = the effective scenario of the 2026-06-13 data, carrier 3.0 GHz), `sim_data_ne_bs_2026-10-15_09-40-11`.
   - Pipelines: `--sinr-dependent-aoa --history 3 --subsample 0.3 --n-jobs 8`, Cartesian targets, tuned runs with the parameters of technical documentation 7.4.3 (`configs/tuned_params_25x25_regression.json`). The June command lines were never recorded, so these flags are the best reading of the documentation.
@@ -60,34 +57,42 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [x] Revised technical documentation written: `docs/Project_documentation/technical_documentation_revised.md` (2026-10-16): what changed, the three propagation sets, the 25x25 regeneration and the AoA noise finding, extended history and CNN, the metric audit, limitations, reproduction steps, and a status map of the sections of the old edition. Open: review it, then decide whether to retire the old file (a pointer to the new edition was added at its top)
 - [x] `compare_controlled_grid_sets.py`: one table across the propagation sets (`results/controlled_grid_2026_10/comparison_sets.md`, copied to results of record when the runs finish). First reading: history helps in every row (+4.9 to +27.4 pp, +0.96 to +4.29 m, no-AoA); NLOS at 3.0 GHz equals NLOS at 3.5 GHz within about 1 pp (NE XGBoost BASE_H3 25.8 % against 24.6 %), so the carrier change does not matter; the AoA gain depends on placement in every set (centre +10 to +39 pp, NE -0.4 to +6 pp)
 - [x] A background job (`finalize.sh`) waits for the driver and the centre history run, builds the comparison table, copies the CSVs and configs into `docs/results_of_record/`, then commits and pushes
-
-### 4.2 Running now
-
 - [x] Why do the trees plateau (and Random Forest degrade) beyond h about 3 while the CNN keeps improving? Tests finished 2026-10-16 19:44 (`results/history_extended/*_wmgru`); the averaging hypothesis is rejected and an information (order) account remains, see section 12.4
   - Test 1, window-mean trees (`xgboost_wm`, `rf_wm`): only the current report and the window mean of each channel are given, for h = 0 to 15. If the plateau comes from the trees being unable to form an average of the lags, these must keep improving with h.
   - Test 2, a GRU (3 seeds, same protocol as the CNN) added to the grid study as requested, so the neural family is CNN and GRU.
   - Both are queued for the four sets (RMa LOS and mixed, NE and centre); about 3-5 h under the present load.
 - [x] Extended history and CNN on the mixed 15x15 set finished (NE 10:40, centre 12:18). Same pattern as RMa LOS, stronger: the CNN overtakes the trees (section 12 and the 11:30 note below)
-
 - [x] Overnight queue (started 2026-10-16 00:58, interrupted by two standby periods, finished 20:11 and committed `f4bbbaf`): 25x25 regression with fixed AoA noise on UMi LOS, uniform NLOS and mixed per-cell data; extended history and CNN on the mixed 15x15 set. Results in `results/regression_25x25_2026_10/*_fixednoise` and `results/history_extended/{ne,centre}_mixed`; small copies in `docs/results_of_record/`. Three-set 25x25 table in section 13.
 - [x] Order test finished 2026-10-17 10:58 (about 20 min per set): ordering carries the information, see section 14
-- [ ] Add section 12.4 (the table and the reading) to the revised technical documentation 6.2 and to the report's mechanism section as a hypothesis with its evidence, after the order test
-
-25x25 regression (new, 2026-10-15)
-- [ ] Update technical documentation 7.4 and report Section 8 from the regenerated 25x25 tables (comparison in section 10: the no-AoA and untuned numbers reproduce within about 1 m; the AoA numbers with tuned parameters are 2.6 to 4.5 m worse, and the hybrid-feature advantage for Random Forest disappears)
+- [x] Add section 12.4 (the table and the reading) to the revised technical documentation 6.2 and to the report's mechanism section as a hypothesis with its evidence, after the order test (done 2026-10-17: revised technical documentation 6.2 and report Section 5)
+- [x] Update technical documentation 7.4 and report Section 8 from the regenerated 25x25 tables (comparison in section 10: the no-AoA and untuned numbers reproduce within about 1 m; the AoA numbers with tuned parameters are 2.6 to 4.5 m worse, and the hybrid-feature advantage for Random Forest disappears) (done 2026-10-17: revised technical documentation 6.4 and report Section 8)
   - Resolved 2026-10-16: the June runs used the fixed 4-degree AoA noise (no `--sinr-dependent-aoa`). Rerun with it, the June data gives the June numbers (RF BASE_A 7.56, hybrid h=1 7.51, XGBoost BASE_A_H3 8.16) and the new 3.0 GHz data gives 8.24, 8.14 and 8.36. The report should quote the fixed-noise numbers for the 25x25 regression (the same noise model as the macro study) and say that the controlled-grid pipelines use the SINR-dependent noise. Full-training-set runs (`aoa_gap/new_full_train`, `new_fixed_noise_full_train`) are still running; they are optional.
-- [ ] Decide whether to add the other two 25x25 propagation variants (`ne_bs_voronoi_25x25_nlos_config`, `ne_bs_voronoi_25x25_mixed_config` exist, not run), for symmetry with the 15x15 sweep
-- [ ] Section 8 of the report calls the 25x25 regression "single-user"; the data are the five device profiles pooled (one simulated user per profile). Check the wording against the pipeline and fix
-
-Explaining the old results to the instructors (requested 2026-10-13)
+- [x] Decide whether to add the other two 25x25 propagation variants (`ne_bs_voronoi_25x25_nlos_config`, `ne_bs_voronoi_25x25_mixed_config` exist, not run), for symmetry with the 15x15 sweep (decided and run 2026-10-16)
+- [x] Section 8 of the report calls the 25x25 regression "single-user"; the data are the five device profiles pooled (one simulated user per profile). Check the wording against the pipeline and fix (fixed 2026-10-17)
 - [x] `docs/OLD_VS_REGENERATED_RUNS.md` written (first version, 2026-10-14): which earlier results are reproduced, changed or unaffected, the reproduction result, and the 20-30 m explanation. Update the NLOS 3.0 centre row and the extended-history numbers when the last runs finish
-- [ ] Decide which old result sets stay in the report (centre June is reproduced by the RMa 3.0 set for the no-AoA experiments; NE June is not reproduced by anything)
-
-Instructor requests from the 2026-10-12 meeting (section 6; do these before the next meeting)
 - [x] M1/M2: audit that MAE and accuracy are computed correctly (done, see 4.1; repeat the decomposition on the final headline set)
   - Synthetic check: known predictions must give known accuracy and MAE (all right = 0 m, all one cell off = 2 m, mixed case = (1 - accuracy) x mean wrong-cell distance). Put it in a test file so it stays checked.
   - Decomposition on a real run: re-train XGBoost on a 15x15 set, save the predictions, and show MAE = (1 - accuracy) x mean error of the wrong predictions, plus the histogram of the error distance. This answers Dudi's "80 % exact cannot give 30 m".
   - Same identity for the macro study (regression: no exact-cell accuracy; show fraction of samples within 5, 10, 20 m instead).
+- [x] Extended history and CNN on the mixed set (centre and NE) (done 2026-10-16)
+- [x] Compare the four sets in one table: history gain, AoA gain, placement gap, per set and model (script + CSV in `docs/results_of_record/controlled_grid_2026_10/`) (done: `comparison_sets.md`)
+- [x] Decide on regenerating the 25×25 regression simulation and the early single-user sweeps at 3.0 GHz (optional) (decided and done 2026-10-15/16)
+- [x] Find or drop the §7.4.3 figure 11.486 m (no source) (dropped: the figure is not in the revised documentation or the report)
+- [x] Technical documentation 7.2-7.4 rewritten from the final sets: done in the revised edition (sections 6.1 to 6.4)
+- [x] Rewrite report Section 5 (and Section 4 setup text) from the final sets; add the extended-history and CNN results to Section 5 or the mechanism section (done 2026-10-17, marked DRAFT until the headline set is chosen)
+- [x] Abstract, discussion and conclusion extended with the grid sequence finding (2026-10-17)
+
+### 4.2 Running now
+
+- Nothing is running (the last runs, the order test, finished 2026-10-17 10:58). Start `keep_awake2.py` before launching any long run: on this machine only a system plus display request stops the idle path into Modern Standby.
+
+### 4.3 To do
+
+
+Explaining the old results to the instructors (requested 2026-10-13)
+- [ ] Decide which old result sets stay in the report (centre June is reproduced by the RMa 3.0 set for the no-AoA experiments; NE June is not reproduced by anything)
+
+Instructor requests from the 2026-10-12 meeting (section 6; do these before the next meeting)
 - [ ] M1: write the explanation of the 20-30 m errors (numbers are in; the paragraph and the slide are not)
   - Finding: with multi-antenna devices the macro error is 19.0 m without and 15.4 m with history, against 37.1 m for always guessing the mean training position; only 8 % of samples are within 5 m and 60 % within 20 m. For single-antenna devices the error is 34.7 m against a constant guess of 33.6 m, so they are not localized at all (the map shows error above 50 m at the far corners).
   - So the 20-30 m values are real and consistent with the weak information in one RSS reading at 20-160 m range; they are not a computation error. They cannot be compared with the 15x15 exact-cell accuracies, which are a different task at a different scale.
@@ -95,28 +100,21 @@ Instructor requests from the 2026-10-12 meeting (section 6; do these before the 
   - Compare them with the constant guess (35.3 m multi, 38.5 m single antenna): the best models are about 2x better, not near-perfect.
   - Show where the error is: error against range from the BS, against cell, and the position map.
   - State in one paragraph that the left (15x15 classification, 2 m cells) and right (25x25 regression, 4 m cells, 300 users, unseen users) plots are different experiments with different error scales.
-- [ ] M3: error maps for the single-user 25x25 regression runs (the macro study is done, see 4.1); 15x15 maps exist
+- [ ] M3: error maps for the 25x25 regression runs (five pooled device profiles) (the macro study is done, see 4.1); 15x15 maps exist
   - The macro per-sample errors are in `diagnostics_2026_10/baseline_uniform_nlos/errors_first_seed.npz`; check whether positions are stored, else re-run one seed with positions saved.
   - Output: a figure for the report plus PNGs for the meeting.
-- [ ] M5: comparative figure across all settings tested (accuracy and MAE per setting, one consistent layout), for the meeting and for the report
+- [ ] M5: comparative figure across all settings tested (the report now has `fig_controlled_grid_sets` for the grid; one figure across grid, 25x25 and macro is still to do) (accuracy and MAE per setting, one consistent layout), for the meeting and for the report
 - [ ] M4: mention the equal-weight check (difference below 0.1 m) in the report or the meeting notes
 - [ ] M6: give the 25x25 regression and macro runs the same set of plots and a short README of settings, like the 15x15 sets
 - [ ] M10: prepare the slides/notes for the next meeting: old vs new 15x15 numbers and why they differ (section 2), M1-M5
 
-
 Experiments
-- [ ] Extended history and CNN on the mixed set (centre and NE)
-- [ ] Compare the four sets in one table: history gain, AoA gain, placement gap, per set and model (script + CSV in `docs/results_of_record/controlled_grid_2026_10/`)
 - [ ] Investigate the remaining gap to the June data (within-cell RSS noise, NE walks). Decide whether it matters for the claims or only needs a sentence
-- [ ] Decide on regenerating the 25×25 regression simulation and the early single-user sweeps at 3.0 GHz (optional)
-- [ ] Find or drop the §7.4.3 figure 11.486 m (no source)
 - [ ] Grid-size sweep reported in metres (meeting item)
 
 Documentation
-- [ ] Choose the primary controlled-grid set for the report and say which propagation each number comes from
-- [x] Technical documentation 7.2-7.4 rewritten from the final sets: done in the revised edition (sections 6.1 to 6.4)
-- [ ] Rewrite report Section 5 (and Section 4 setup text) from the final sets; add the extended-history and CNN results to Section 5 or the mechanism section
-- [ ] Update the abstract, discussion and limitations for the new numbers and for the propagation caveat
+- [ ] Choose the primary controlled-grid set for the report and say which propagation each number comes from (your task 1; Section 5 is a DRAFT until then)
+- [ ] Update report Section 12 (limitations) for the grid sequence finding, the propagation dependence of the absolute numbers and the fixed against SINR-dependent AoA noise
 - [ ] Update `RESULTS_DIRECTORY_MAP.md`, `results_of_record/MANIFEST.md`, `CONTINUE_HERE.md`
 - [ ] Update `CLAUDE.md` baselines and `test_results_sanity.py` paths to the primary set (the test now reads `centre_bs_nlos35` / `ne_bs_nlos35`, so it is not skipped; repoint it to the headline set)
 - [ ] Regenerate `compare_placements` and MAE heat map figures from the primary set
@@ -128,6 +126,7 @@ Housekeeping
 - [ ] Stop the sleep-prevention process when the runs are done
 - [ ] Commit results of record, push, merge `followup-2026-10` into `main`
 - [ ] Untracked on purpose: `docs/Meeting with Alon 7.10.26.md`, `docs/Transition_History.zip`
+
 
 ## 4.4 Your tasks (author)
 
