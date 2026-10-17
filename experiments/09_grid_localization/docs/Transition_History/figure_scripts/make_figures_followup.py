@@ -11,6 +11,8 @@ Figures
     fig_blocked_by_width      multi-antenna gain in the blocked stretch, by strip width
     fig_controlled_grid_placement  regenerated 15x15 grid, BS at centre vs beyond the corner
     fig_regression25_no_aoa   25x25 regression without AoA, three propagation sets, chronological and block-shuffled
+    fig_controlled_grid_sets  controlled grid accuracy, three propagation sets, both BS positions
+    fig_history_extended      history depth up to 15: trees, window-mean trees, CNN, GRU, shuffled GRU (mixed set)
 """
 import csv
 import json
@@ -225,6 +227,73 @@ def regression25_no_aoa():
     save(fig, 'fig_regression25_no_aoa')
 
 
+def controlled_grid_sets():
+    rec = HERE.parents[1] / 'results_of_record' / 'controlled_grid_2026_10' / 'comparison_sets.csv'
+    rows = list(csv.DictReader(open(rec, encoding='utf-8')))
+    sets = (('RMa LOS', 'RMa LOS 3.0 GHz', MUTED), ('Mixed per-cell', 'Mixed per-cell 3.0 GHz', BLUE), ('Uniform NLOS', 'NLOS 3.0 GHz', ORANGE))
+    exps = ['BASE', 'BASE_H3', 'BASE_A', 'BASE_A_H3']
+    labs = ['$h=0$', '$h=3$', 'AoA\n$h=0$', 'AoA\n$h=3$']
+    fig, axes = plt.subplots(2, 2, figsize=(6.6, 4.6), sharey=True, sharex=True)
+    for r, (model, mname) in enumerate((('xgboost', 'XGBoost'), ('rf', 'Random Forest'))):
+        for c, (pl, pname) in enumerate((('centre', 'BS at the grid center'), ('NE', 'BS beyond the corner'))):
+            ax = axes[r, c]
+            x = np.arange(len(exps))
+            for k, (sname, skey, col) in enumerate(sets):
+                row = next(q for q in rows if q['set'] == skey and q['placement'] == pl and q['model'] == model)
+                ax.bar(x + (k - 1) * 0.27, [float(row[f'{e}_acc']) for e in exps], 0.25, color=col,
+                       label=sname if (r == 0 and c == 0) else None)
+            ax.set_xticks(x)
+            ax.set_xticklabels(labs, fontsize=7)
+            ax.set_title(f'{mname}, {pname}', loc='left', fontsize=8)
+            ax.set_ylim(0, 85)
+            ax.grid(axis='x', visible=False)
+    for ax in axes[:, 0]:
+        ax.set_ylabel('Exact-cell accuracy (%)')
+    axes[0, 0].legend(frameon=False, fontsize=7, loc='upper left')
+    fig.text(0.5, -0.01, 'First two groups of bars: RSS and SINR; last two: AoA added', ha='center', fontsize=7, color=MUTED)
+    save(fig, 'fig_controlled_grid_sets')
+
+
+def history_extended_fig():
+    rec = HERE.parents[1] / 'results_of_record' / 'history_extended'
+
+    def load(t):
+        parts = [rec / t / 'history_extended.csv', rec / f'{t}_wmgru' / 'history_extended_wmgru.csv', rec / f'{t}_shuf' / 'history_extended_shuf.csv']
+        rows = []
+        for p in parts:
+            rows += list(csv.DictReader(open(p, encoding='utf-8')))
+        return rows
+
+    def curve(rows, exp, model):
+        acc = {}
+        for r in rows:
+            if r['experiment'] == exp and r['model'] == model:
+                acc.setdefault(int(r['h']), []).append(float(r['mae']))
+        hs = sorted(acc)
+        return hs, [float(np.mean(acc[h])) for h in hs]
+
+    sty = (('xgboost', 'XGBoost', BLUE, '-'), ('rf', 'Random Forest', ORANGE, '-'), ('cnn', '1D-CNN', AQUA, '-'), ('gru', 'GRU', INK, '-'),
+           ('rf_wm', 'RF, window mean only', ORANGE, (0, (3, 2))), ('gru_shuf', 'GRU, shuffled window', INK, (0, (1, 2))))
+    fig, axes = plt.subplots(2, 2, figsize=(6.8, 4.8), sharex=True)
+    for r, (exp, ename) in enumerate((('BASE', 'RSS+SINR'), ('BASE_A', 'RSS+SINR+AoA'))):
+        for c, (t, tname) in enumerate((('ne_mixed', 'BS beyond the corner'), ('centre_mixed', 'BS at the grid center'))):
+            ax = axes[r, c]
+            rows = load(t)
+            for m, lab, col, ls in sty:
+                hs, v = curve(rows, exp, m)
+                ax.plot(hs, v, ls=ls, color=col, marker='o', markersize=2.5, linewidth=1.1, label=lab if (r == 0 and c == 0) else None)
+            ax.set_title(f'{ename}, {tname}', loc='left', fontsize=8)
+            ax.set_xticks([0, 1, 3, 5, 7, 10, 15])
+    for ax in axes[:, 0]:
+        ax.set_ylabel('Mean position error (m)')
+    for ax in axes[1]:
+        ax.set_xlabel('History depth $h$')
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=3, frameon=False, fontsize=7, bbox_to_anchor=(0.5, -0.04))
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
+    save(fig, 'fig_history_extended')
+
+
 if __name__ == '__main__':
     FIG.mkdir(exist_ok=True)
     angle_decomposition()
@@ -233,3 +302,5 @@ if __name__ == '__main__':
     blocked_by_width()
     controlled_grid_placement()
     regression25_no_aoa()
+    controlled_grid_sets()
+    history_extended_fig()
