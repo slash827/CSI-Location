@@ -69,21 +69,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
   - Both are queued for the four sets (RMa LOS and mixed, NE and centre); about 3-5 h under the present load.
 - [x] Extended history and CNN on the mixed 15x15 set finished (NE 10:40, centre 12:18). Same pattern as RMa LOS, stronger: the CNN overtakes the trees (section 12 and the 11:30 note below)
 
-- [ ] Overnight queue started 2026-10-16 00:58 (`results/_logs/overnight.log` lists the steps; the job commits and pushes the small result copies at the end, and writes `ALL DONE` when finished)
-  - Track 1, 25x25 regression with the fixed 4-degree AoA noise (the June setting, same as the macro study; no `--sinr-dependent-aoa`, 30 % subsample, same five pipeline variants as before): (a) UMi LOS data of 2026-10-15 (about 30 min), (b) a new simulation with uniform UMi NLOS (`ne_bs_voronoi_25x25_nlos_config`, about 2 h) and its pipelines, (c) a new simulation with per-cell mixed propagation (`ne_bs_voronoi_25x25_mixed_config`, 2-3 h) and its pipelines. Output: `results/regression_25x25_2026_10/{umilos_30_fixednoise, nlos_30_fixednoise, mixed_30_fixednoise}`.
-  - Track 2, extended history (h = 0 to 15) and 1D-CNN on the mixed 15x15 set, NE then centre (about 2 h each with contention). Output: `results/history_extended/{ne_mixed, centre_mixed}`.
-  - Status 2026-10-16 09:15: the machine went into Modern Standby again at 01:06 and woke at 09:12 (8 hours frozen) although the first sleep-prevention process (`keep_awake.py`, system-required request only) was running. On this Modern Standby machine a system-required request does not stop the idle path; a second process (`keep_awake2.py`, system and display required, screen stays on) was started at 09:15. Finished before the sleep: track 1 step (a) (`umilos_30_fixednoise`, 01:32) and the two full-training tests. In progress: the NLOS 25x25 simulation (about 2/3 of channel generation) and track 2 (NE mixed history run at BASE h=7). Expected finish now about 14:00-16:00 if the machine stays awake. If the machine is unplugged the battery lasts about an hour under this load.
-  - Status 2026-10-16 11:30 (on AC, 78 %): extended history on the mixed NE set finished at 10:40 (`results/history_extended/ne_mixed`); the centre run is at BASE_A h=0 (about 1 h left); the NLOS 25x25 simulation has users 5 done (10:28) and 4 in its last step, users 3, 2, 1 to go (each 25-40 min), so about 13:30 for the simulation and about 14:15 for its pipelines; the mixed 25x25 simulation then needs another 2-3 h (about 17:00 to 19:00 with its pipelines). No standby event since 09:12.
-  - New result (mixed NE, MAE m, h = 0 / 3 / 15): 1D-CNN BASE 8.34 / 3.86 / 2.49, RF 4.93 / 2.78 / 3.35, XGBoost 7.34 / 3.58 / 3.46; with AoA CNN 6.04 / 2.53 / 1.67, RF 4.25 / 2.62 / 3.15, XGBoost 4.63 / 3.06 / 2.82. On the mixed set the CNN keeps improving with window length and overtakes both tree models from h about 7 (BASE) or h about 3 (AoA); the trees plateau at h about 3 and Random Forest gets worse. On RMa LOS the CNN only caught up with the trees at h=15. Add to revised technical documentation 6.2 and the report when the centre run is in.
-  - Full-training-set test (30 % subsample against 100 %): Random Forest improves by 0.6 to 1.1 m with AoA (BASE_A 8.24 to 7.63, hybrid h=1 8.14 to 7.14), XGBoost by 0.1 to 0.4 m, no-AoA numbers unchanged. The subsample is therefore not the cause of the earlier gap, only a small effect; the AoA noise model is.
-  - Fixed-noise 25x25 results on the UMi LOS data (`umilos_30_fixednoise`) reproduce the June folders: tuned XGBoost BASE_A_H3_dp 7.99 (June 7.96), RF BASE_A 8.24 (7.56), RF hybrid h=1 8.14 (7.51), INT variants 7.19 and 7.53 (7.37, 7.63), segment-shuffle XGBoost 29.27 to 15.00 (29.77 to 14.80). The custom-loss XGBoost diverges on BASE_A in this run (59.97 m against 12.21 in June): the instability already described in the technical documentation, not a data problem.
-  - Expected finish: between 06:00 and 08:00. Morning to-do: read `overnight.log`, build the three-set 25x25 table, add the mixed-set history/CNN rows to the revised technical documentation 6.2, update report Section 8.
-
-(none: all runs have finished)
-
-### 4.3 To do
-
-Plateau follow-up (new, 2026-10-16)
+- [x] Overnight queue (started 2026-10-16 00:58, interrupted by two standby periods, finished 20:11 and committed `f4bbbaf`): 25x25 regression with fixed AoA noise on UMi LOS, uniform NLOS and mixed per-cell data; extended history and CNN on the mixed 15x15 set. Results in `results/regression_25x25_2026_10/*_fixednoise` and `results/history_extended/{ne,centre}_mixed`; small copies in `docs/results_of_record/`. Three-set 25x25 table in section 13.
 - [ ] Order test: train the GRU and the CNN on windows whose reports are shuffled inside each window (same data, same protocol). If they stay as good, the advantage is a weighted mean; if they lose it, the order carries the information. This is the direct test of section 12.4, point 3
 - [ ] Add section 12.4 (the table and the reading) to the revised technical documentation 6.2 and to the report's mechanism section as a hypothesis with its evidence, after the order test
 
@@ -378,4 +364,19 @@ Reading (all four sets, with and without AoA, the same direction every time):
 2. Window-mean trees do not keep improving. Without AoA they are worse than the raw-lag trees for h >= 3 (mixed NE XGBoost 4.52 m against 3.51 m, RF 3.78 against 2.78 m). With AoA they equal the raw-lag trees (RF 3.19 against 2.83 at h=5, XGBoost 3.15 against 2.82 at h=15 on mixed NE). So the trees' plateau is not a missing averaging operator; supplying the mean does not help and, without AoA, removes information.
 3. Hypothesis 1 of section 12 is therefore rejected, and hypothesis 3 was never plausible on this grid. What remains is an information account: without AoA a single RSS+SINR report is ambiguous between cells (equal RSS on the same contour around the BS) and a mean of the window cannot remove that ambiguity, whereas the ordered sequence of reports traces the movement across contours, which is exactly the transition information the thesis is about. The sequence models (GRU, then CNN) use it; trees on raw lags use only the first one or two lags effectively (the gain at h = 1 to 3) and the extra lags are redundant, correlated inputs (the Random Forest degradation, hypothesis 2, remains plausible and is consistent with RF being worse than XGBoost at large h). With AoA, the ordering still matters for the GRU but less for the mean.
 4. This changes what the report can say: on the controlled grid the history gain has an averaging part (shared by all models, and the only part the macro study isolated) and a sequence part that only recurrent and convolutional models exploit. It is an interpretation supported by the four sets, not a direct test: the direct test is to shuffle the order of the reports inside each window for the GRU (a model that stays as good after shuffling uses only the mean). That test is queued as a to-do below.
+
+## 13. 25x25 regression across the propagation sets (fixed 4 deg AoA noise, tuned parameters, 30 % subsample; 3D MAE m)
+
+| Experiment | UMi LOS XGB / RF | NLOS XGB / RF | Mixed per-cell XGB / RF |
+|---|---|---|---|
+| BASE | 29.39 / 14.52 | 33.25 / 29.32 | 29.89 / 24.33 |
+| BASE_H3 | 13.72 / 17.06 | 24.51 / 26.61 | 20.46 / 23.19 |
+| BASE_A | 12.52 / 8.24 | 18.02 / 15.99 | 16.24 / 13.30 |
+| BASE_A_H3 | 8.35 / 9.42 | 12.49 / 13.26 | 11.30 / 12.43 |
+| BASE_A_H3_dp | 7.99 / 8.85 | 11.63 / 12.41 | 10.85 / 11.75 |
+| BASE_A_H3_dp_INT | 7.19 / 7.53 | 11.17 / 11.78 | 10.23 / 11.37 |
+
+Block-shuffled split, mixed: XGBoost 29.89 to 21.13, RF 24.22 to 23.60 (history helps XGBoost by 8.8 m, RF by 0.6 m). Features, mixed: absolute h=3 is best for XGBoost (10.85 m against 12.45 to 12.66 for hybrid) and the Random Forest hybrid advantage seen on the UMi LOS data (8.14 against 8.85 m) is gone (11.96 against 11.75 m).
+
+Reading: history helps XGBoost in every set (no AoA: 15.7 m on UMi LOS, 8.7 m on NLOS, 9.4 m on mixed; with AoA 4.2, 5.1 and 4.7 m for BASE_A to BASE_A_H3_dp); Random Forest degrades with history on UMi LOS, and gains 2.7 m (NLOS) and 1.1 m (mixed) elsewhere. The interference fingerprint (`_INT`) helps in all three sets by 0.4 to 1.3 m. The absolute level depends strongly on propagation: the no-AoA error is near the constant guess under NLOS.
 
