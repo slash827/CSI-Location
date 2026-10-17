@@ -70,7 +70,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 - [x] Extended history and CNN on the mixed 15x15 set finished (NE 10:40, centre 12:18). Same pattern as RMa LOS, stronger: the CNN overtakes the trees (section 12 and the 11:30 note below)
 
 - [x] Overnight queue (started 2026-10-16 00:58, interrupted by two standby periods, finished 20:11 and committed `f4bbbaf`): 25x25 regression with fixed AoA noise on UMi LOS, uniform NLOS and mixed per-cell data; extended history and CNN on the mixed 15x15 set. Results in `results/regression_25x25_2026_10/*_fixednoise` and `results/history_extended/{ne,centre}_mixed`; small copies in `docs/results_of_record/`. Three-set 25x25 table in section 13.
-- [ ] Order test (started 2026-10-17 09:40, `shuf.sh`, log `results/_logs/shuf.log`, output `results/history_extended/{ne_mixed,centre_mixed,ne_rmalos,centre_rmalos}_shuf`): the GRU and the CNN are trained and tested on windows whose reports are permuted inside each window (all channels of a report move together; `gru_shuf`, `cnn_shuf`), h = 3, 10, 15, 2 seeds, with and without AoA. If they stay as good as the ordered versions the advantage is a weighted mean; if they lose it, the order carries the information. Direct test of section 12.4, point 3. About 1 h per set, 3-4 h in all
+- [x] Order test finished 2026-10-17 10:58 (about 20 min per set): ordering carries the information, see section 14
 - [ ] Add section 12.4 (the table and the reading) to the revised technical documentation 6.2 and to the report's mechanism section as a hypothesis with its evidence, after the order test
 
 25x25 regression (new, 2026-10-15)
@@ -379,4 +379,25 @@ Reading (all four sets, with and without AoA, the same direction every time):
 Block-shuffled split, mixed: XGBoost 29.89 to 21.13, RF 24.22 to 23.60 (history helps XGBoost by 8.8 m, RF by 0.6 m). Features, mixed: absolute h=3 is best for XGBoost (10.85 m against 12.45 to 12.66 for hybrid) and the Random Forest hybrid advantage seen on the UMi LOS data (8.14 against 8.85 m) is gone (11.96 against 11.75 m).
 
 Reading: history helps XGBoost in every set (no AoA: 15.7 m on UMi LOS, 8.7 m on NLOS, 9.4 m on mixed; with AoA 4.2, 5.1 and 4.7 m for BASE_A to BASE_A_H3_dp); Random Forest degrades with history on UMi LOS, and gains 2.7 m (NLOS) and 1.1 m (mixed) elsewhere. The interference fingerprint (`_INT`) helps in all three sets by 0.4 to 1.3 m. The absolute level depends strongly on propagation: the no-AoA error is near the constant guess under NLOS.
+
+## 14. Order test: shuffled windows (finished 2026-10-17 10:58; MAE m, 2 seeds)
+
+The reports inside each window are permuted (all channels of a report together) in training and in test, so a model can use the set of reports but not their order.
+
+| Set | AoA | GRU ordered h=3 / 10 / 15 | GRU shuffled h=3 / 10 / 15 | CNN ordered h=3 / 10 / 15 | CNN shuffled h=3 / 10 / 15 | window-mean RF h=15 | RF raw h=15 |
+|---|---|---|---|---|---|---|---|
+| RMa LOS NE | no | 3.34 / 2.64 / 2.48 | 4.90 / 5.57 / 6.28 | 5.29 / 4.28 / 3.91 | 5.48 / 5.29 / 5.73 | 3.44 | 3.15 |
+| RMa LOS NE | yes | 2.25 / 1.89 / 1.87 | 3.54 / 4.50 / 5.14 | 2.83 / 2.60 / 2.61 | 3.66 / 4.46 / 5.04 | 2.30 | 2.38 |
+| Mixed NE | no | 2.58 / 1.58 / 1.42 | 4.46 / 4.93 / 5.53 | 3.86 / 2.57 / 2.49 | 5.01 / 4.93 / 5.49 | 3.80 | 3.35 |
+| Mixed NE | yes | 2.02 / 1.37 / 1.30 | 3.82 / 4.59 / 5.29 | 2.53 / 1.82 / 1.67 | 3.91 / 4.57 / 5.17 | 3.15 | 3.15 |
+| RMa LOS centre | no | 3.28 / 2.36 / 2.19 | 4.90 / 5.29 / 6.18 | 5.20 / 3.82 / 3.53 | 5.15 / 5.29 / 5.64 | 3.84 | 3.56 |
+| RMa LOS centre | yes | 1.22 / 1.03 / 1.01 | 2.84 / 4.44 / 5.17 | 1.64 / 1.43 / 1.38 | 2.91 / 4.31 / 5.09 | 1.63 | 1.57 |
+| Mixed centre | no | 2.52 / 1.38 / 1.24 | 4.54 / 4.80 / 5.41 | 3.83 / 2.20 / 2.01 | 5.05 / 4.86 / 5.38 | 3.90 | 3.21 |
+| Mixed centre | yes | 0.80 / 0.64 / 0.60 | 2.58 / 4.25 / 5.10 | 0.88 / 0.72 / 0.75 | 2.58 / 4.20 / 4.97 | 1.18 | 1.31 |
+
+Reading:
+1. Shuffling destroys the long-history advantage in every set, with and without AoA. Example, mixed NE without AoA: ordered GRU 2.58 / 1.58 / 1.42 m at h = 3 / 10 / 15, shuffled GRU 4.46 / 4.93 / 5.53 m; the shuffled models also get worse as the window grows. Mixed centre with AoA: ordered GRU about 0.60 m at h=15 (section 12.4), shuffled several times higher (see the table).
+2. The shuffled networks are worse than trees fed the window mean (mixed NE h=15 without AoA: shuffled GRU 5.53 m, window-mean RF 3.80 m), so a neural network does not find the mean of a shuffled window as efficiently as a hand-made mean feature; the shuffled-network figure is therefore not a clean "mean-only" bound. The clean comparison is the ordered GRU (1.42 m) against the best order-blind model, the window-mean trees (3.80 m): the order is worth well over 2 m there.
+3. Taken with section 12.4 this supports the information account: the extra gain of the recurrent and convolutional models over the trees at long history comes from the order of the reports (the path the user traced), not from averaging. On the controlled grid the history gain is therefore not only noise averaging; the transition itself (which values came before which) carries information about the position. The macro-cell finding that an unordered mean reproduces the AoA-driven gain still stands for that study; the two studies differ in task (regression of positions over 100 m against classification of 2 m cells) and in the information a report carries.
+4. Caveat for the report: two seeds, three depths, one network each, and the shuffle is applied in training as well; it shows that these models use the order, not that no model could reach the same accuracy without it.
 
