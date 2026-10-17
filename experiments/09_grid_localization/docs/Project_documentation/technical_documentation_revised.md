@@ -23,6 +23,7 @@ What is established (sections 6 and 7):
 2. The gain comes from the AoA channels. It is reproduced by an unordered mean of the window and it is zero or negative when the AoA is exact. The account that "the rate at which the bearing turns reveals range" is not supported.
 3. The size of the gain depends on how the AoA error is modelled. With an error independent between reports (what the pipeline simulates) it is about 17 %; with an error persistent across the window it is about 6 % (trees) or 2 to 3 % (neural models).
 4. The AoA gain depends strongly on the base-station placement (centre BS +10 to +39 pp, corner BS −0.4 to +6 pp on the grid).
+5. On the controlled grid, sequence models (GRU, 1D-CNN) keep improving with the window length up to h = 15 and end below the tree models, which plateau at h = 3 to 5. Shuffling the reports inside the window removes the advantage, so the order of the reports (the path) carries information beyond the window mean; this is a hypothesis supported by four sets, not a direct proof (section 6.2).
 
 What is not established: the absolute accuracy of any single setting (it moves with the propagation scenario by tens of points), anything about measured traces, and the 2026-06-12 absolute numbers.
 
@@ -62,7 +63,7 @@ The per-cell implementation was checked on a short walk: NLOS cells came out 3 t
 
 ### 3.3 25×25 regression data
 
-25×25 cells at 4 m, NE BS (116,116,10), interferers (−25,53,10) and (53,−25,10), same five profiles and seeds, 400 steps per cell, carrier 3.0 GHz, UMi LOS for the whole walk (config `ne_bs_voronoi_25x25_umilos_config.jsonc`; the first cell is UMi LOS, which is what the 2026-06-13 data effectively ran). Simulation `sim_data_ne_bs_2026-10-15_09-40-11`. Two further variants (`_nlos`, `_mixed`) exist as configurations and have not been run.
+25×25 cells at 4 m, NE BS (116,116,10), interferers (−25,53,10) and (53,−25,10), same five profiles and seeds, 400 steps per cell, carrier 3.0 GHz, UMi LOS for the whole walk (config `ne_bs_voronoi_25x25_umilos_config.jsonc`; the first cell is UMi LOS, which is what the 2026-06-13 data effectively ran). Simulation `sim_data_ne_bs_2026-10-15_09-40-11`. Two further variants were run (`ne_bs_voronoi_25x25_nlos_config.jsonc`, simulation `2026-10-16_01-32-21`; `ne_bs_voronoi_25x25_mixed_config.jsonc`, per-cell segments, simulation `2026-10-16_14-57-54`).
 
 ### 3.4 Macro-cell study (unchanged)
 
@@ -121,57 +122,120 @@ Always guessing the mean training position: 37.1 m (multi-antenna) and 33.6 m (s
 - Absolute levels depend on the propagation set: centre XGBoost BASE_H3 is 29.6 % (NLOS), 50.6 % (RMa LOS) and 59.1 % (mixed). The RF snapshot model is much better than the XGBoost snapshot model in every set (for example 43.9 % against 33.5 % RMa LOS centre), so the XGBoost history gain is partly recovery from a weak snapshot model.
 - Per-user results: the 4-antenna devices reach the highest AoA accuracy; user 3 (one antenna) gains from AoA features only through the NaN-to-0 device flag (section 4).
 
-### 6.2 Extended history and a 1D-CNN (MAE m, RMa LOS, RSS+SINR; 3 CNN seeds)
+### 6.2 Extended history, CNN, GRU and the plateau of the trees (MAE m)
 
-| Centre BS | h=0 | h=1 | h=3 | h=5 | h=7 | h=10 | h=15 |
-|---|---|---|---|---|---|---|---|
-| XGBoost | 6.83 | 4.05 | 3.81 | 3.72 | 3.70 | 3.64 | 3.65 |
-| RF | 5.34 | 3.77 | 3.32 | 3.30 | 3.26 | 3.40 | 3.56 |
-| 1D-CNN | 7.72 | 6.06 | 5.20 | 4.64 | 4.06 | 3.82 | 3.53 |
+Depths h = 0 to 15, RSS+SINR ("no AoA") and RSS+SINR+AoA, on four sets (RMa LOS and mixed, both BS positions). XGBoost and Random Forest on raw lags (single run); 1D-CNN and GRU (3 seeds); window-mean trees receive only the current report and the window mean of each channel (azimuth averaged as a unit vector). Full tables: `docs/results_of_record/history_extended/`.
 
-| NE BS | h=0 | h=1 | h=3 | h=5 | h=7 | h=10 | h=15 |
-|---|---|---|---|---|---|---|---|
-| XGBoost | 6.06 | 3.69 | 3.48 | 3.44 | 3.43 | 3.40 | 3.40 |
-| RF | 3.88 | 3.14 | 2.92 | 2.94 | 2.92 | 3.04 | 3.15 |
-| 1D-CNN | 6.66 | 5.56 | 5.29 | 4.84 | 4.47 | 4.28 | 3.91 |
+| Set | AoA | Model | h=0 | h=1 | h=3 | h=5 | h=10 | h=15 |
+|---|---|---|---|---|---|---|---|---|
+| RMa LOS, NE BS | no | XGBoost | 6.06 | 3.69 | 3.48 | 3.44 | 3.40 | 3.40 |
+| RMa LOS, NE BS | no | RF | 3.88 | 3.14 | 2.92 | 2.94 | 3.04 | 3.15 |
+| RMa LOS, NE BS | no | XGBoost window mean | 4.53 | 3.83 | 3.93 | 3.97 | 4.06 | 4.06 |
+| RMa LOS, NE BS | no | RF window mean | 3.88 | 3.21 | 3.35 | 3.38 | 3.41 | 3.44 |
+| RMa LOS, NE BS | no | 1D-CNN | 6.66 | 5.56 | 5.29 | 4.84 | 4.28 | 3.91 |
+| RMa LOS, NE BS | no | GRU | 4.49 | 3.78 | 3.34 | 3.05 | 2.64 | 2.48 |
+| RMa LOS, NE BS | yes | XGBoost | 3.38 | 2.72 | 2.51 | 2.41 | 2.35 | 2.32 |
+| RMa LOS, NE BS | yes | RF | 2.94 | 2.43 | 2.20 | 2.25 | 2.32 | 2.38 |
+| RMa LOS, NE BS | yes | XGBoost window mean | 3.33 | 2.73 | 2.58 | 2.47 | 2.44 | 2.45 |
+| RMa LOS, NE BS | yes | RF window mean | 2.97 | 2.47 | 2.34 | 2.25 | 2.24 | 2.30 |
+| RMa LOS, NE BS | yes | 1D-CNN | 4.59 | 3.50 | 2.83 | 2.75 | 2.60 | 2.61 |
+| RMa LOS, NE BS | yes | GRU | 3.35 | 2.64 | 2.25 | 2.05 | 1.89 | 1.87 |
+| Mixed, NE BS | no | XGBoost | 7.34 | 3.83 | 3.58 | 3.51 | 3.47 | 3.46 |
+| Mixed, NE BS | no | RF | 4.93 | 3.21 | 2.78 | 2.82 | 3.08 | 3.35 |
+| Mixed, NE BS | no | XGBoost window mean | 5.47 | 4.05 | 4.49 | 4.52 | 4.52 | 4.52 |
+| Mixed, NE BS | no | RF window mean | 4.83 | 3.40 | 3.78 | 3.78 | 3.80 | 3.80 |
+| Mixed, NE BS | no | 1D-CNN | 8.34 | 5.51 | 3.86 | 3.26 | 2.57 | 2.49 |
+| Mixed, NE BS | no | GRU | 5.37 | 3.48 | 2.58 | 2.11 | 1.58 | 1.42 |
+| Mixed, NE BS | yes | XGBoost | 4.63 | 3.39 | 3.06 | 2.93 | 2.83 | 2.82 |
+| Mixed, NE BS | yes | RF | 4.25 | 3.12 | 2.62 | 2.83 | 2.97 | 3.15 |
+| Mixed, NE BS | yes | XGBoost window mean | 4.58 | 3.45 | 3.48 | 3.34 | 3.17 | 3.15 |
+| Mixed, NE BS | yes | RF window mean | 4.34 | 3.34 | 3.33 | 3.19 | 3.05 | 3.15 |
+| Mixed, NE BS | yes | 1D-CNN | 6.04 | 3.84 | 2.53 | 2.19 | 1.82 | 1.67 |
+| Mixed, NE BS | yes | GRU | 4.37 | 2.79 | 2.02 | 1.65 | 1.37 | 1.30 |
+| RMa LOS, centre BS | no | XGBoost | 6.83 | 4.05 | 3.81 | 3.72 | 3.64 | 3.65 |
+| RMa LOS, centre BS | no | RF | 5.34 | 3.77 | 3.32 | 3.30 | 3.40 | 3.56 |
+| RMa LOS, centre BS | no | XGBoost window mean | 5.12 | 4.22 | 4.37 | 4.39 | 4.39 | 4.38 |
+| RMa LOS, centre BS | no | RF window mean | 5.54 | 4.47 | 4.25 | 3.92 | 3.83 | 3.84 |
+| RMa LOS, centre BS | no | 1D-CNN | 7.72 | 6.06 | 5.20 | 4.64 | 3.82 | 3.53 |
+| RMa LOS, centre BS | no | GRU | 5.25 | 4.01 | 3.28 | 2.85 | 2.36 | 2.19 |
+| RMa LOS, centre BS | yes | XGBoost | 1.74 | 1.41 | 1.35 | 1.34 | 1.36 | 1.34 |
+| RMa LOS, centre BS | yes | RF | 1.78 | 1.43 | 1.38 | 1.43 | 1.52 | 1.57 |
+| RMa LOS, centre BS | yes | XGBoost window mean | 1.71 | 1.44 | 1.48 | 1.51 | 1.53 | 1.57 |
+| RMa LOS, centre BS | yes | RF window mean | 1.73 | 1.52 | 1.54 | 1.51 | 1.58 | 1.63 |
+| RMa LOS, centre BS | yes | 1D-CNN | 2.68 | 1.77 | 1.64 | 1.48 | 1.43 | 1.38 |
+| RMa LOS, centre BS | yes | GRU | 2.00 | 1.42 | 1.22 | 1.13 | 1.03 | 1.01 |
+| Mixed, centre BS | no | XGBoost | 8.05 | 4.01 | 3.77 | 3.65 | 3.58 | 3.53 |
+| Mixed, centre BS | no | RF | 5.21 | 3.31 | 2.76 | 2.78 | 2.93 | 3.21 |
+| Mixed, centre BS | no | XGBoost window mean | 5.90 | 4.29 | 4.82 | 4.84 | 4.76 | 4.74 |
+| Mixed, centre BS | no | RF window mean | 5.21 | 3.55 | 4.04 | 4.03 | 3.95 | 3.90 |
+| Mixed, centre BS | no | 1D-CNN | 8.96 | 5.58 | 3.83 | 2.91 | 2.20 | 2.01 |
+| Mixed, centre BS | no | GRU | 5.74 | 3.62 | 2.52 | 1.95 | 1.38 | 1.24 |
+| Mixed, centre BS | yes | XGBoost | 1.44 | 1.04 | 1.00 | 0.99 | 0.98 | 0.99 |
+| Mixed, centre BS | yes | RF | 1.25 | 0.98 | 1.04 | 1.16 | 1.26 | 1.31 |
+| Mixed, centre BS | yes | XGBoost window mean | 1.42 | 1.09 | 1.18 | 1.19 | 1.23 | 1.26 |
+| Mixed, centre BS | yes | RF window mean | 1.24 | 1.02 | 1.11 | 1.11 | 1.16 | 1.18 |
+| Mixed, centre BS | yes | 1D-CNN | 1.90 | 1.16 | 0.88 | 0.86 | 0.72 | 0.75 |
+| Mixed, centre BS | yes | GRU | 1.38 | 0.92 | 0.80 | 0.72 | 0.64 | 0.60 |
 
-The trees take almost all of the gain at h=1 to 3 and stay flat or get worse (Random Forest) beyond h≈5. The 1D-CNN improves with every added depth up to h=15 (centre 7.72 to 3.53 m) and ends level with the trees. With AoA the CNN gains up to h≈10 to 15 (centre 2.68 to 1.38 m) and reaches the trees' level (XGBoost 1.34 m). On the grid the neural family therefore also gains from history, from a longer window than the trees need.
+Findings (the same direction in all four sets, with and without AoA):
+
+1. The trees take their gain at h = 1 to 3 and stay flat (XGBoost) or get worse (Random Forest, best at h = 3 to 5). The 1D-CNN improves with every added depth and, on the mixed sets, ends below both trees (mixed NE without AoA at h=15: CNN 2.49 m, RF 3.35 m, XGBoost 3.46 m). The GRU is the best model at long history in every set (mixed NE 1.42 m, mixed centre with AoA 0.60 m against 0.99 m for XGBoost).
+2. The plateau of the trees is not a missing average. Window-mean trees do not keep improving: without AoA they are worse than raw-lag trees for h >= 3 (mixed NE XGBoost 4.52 m against 3.51 m at h=5); with AoA they equal them.
+
+#### Order test (hypothesis, supported by four sets)
+
+The reports inside every window were permuted (all channels of a report together) in training and test, so a network can use the set of reports but not their order (h = 3, 10, 15, 2 seeds).
+
+| Set | AoA | GRU ordered h=3 / 10 / 15 | GRU shuffled h=3 / 10 / 15 | CNN ordered | CNN shuffled | window-mean RF h=15 |
+|---|---|---|---|---|---|---|
+| RMa LOS, NE BS | no | 3.34 / 2.64 / 2.48 | 4.90 / 5.57 / 6.28 | 5.29 / 4.28 / 3.91 | 5.48 / 5.29 / 5.73 | 3.44 |
+| RMa LOS, NE BS | yes | 2.25 / 1.89 / 1.87 | 3.54 / 4.50 / 5.14 | 2.83 / 2.60 / 2.61 | 3.66 / 4.46 / 5.04 | 2.30 |
+| Mixed, NE BS | no | 2.58 / 1.58 / 1.42 | 4.46 / 4.93 / 5.53 | 3.86 / 2.57 / 2.49 | 5.01 / 4.93 / 5.49 | 3.80 |
+| Mixed, NE BS | yes | 2.02 / 1.37 / 1.30 | 3.82 / 4.59 / 5.29 | 2.53 / 1.82 / 1.67 | 3.91 / 4.57 / 5.17 | 3.15 |
+| RMa LOS, centre BS | no | 3.28 / 2.36 / 2.19 | 4.90 / 5.29 / 6.18 | 5.20 / 3.82 / 3.53 | 5.15 / 5.29 / 5.64 | 3.84 |
+| RMa LOS, centre BS | yes | 1.22 / 1.03 / 1.01 | 2.84 / 4.44 / 5.17 | 1.64 / 1.43 / 1.38 | 2.91 / 4.31 / 5.09 | 1.63 |
+| Mixed, centre BS | no | 2.52 / 1.38 / 1.24 | 4.54 / 4.80 / 5.41 | 3.83 / 2.20 / 2.01 | 5.05 / 4.86 / 5.38 | 3.90 |
+| Mixed, centre BS | yes | 0.80 / 0.64 / 0.60 | 2.58 / 4.25 / 5.10 | 0.88 / 0.72 / 0.75 | 2.58 / 4.20 / 4.97 | 1.18 |
+
+Shuffling removes the long-history advantage everywhere, and the shuffled networks get worse as the window grows (mixed NE without AoA: ordered GRU 1.42 m, shuffled 5.53 m at h=15, best order-blind model, the window-mean Random Forest, 3.80 m). Hypothesis: on the controlled grid a single RSS+SINR report is ambiguous between cells, a mean of the window does not remove the ambiguity, and the ordered sequence of reports traces the movement across the signal contours; sequence models use this, trees on raw lags only use the first one or two lags. The history gain on the grid then has an averaging part shared by all models and a sequence part that only recurrent and convolutional models exploit. Caveats: two seeds, three depths, one network of each kind, the shuffle is also applied in training, and the shuffled networks are worse than a hand-made mean feature, so they are not a clean "mean only" bound. The macro-cell finding that an unordered mean reproduces the AoA-driven gain is not contradicted: that study is a regression over 100 m with different information per report.
 
 ### 6.3 Placement and the AoA gain
 At the centre BS the azimuth covers 360° and AoA alone separates neighbouring cells (BASE_A 64 to 77 % in every set). At the NE corner the grid falls within about 52° of azimuth, neighbouring cells are no longer separated by azimuth, and the AoA gain falls to −0.4 to +6 pp; what remains is consistent with elevation, which encodes distance, but it was not isolated on the grid.
 
-### 6.4 25×25 regression (3D MAE m, five pooled device profiles, NE BS, UMi LOS, 3.0 GHz)
+### 6.4 25×25 regression across propagation sets (3D MAE m, five pooled device profiles, NE BS, 3.0 GHz)
 
-Regenerated 2026-10-15 with Cartesian targets, 30 % training subsample, history 3. The table below uses the SINR-dependent AoA noise; the fixed-noise comparison follows it.
+Regenerated 2026-10-15 to 2026-10-16: Cartesian targets, fixed 4° AoA noise with 5° quantization (the setting of the earlier 25×25 runs and of the macro study), 30 % training subsample, history 3, tuned parameters of section 7.4.3 of the earlier edition (`configs/tuned_params_25x25_regression.json`). Simulations: UMi LOS `sim_data_ne_bs_2026-10-15_09-40-11`, NLOS `2026-10-16_01-32-21`, mixed per-cell `2026-10-16_14-57-54`.
 
-| Run | Experiment | XGBoost | RF |
+| Experiment | UMi LOS XGBoost / RF | NLOS XGBoost / RF | Mixed per-cell XGBoost / RF |
 |---|---|---|---|
-| untuned | BASE | 26.07 | 15.28 |
-| untuned | BASE_H3 | 24.55 | 18.08 |
-| untuned | BASE_A_H3_dp | 16.50 | 13.08 |
-| tuned | BASE | 29.39 | 14.52 |
-| tuned | BASE_H3 | 13.70 | 17.06 |
-| tuned | BASE_A | 16.97 | 12.04 |
-| tuned | BASE_A_H3_dp | 10.67 | 12.25 |
-| tuned | BASE_A_H3_dp_INT | 9.63 | 11.32 |
-| segment shuffle | BASE / BASE_H3 | 29.27 / 14.97 | 14.73 / 18.32 |
-| custom loss (XGBoost) | BASE / BASE_H3 / BASE_A_H3_dp | 29.32 / 16.77 / 12.85 | n/a |
+| BASE | 29.39 / 14.52 | 33.25 / 29.32 | 29.89 / 24.33 |
+| BASE_H3 | 13.72 / 17.06 | 24.51 / 26.61 | 20.46 / 23.19 |
+| BASE_H3_dp | 11.95 / 14.93 | 20.46 / 22.13 | 18.61 / 20.51 |
+| BASE_A | 12.52 / 8.24 | 18.02 / 15.99 | 16.24 / 13.30 |
+| BASE_A_H3 | 8.35 / 9.42 | 12.49 / 13.26 | 11.30 / 12.43 |
+| BASE_A_H3_dp | 7.99 / 8.85 | 11.63 / 12.41 | 10.85 / 11.75 |
+| BASE_A_H3_dp_INT | 7.19 / 7.53 | 11.17 / 11.78 | 10.23 / 11.37 |
 
-All numbers without AoA reproduce the earlier (2026-06-13, 2.6 GHz) folders within about 1 m, including the history result (XGBoost 29.4 to 13.7 m, Random Forest worse with history) and the block-shuffled control. The AoA numbers with tuned parameters are 2.6 to 4.5 m worse than the earlier folders, and the earlier hybrid-feature advantage for Random Forest does not reappear.
+Reading:
 
-The difference was traced to the AoA noise model. The earlier 25×25 runs used a fixed noise of 4° (standard deviation) with 5° quantization; the regenerated runs above used the SINR-dependent noise (`--sinr-dependent-aoa`) that the controlled-grid pipelines use. Rerunning with the fixed noise reproduces the earlier folders, on the earlier (2.6 GHz) data and on the regenerated (3.0 GHz) data:
+- History helps XGBoost in every set (no AoA 15.7 m on UMi LOS, 8.7 m on NLOS, 9.4 m on mixed; with AoA 4.2, 5.1 and 4.7 m for BASE_A to BASE_A_H3_dp). Random Forest degrades with history on UMi LOS (14.52 to 17.06 m) and gains 2.7 m (NLOS) and 1.1 m (mixed) elsewhere. The block-shuffled control gives the same picture (mixed: XGBoost 29.89 to 21.13 m, Random Forest 24.22 to 23.60 m).
+- The interference fingerprint (`_INT`) helps in all three sets by 0.4 to 1.3 m. The earlier Random Forest advantage of the hybrid features (UMi LOS 8.14 against 8.85 m) is not present on the mixed set (11.96 against 11.75 m); for XGBoost the absolute features are best in every set.
+- The absolute level depends strongly on propagation: under NLOS the no-AoA error stays near the constant guess (BASE 33.25 m XGBoost).
+- Spherical targets (the earlier untuned table) are no longer produced by the code; the pipeline predicts Cartesian x, y, z.
+
+#### Agreement with the earlier folders and the AoA noise model
+
+The earlier folders (2026-06-13, 2.6 GHz) are reproduced when the fixed noise is used: no-AoA numbers to the second decimal on the earlier data (same pipeline code), AoA numbers within 0.1 m on the earlier data and within 0.7 m on the 3.0 GHz UMi LOS data. The first regeneration used the SINR-dependent noise of the controlled-grid pipelines and was 3 to 4 m worse with AoA. A full-training-set run improves Random Forest with AoA by 0.6 to 1.1 m and XGBoost by 0.1 to 0.4 m.
 
 | 3D MAE (m), tuned, 30 % subsample | Earlier folders | Earlier data, fixed 4° noise | New data, fixed 4° noise | New data, SINR-dependent noise |
 |---|---|---|---|---|
 | XGBoost BASE_A | 12.03 | 12.11 | 12.50 | 16.97 |
-| XGBoost BASE_A_H3 | 8.17 | 8.16 | 8.36 | 11.04 |
 | XGBoost BASE_A_H3_dp | 7.96 | 8.01 | 7.97 | 10.67 |
-| XGBoost hybrid h=3 | 9.56 | 9.61 | 9.55 | n/a |
 | RF BASE_A | 7.56 | 7.56 | 8.24 | 12.04 |
 | RF BASE_A_H3_dp | 8.09 | 8.09 | 8.85 | 12.25 |
 | RF hybrid h=1 | 7.51 | 7.51 | 8.14 | 12.30 |
 
-So the earlier 25×25 numbers are reproduced (no-AoA numbers to the second decimal on the earlier data, AoA numbers to within 0.1 m on the earlier data and within 0.7 m on the 3.0 GHz data), and the hybrid-feature result survives under the fixed noise. With the SINR-dependent noise the angles are noisier at the low SINR of the far cells, and every AoA number is 3 to 4 m worse. Which noise model a study used is therefore part of its definition: the 25×25 regression and the macro study use the fixed 4° noise; the 15×15 controlled-grid pipelines use the SINR-dependent noise.
+Which noise model a study uses is part of its definition: the 25×25 regression and the macro study use the fixed 4° noise, the 15×15 controlled-grid pipelines the SINR-dependent noise.
 
 ### 6.5 Mechanism of the history gain (macro cell, unchanged findings)
 - An unordered mean of the AoA window recovers the gain; elevation carries more than 80 % of it; with exact AoA the gain is zero for trees and negative for all four neural models.
@@ -185,6 +249,8 @@ So the earlier 25×25 numbers are reproduced (no-AoA numbers to the second decim
 - The June absolute results are not reproducible (section 3.5); the 25×25 data come from one simulation.
 - The two grid studies differ in scale, propagation and task (classification of 2 m cells against regression over a 100 m area); they are not directly comparable.
 - Model hyperparameters of the grid were not tuned per history depth.
+- The order test uses two seeds and one architecture of each kind, and shuffling is applied in training as well.
+- The 25×25 regression pools five simulated device profiles (one user each); it is not a single-user experiment.
 
 ## 8. Reproducing this edition
 1. `RUNNER_CONFIG_NAME='<config>'; run_multi_user_15x15` (or `run_ne_bs_15x15`, `run_ne_bs_25x25`) from `src/matlab/runners`; QuaDRiGa 2.8.1 on the path (`ensure_quadriga` finds it through `QUADRIGA_HOME`).
