@@ -21,7 +21,7 @@ so interference is contributed only by the modeled interfering sites. No user-to
 \label{subsec:studies}
 
 % src: FINAL_REPORT.md §4.1, §7.5 ("eight differences"); technical_documentation.md §3, §7.1, §7.3.3, §7.4; configs/multi_user_voronoi_15x15_config.jsonc, ne_bs_voronoi_15x15_config.jsonc, ne_bs_voronoi_25x25_config.jsonc (center_frequency, grid, base_station)
-The evidence comes from three simulated deployments at two scales, summarized in Table~\ref{tab:studies}. The \emph{controlled-grid study} places UEs on a $15\times15$ grid at $2\,\text{m}$ pitch within $20\,\text{m}$ of the serving BS and predicts the exact cell, under conditions chosen to be clean and repeatable; a single-user variant of the same set-up sweeps the grid from $3\times3$ to $20\times20$ cells. The \emph{macro-cell study} places $300$ users on a $25\times25$ grid at $4\,\text{m}$ pitch, $21$ to $157\,\text{m}$ from an off-grid serving BS, predicts continuous position, and evaluates on users never seen during training. The \emph{single-user $25\times25$ regression runs} share the macro-cell geometry but follow one user, split in time, and are used here only for the case of RSS and SINR without AoA. A fixed history depth of $h=3$ is used in the controlled-grid study and $h=5$ in the macro-cell study, with sweeps over $h$ where stated.
+The evidence comes from three simulated deployments at two scales, summarized in Table~\ref{tab:studies}. The \emph{controlled-grid study} places UEs on a $15\times15$ grid at $2\,\text{m}$ pitch within $20\,\text{m}$ of the serving BS and predicts the exact cell, under conditions chosen to be clean and repeatable; a single-user variant of the same set-up sweeps the grid from $3\times3$ to $20\times20$ cells. The \emph{macro-cell study} places $300$ users on a $25\times25$ grid at $4\,\text{m}$ pitch, $21$ to $157\,\text{m}$ from an off-grid serving BS, predicts continuous position, and evaluates on users never seen during training. The \emph{$25\times25$ regression runs} share the macro-cell geometry, simulate five device profiles (one user each) pooled in one model, split in time, and are repeated under three propagation settings (UMi line of sight, uniform NLOS, per-cell mixed); they are used here only for the case of RSS and SINR without AoA. A fixed history depth of $h=3$ is used in the controlled-grid study and $h=5$ in the macro-cell study, with sweeps over $h$ where stated.
 
 \begin{table}[h]
   \centering
@@ -30,17 +30,17 @@ The evidence comes from three simulated deployments at two scales, summarized in
   \small
   \begin{tabularx}{\textwidth}{@{}lXXX@{}}
     \toprule
-     & Controlled-grid study & Single-user $25\times25$ runs & Macro-cell study \\
+     & Controlled-grid study & $25\times25$ regression runs & Macro-cell study \\
     \midrule
     Task & Classification~(225 cells) & Regression & Regression \\
     Grid, pitch & $15\times15$, $2\,\text{m}$ & $25\times25$, $4\,\text{m}$ & $25\times25$, $4\,\text{m}$ \\
     Service area & $28\times28\,\text{m}$ & $96\times96\,\text{m}$ & $96\times96\,\text{m}$ \\
     Range to serving BS & $0$--$20\,\text{m}$~(center BS); $21$--$61\,\text{m}$~(corner BS) & $21$--$157\,\text{m}$ & $21$--$157\,\text{m}$, mean $93\,\text{m}$ \\
-    Carrier & $3.5\,\text{GHz}$ & $3.0\,\text{GHz}$ & $3.0\,\text{GHz}$ \\
-    Population & 5 device profiles, $450{,}005$ samples & 1 user & 300 users simulated, 232 retained, 47 tested per split \\
+    Carrier & $3.0\,\text{GHz}$ & $3.0\,\text{GHz}$ & $3.0\,\text{GHz}$ \\
+    Population & 5 device profiles, $450{,}005$ samples & 5 device profiles, one user each, $1{,}250{,}000$ samples & 300 users simulated, 232 retained, 47 tested per split \\
     Split & Chronological $80/20$ within each user & Chronological, or shuffled 5-step blocks & $80/20$ over disjoint users \\
     Mobility & Random walk, $1.5\,\text{m/s}$ & Random walk & Four patterns, $0.1$--$15\,\text{m/s}$ \\
-    AoA impairment & SINR-dependent noise, $5^\circ$ quantization & AoA not used in the runs cited & $4^\circ$ Gaussian noise, $5^\circ$ quantization \\
+    AoA impairment & SINR-dependent noise, $5^\circ$ quantization & $4^\circ$ Gaussian noise, $5^\circ$ quantization~(AoA not used in the runs cited here) & $4^\circ$ Gaussian noise, $5^\circ$ quantization \\
     Repetitions & Single run & Single run & Five seeds for headline comparisons \\
     \bottomrule
   \end{tabularx}

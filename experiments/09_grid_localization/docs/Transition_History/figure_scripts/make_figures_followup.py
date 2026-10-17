@@ -10,6 +10,7 @@ Figures
     fig_region_control        LOS-region vs NLOS-region gain, with and without real LOS
     fig_blocked_by_width      multi-antenna gain in the blocked stretch, by strip width
     fig_controlled_grid_placement  regenerated 15x15 grid, BS at centre vs beyond the corner
+    fig_regression25_no_aoa   25x25 regression without AoA, three propagation sets, chronological and block-shuffled
 """
 import csv
 import json
@@ -199,6 +200,31 @@ def controlled_grid_placement():
     save(fig, 'fig_controlled_grid_placement')
 
 
+def regression25_no_aoa():
+    rec = HERE.parents[1] / 'results_of_record' / 'regression_25x25_2026_10'
+    sets = (('UMi LOS', 'umilos_30_fixednoise'), ('NLOS', 'nlos_30_fixednoise'), ('Mixed', 'mixed_30_fixednoise'))
+
+    def mae(folder, run, model, exp):
+        rows = list(csv.DictReader(open(rec / folder / run / 'results_summary.csv', encoding='utf-8')))
+        return next(float(r['3d_mae_m']) for r in rows if r['model'] == model and r['experiment'] == exp)
+
+    fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.6), sharey=True)
+    series = (('xgboost', 'BASE', 'XGBoost, h=0', BLUE, 0.45), ('xgboost', 'BASE_H3', 'XGBoost, h=3', BLUE, 1.0),
+              ('rf', 'BASE', 'Random Forest, h=0', ORANGE, 0.45), ('rf', 'BASE_H3', 'Random Forest, h=3', ORANGE, 1.0))
+    for ax, (run, title) in zip(axes, (('tuned', 'Chronological split'), ('segment_shuffle', 'Shuffled 5-step blocks'))):
+        x = np.arange(len(sets))
+        for k, (model, exp, label, col, alpha) in enumerate(series):
+            v = [mae(folder, run, model, exp) for _, folder in sets]
+            ax.bar(x + (k - 1.5) * 0.2, v, 0.19, color=col, alpha=alpha, label=label if run == 'tuned' else None)
+        ax.set_xticks(x)
+        ax.set_xticklabels([n for n, _ in sets], fontsize=7.5)
+        ax.set_title(title, loc='left')
+        ax.grid(axis='x', visible=False)
+    axes[0].set_ylabel('3D position error (m)')
+    axes[0].legend(frameon=False, fontsize=6.5, loc='upper left', ncol=1)
+    save(fig, 'fig_regression25_no_aoa')
+
+
 if __name__ == '__main__':
     FIG.mkdir(exist_ok=True)
     angle_decomposition()
@@ -206,3 +232,4 @@ if __name__ == '__main__':
     region_control()
     blocked_by_width()
     controlled_grid_placement()
+    regression25_no_aoa()
