@@ -1,6 +1,6 @@
 # Earlier controlled-grid results against the regenerated ones
 
-Written 2026-10-14 to explain to the instructors why the 15×15 controlled-grid numbers they saw earlier differ from the current ones. The detailed numbers are in `PLAN_AND_CHECKLIST.md` §7 and in `docs/results_of_record/controlled_grid_2026_10/comparison_sets.md`.
+Written 2026-10-14 (table row for the 25×25 regression updated 2026-10-20) to explain to the instructors why the 15×15 controlled-grid numbers they saw earlier differ from the current ones. The detailed numbers are in `PLAN_AND_CHECKLIST.md` §7 and in `docs/results_of_record/controlled_grid_2026_10/comparison_sets.md`.
 
 ## 1. Short version
 
@@ -16,7 +16,7 @@ Written 2026-10-14 to explain to the instructors why the 15×15 controlled-grid 
 | 15×15 NE BS, June (`ne_bs_voronoi_15x15_optimal`) | Not reproducible; BASE_H3 XGBoost 86.0 % in June against 48.6 % (RMa LOS), 57.3 % (mixed), 25.8 % (NLOS) now, and 60.9 % in the May run | Superseded; the June NE values should not be quoted |
 | 15×15 May run (`multi_user_voronoi_15x15`, `ne_bs_voronoi_15x15`) | Older simulations (March and April), 2.6 GHz, tuned Random Forest | Kept as history; not regenerated |
 | Single-user grid-size sweeps (3×3 to 20×20), 7×7 depth sweep | Generated at 2.6 GHz although the configs say 3.0 GHz | Not regenerated; the carrier effect was shown to be small (NLOS at 3.0 and 3.5 GHz agree within about 1 pp) |
-| 25×25 single-user regression | 2.6 GHz | Not regenerated |
+| 25×25 regression (five pooled device profiles, earlier called single-user) | 2.6 GHz; June runs used fixed 4° AoA noise, while the controlled-grid pipelines use SINR-dependent noise | Regenerated 2026-10-15/16 at 3.0 GHz under UMi LOS, uniform NLOS and mixed propagation. With the same fixed noise the AoA gap to June closes (`technical_documentation_revised.md` §6.4, `PLAN_AND_CHECKLIST.md` §9–§13) |
 | Macro-cell study (300 users), B6 blocked LOS, all `followup_2026_10` results | Their runners set the carrier from the config (3.0 GHz) | Unaffected |
 
 ## 3. What the reproduction attempt showed
