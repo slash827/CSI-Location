@@ -133,6 +133,7 @@ def main():
     ap.add_argument('--history', nargs='+', type=int, default=[0, 3, 7, 15])
     ap.add_argument('--experiments', nargs='+', default=['BASE', 'BASE_A'], choices=list(EXPERIMENTS))
     ap.add_argument('--seeds', type=int, default=2)
+    ap.add_argument('--first-seed', type=int, default=0, help='seeds run are first-seed .. first-seed + seeds - 1')
     ap.add_argument('--subsample', type=float, default=0.3)
     ap.add_argument('--epochs', type=int, default=40, help='maximum epochs (early stopping on the validation error)')
     ap.add_argument('--patience', type=int, default=5)
@@ -180,7 +181,7 @@ def main():
             Ys = (Y - y_mu) / y_sd
             err_true = Y[is_test]
             for kind in args.models:
-                for seed in range(args.seeds):
+                for seed in range(args.first_seed, args.first_seed + args.seeds):
                     t0 = time.time()
                     pred, epochs, val = train_net(X[is_train], Ys[is_train], X[is_val], Ys[is_val], X[is_test],
                                                   y_sd.astype(np.float32), seed, device, kind)
