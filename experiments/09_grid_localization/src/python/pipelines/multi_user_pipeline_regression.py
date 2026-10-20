@@ -832,7 +832,13 @@ def run_one_experiment(feat_df: pd.DataFrame, feature_cols: list, bs_pos: np.nda
     return {
         'overall': overall,
         'per_user': per_user,
-        'per_cell': per_cell
+        'per_cell': per_cell,
+        # per-sample test predictions (written only with --save-predictions)
+        'samples': {
+            'true_xyz': ue_true.astype(np.float32), 'pred_xyz': ue_pred.astype(np.float32),
+            'error_m': position_errors.astype(np.float32),
+            'user_id': test_user_ids, 'voronoi_cell_id': test_cells,
+        },
     }
 
 def main():
@@ -851,6 +857,7 @@ def main():
     parser.add_argument('--tune-fraction', type=float, default=1.0, help="Subsample fraction of train data for tuning")
     parser.add_argument('--load-tuned-params', type=str, default=None, help="Path to tuned_params.json to load pre-tuned params")
     parser.add_argument('--n-jobs', type=int, default=-1, help="Number of CPU cores to use (-1 for all)")
+    parser.add_argument('--save-predictions', action='store_true', help="Save per-sample test predictions to <out-dir>/predictions/<experiment>__<model>.npz (for error maps)")
     args = parser.parse_args()
 
     global N_JOBS
@@ -957,6 +964,10 @@ def main():
             res = run_one_experiment(feat_df, feature_cols, bs_pos, model, key, spacing=spacing,
                                      scale_targets=scale_targets, use_native_xgb=use_native_xgb)
             results[key][model] = res
+            if args.save_predictions:
+                pred_dir = out_dir / 'predictions'
+                pred_dir.mkdir(exist_ok=True)
+                np.savez_compressed(pred_dir / f'{key}__{model}.npz', bs_pos=bs_pos, **res['samples'])
             
             elapsed = time.time() - t_start
             avg_s = elapsed / n_done

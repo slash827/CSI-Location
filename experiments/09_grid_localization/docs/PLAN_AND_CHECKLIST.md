@@ -84,7 +84,8 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
-- Nothing is running (the last runs, the order test, finished 2026-10-17 10:58). Start `keep_awake2.py` before launching any long run: on this machine only a system plus display request stops the idle path into Modern Standby.
+- GRU and 1D-CNN on the 25x25 regression (`regression25_sequence.py`, h = 0, 3, 7, 15, RSS+SINR and with AoA, one seed, three propagation sets), started 2026-10-20 on the GPU, about 2 h; results in `results/regression_25x25_2026_10/*_30_sequence/`. First test (UMi LOS, no AoA, h=3): GRU 19.6 m, CNN 21.0 m, against XGBoost 13.7 m and RF 17.1 m, so the networks do not beat the tuned trees at h=3 there and were still improving after 150 epochs.
+- Earlier note: nothing else is running (the order test finished 2026-10-17 10:58). Start `keep_awake2.py` before launching any long run: on this machine only a system plus display request stops the idle path into Modern Standby.
 
 ### 4.3 To do
 
@@ -100,7 +101,7 @@ Instructor requests from the 2026-10-12 meeting (section 6; do these before the 
   - Compare them with the constant guess (35.3 m multi, 38.5 m single antenna): the best models are about 2x better, not near-perfect.
   - Show where the error is: error against range from the BS, against cell, and the position map.
   - State in one paragraph that the left (15x15 classification, 2 m cells) and right (25x25 regression, 4 m cells, 300 users, unseen users) plots are different experiments with different error scales.
-- [ ] M3: error maps for the 25x25 regression runs (five pooled device profiles) (the macro study is done, see 4.1); 15x15 maps exist
+- [x] M3 (25x25 part, done 2026-10-20): error maps and distributions for the 25x25 regression runs (five pooled device profiles), `docs/results_of_record/error_audit/regression25_{umilos,nlos,mixed}{,_rf}` (script `error_maps_regression25.py`, predictions re-run with the new `--save-predictions` flag). Reading: with history and AoA the mean error is 8.4 / 12.5 / 11.3 m (UMi LOS / NLOS / mixed, XGBoost) against 37.3 m for always guessing the mean position; without history the maps show errors above 35 m far from the BS and a clear difference between device profiles (user 3 worst).
   - The macro per-sample errors are in `diagnostics_2026_10/baseline_uniform_nlos/errors_first_seed.npz`; check whether positions are stored, else re-run one seed with positions saved.
   - Output: a figure for the report plus PNGs for the meeting.
 - [ ] M5: comparative figure across all settings tested (the report now has `fig_controlled_grid_sets` for the grid; one figure across grid, 25x25 and macro is still to do) (accuracy and MAE per setting, one consistent layout), for the meeting and for the report
