@@ -28,6 +28,8 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.1 Done
 
+- [x] GRU and 1D-CNN on the 25x25 regression against trees at h = 0, 3, 7, 15, three sets, one run each (2026-10-20), `docs/results_of_record/regression_25x25_2026_10/sequence_vs_trees/all_mae.md`. Reading: the GRU at h = 15 has the lowest error in all six set x AoA combinations (no AoA 12.3 / 16.9 / 16.7 m against the best tree 13.7 / 21.7 / 19.1 m; with AoA 6.7 / 8.0 / 8.7 m against 8.2 / 11.3 / 10.8 m, UMi LOS / NLOS / mixed); trees plateau after h = 3 on UMi LOS (RF best without history) and improve slowly to h = 15 under NLOS and mixed. Caveats: one seed, the GRU often hit the 150-epoch cap, trees use parameters tuned at h = 3.
+
 - [x] Validate every claim of `REPORT_SKELETON.md` (`REPORT_SKELETON_VALIDATION.md`)
 - [x] Follow-up experiments (mechanism, region control, LOS flag, blocked LOS, no-interference, constant-guess baseline); results in `docs/results_of_record/followup_2026_10/`
 - [x] Report text corrected in `docs/Transition_History/` (Sections 3, 4, 6–13), compiles to 33 pages
@@ -84,8 +86,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
-- GRU and 1D-CNN on the 25x25 regression (`regression25_sequence.py`, h = 0, 3, 7, 15, RSS+SINR and with AoA, one seed, three propagation sets), started 2026-10-20 on the GPU, about 2 h; results in `results/regression_25x25_2026_10/*_30_sequence/`. First test (UMi LOS, no AoA, h=3): GRU 19.6 m, CNN 21.0 m, against XGBoost 13.7 m and RF 17.1 m, so the networks do not beat the tuned trees at h=3 there and were still improving after 150 epochs.
-- Earlier note: nothing else is running (the order test finished 2026-10-17 10:58). Start `keep_awake2.py` before launching any long run: on this machine only a system plus display request stops the idle path into Modern Standby.
+- Nothing is running. GRU/1D-CNN and trees at h = 7, 15 on the 25x25 regression finished 2026-10-20 21:48 (a Modern Standby freeze cost about 9 h; `keep_awake2.py` had died and was restarted).
 
 ### 4.3 To do
 
