@@ -98,6 +98,11 @@ EXPERIMENTS = [
     {'key': 'BASE_A',       'h': 0, 'aoa': True,  'extra': None,       'desc': 'Static RSS+SINR+AoA'},
     {'key': 'BASE_A_H3',    'h': 3, 'aoa': True,  'extra': None,       'desc': 'RSS+SINR+AoA history h=3'},
     {'key': 'BASE_A_H3_dp', 'h': 3, 'aoa': True,  'extra': ['device'], 'desc': 'RSS+SINR+AoA history h=3 + device params'},
+    # Longer history, for the comparison with the GRU / 1D-CNN of regression25_sequence.py
+    {'key': 'BASE_H7',      'h': 7,  'aoa': False, 'extra': None,      'desc': 'RSS+SINR history h=7'},
+    {'key': 'BASE_H15',     'h': 15, 'aoa': False, 'extra': None,      'desc': 'RSS+SINR history h=15'},
+    {'key': 'BASE_A_H7',    'h': 7,  'aoa': True,  'extra': None,      'desc': 'RSS+SINR+AoA history h=7'},
+    {'key': 'BASE_A_H15',   'h': 15, 'aoa': True,  'extra': None,      'desc': 'RSS+SINR+AoA history h=15'},
     # A/B testing variants (Phase 3 Python enhancements)
     {'key': 'BASE_A_H3_dp_INT',    'h': 3, 'aoa': True,  'extra': ['device'], 'include_interference': True, 'desc': 'Baseline + Interference Fingerprint'},
     {'key': 'BASE_A_H3_dp_SCALE',  'h': 3, 'aoa': True,  'extra': ['device'], 'scale_targets': True,         'desc': 'Baseline + Target Standard Scaling'},
