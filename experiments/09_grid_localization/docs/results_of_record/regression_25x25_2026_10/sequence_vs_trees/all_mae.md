@@ -28,3 +28,16 @@ One run each, fixed 4 deg AoA noise, chronological split, 30 % training subsampl
 | umilos | yes | gru | 14.1 | 8.8 | 7.3 | 6.7 |
 | umilos | yes | rf | 8.2 | 9.4 | 9.5 | 9.6 |
 | umilos | yes | xgboost | 12.5 | 8.4 | 8.6 | 8.9 |
+
+## GRU at h = 15: three seeds and a 400-epoch cap (2026-10-21)
+
+| set | AoA | seed 0 / 1 / 2 (150 epochs) | mean | 400-epoch cap, seed 0 | best tree (any h) |
+|---|---|---|---|---|---|
+| umilos | no | 12.3 / 12.3 / 12.7 | 12.4 | 11.5 | 13.7 (XGBoost h=3) |
+| umilos | yes | 6.7 / 6.5 / 6.5 | 6.6 | 6.3 | 8.2 (RF h=0) |
+| nlos | no | 16.9 / 16.6 / 16.6 | 16.7 | 16.8 | 21.7 (XGBoost h=15) |
+| nlos | yes | 8.0 / 8.0 / 7.9 | 8.0 | 7.7 | 11.3 (XGBoost h=15) |
+| mixed | no | 16.7 / 16.8 / 16.7 | 16.7 | 16.3 | 19.1 (XGBoost h=15) |
+| mixed | yes | 8.7 / 8.7 / 8.7 | 8.7 | 8.3 | 10.8 (XGBoost h=15) |
+
+Seed spread is at most 0.4 m; the gap to the best tree is 1.3 to 5.0 m. The longer cap lowers the error by up to 0.9 m.

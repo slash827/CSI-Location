@@ -1,0 +1,3 @@
+model,experiment,h,seed,mae_m,median_m,val_mae_m,epochs,n_test,seconds
+gru,BASE,15,0,11.5282,9.2583,11.4546,296,250000,790.7
+gru,BASE_A,15,0,6.2834,5.2885,6.2077,211,250000,792.8
