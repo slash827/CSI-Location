@@ -220,8 +220,33 @@ Reading:
 
 - History helps XGBoost in every set (no AoA 15.7 m on UMi LOS, 8.7 m on NLOS, 9.4 m on mixed; with AoA 4.2, 5.1 and 4.7 m for BASE_A to BASE_A_H3_dp). Random Forest degrades with history on UMi LOS (14.52 to 17.06 m) and gains 2.7 m (NLOS) and 1.1 m (mixed) elsewhere. The block-shuffled control gives the same picture (mixed: XGBoost 29.89 to 21.13 m, Random Forest 24.22 to 23.60 m).
 - The interference fingerprint (`_INT`) helps in all three sets by 0.4 to 1.3 m. The earlier Random Forest advantage of the hybrid features (UMi LOS 8.14 against 8.85 m) is not present on the mixed set (11.96 against 11.75 m); for XGBoost the absolute features are best in every set.
-- The absolute level depends strongly on propagation: under NLOS the no-AoA error stays near the constant guess (BASE 33.25 m XGBoost).
+- The absolute level depends strongly on propagation: under NLOS the no-AoA snapshot error is near the constant guess (BASE 33.25 m XGBoost against 37.3 m); with history it is 24.51 m.
 - Spherical targets (the earlier untuned table) are no longer produced by the code; the pipeline predicts Cartesian x, y, z.
+
+#### Longer history, GRU and 1D-CNN (2026-10-20/21)
+
+Same data, split, subsample and AoA noise as above. Trees: `multi_user_pipeline_regression.py` with the new experiments `BASE_H7`, `BASE_H15`, `BASE_A_H7`, `BASE_A_H15` (parameters tuned at h = 3). GRU and 1D-CNN: `regression25_sequence.py` (architectures of the controlled-grid study with a three-output regression head, MSE on standardized targets, epoch chosen on the last 10 % of each user's training rows, 150 epochs at most). Mean 3D error in metres, h = 0 / 3 / 7 / 15, one run each; full table in `docs/results_of_record/regression_25x25_2026_10/sequence_vs_trees/all_mae.md`.
+
+| Set, AoA | XGBoost | RF | GRU | CNN |
+|---|---|---|---|---|
+| UMi LOS, no | 29.4 / 13.7 / 14.0 / 14.4 | 14.5 / 17.1 / 17.9 / 18.7 | 26.2 / 19.6 / 15.6 / 12.3 | 28.2 / 21.3 / 16.7 / 14.2 |
+| UMi LOS, yes | 12.5 / 8.4 / 8.6 / 8.9 | 8.2 / 9.4 / 9.5 / 9.6 | 14.1 / 8.8 / 7.3 / 6.7 | 15.1 / 9.5 / 7.9 / 8.0 |
+| NLOS, no | 33.3 / 24.5 / 22.8 / 21.7 | 29.3 / 26.6 / 26.3 / 26.0 | 31.2 / 25.2 / 21.0 / 16.9 | 31.6 / 26.0 / 21.5 / 17.2 |
+| NLOS, yes | 18.0 / 12.5 / 11.7 / 11.3 | 16.0 / 13.3 / 12.8 / 12.5 | 17.8 / 11.7 / 9.2 / 8.0 | 18.3 / 11.7 / 10.2 / 8.9 |
+| Mixed, no | 29.9 / 20.5 / 19.6 / 19.1 | 24.3 / 23.2 / 23.3 / 23.5 | 28.7 / 23.0 / 19.2 / 16.7 | 29.0 / 23.7 / 19.7 / 17.4 |
+| Mixed, yes | 16.2 / 11.3 / 10.9 / 10.8 | 13.3 / 12.4 / 12.3 / 12.2 | 16.7 / 11.3 / 9.5 / 8.7 | 17.0 / 11.7 / 9.9 / 9.5 |
+
+GRU at h = 15 over three seeds (150 epochs): UMi LOS 12.4 / 6.6 m, NLOS 16.7 / 8.0 m, mixed 16.7 / 8.7 m (no AoA / AoA), seed spread at most 0.4 m. With a 400-epoch limit (seed 0): 11.5 / 6.3, 16.8 / 7.7, 16.3 / 8.3 m.
+
+Reading:
+
+- The GRU at h = 15 is best in all six set × AoA combinations, 1.3 to 5.0 m below the best tree at any depth. The same ordering as on the controlled grid: trees plateau, sequence models keep improving.
+- Trees: on UMi LOS no tree gains beyond h = 3, and Random Forest is best without history; under NLOS and mixed XGBoost still improves slowly to h = 15 (24.5 to 21.7 m without AoA under NLOS).
+- Caveats: tree parameters were tuned at h = 3; the GRU often reached the epoch limit; the CNN and the tree depths beyond 3 are single runs.
+
+#### Error distribution and maps
+
+`error_maps_regression25.py` on per-sample predictions (`multi_user_pipeline_regression.py --save-predictions`); outputs in `docs/results_of_record/error_audit/regression25_{umilos,nlos,mixed}{,_rf}`. Always guessing the mean test position gives 37.3 m. XGBoost with AoA and h = 3: 8.4 / 12.5 / 11.3 m (UMi LOS / NLOS / mixed). Without history and AoA the error exceeds 35 m far from the BS. The device profiles differ: on UMi LOS with AoA and h = 3 one profile has 13.7 m against 6.4 to 7.4 m for the others.
 
 #### Agreement with the earlier folders and the AoA noise model
 
