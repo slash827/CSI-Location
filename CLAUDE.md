@@ -222,10 +222,11 @@ All Python tests must pass before committing changes to the pipeline.
 ### Known baseline results (regression guard)
 
 If a change breaks these, the tests will catch it:
-Values from the regenerated data (3.5 GHz, uniform UMi NLOS, `results/controlled_grid_2026_10/`; the pre-2026-10-13 values 50.4 % / 83.6 % came from the old data and no longer apply):
-- Center BS, XGBoost, BASE_H3: ~28.2% accuracy, ~7.24 m MAE
-- Center BS, XGBoost, BASE_A_H3: ~67.5% accuracy, ~1.37 m MAE
-- AoA gain (BASE_A_H3 − BASE_H3), XGBoost: NE BS ~6 pp, center BS ~39 pp
+Values from the headline set (mixed per-cell UMi LOS/NLOS, 3.0 GHz, `results/controlled_grid_2026_10/*_mixed_30/`, chosen 2026-10-22; the earlier 3.5 GHz uniform-NLOS values 28.2 % / 67.5 % and the pre-2026-10-13 values 50.4 % / 83.6 % no longer apply):
+- Center BS, XGBoost, BASE_H3: ~59.1% accuracy, ~3.77 m MAE
+- Center BS, XGBoost, BASE_A_H3: ~78.6% accuracy, ~1.00 m MAE
+- AoA gain (BASE_A_H3 − BASE_H3), XGBoost: NE BS ~1 pp, center BS ~19.5 pp
+- History gain (BASE_H3 − BASE), XGBoost: ~27 pp center, ~26 pp NE
 - SINR range in simulation data: about −25 to +40 dB (limits tested: −35 to +65 dB)
 
 ---

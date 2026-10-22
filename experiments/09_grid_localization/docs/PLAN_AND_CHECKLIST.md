@@ -122,7 +122,7 @@ Documentation
 - [ ] Choose the primary controlled-grid set for the report and say which propagation each number comes from (your task 1; Section 5 is a DRAFT until then)
 - [ ] Update report Section 12 (limitations) for the grid sequence finding, the propagation dependence of the absolute numbers and the fixed against SINR-dependent AoA noise
 - [ ] Update `RESULTS_DIRECTORY_MAP.md`, `results_of_record/MANIFEST.md`, `CONTINUE_HERE.md`
-- [ ] Update `CLAUDE.md` baselines and `test_results_sanity.py` paths to the primary set (the test now reads `centre_bs_nlos35` / `ne_bs_nlos35`, so it is not skipped; repoint it to the headline set)
+- [x] Update `CLAUDE.md` baselines and `test_results_sanity.py` paths to the primary set (the test now reads `centre_bs_nlos35` / `ne_bs_nlos35`, so it is not skipped; repoint it to the headline set) (done 2026-10-22: mixed per-cell chosen; Section 5 DRAFT mark removed, CLAUDE.md baselines and test_results_sanity.py moved to the mixed set, 84 tests pass)
 - [ ] Regenerate `compare_placements` and MAE heat map figures from the primary set
 - [ ] Section 8 "predictions fixed before the experiment": still unverifiable, remove or source it
 - [ ] `reference.bib` (citations are undefined), cut the report to about 12 pages, thesis conversion
@@ -138,7 +138,7 @@ Housekeeping
 
 These need your decision, your judgement or your presence. Claude's tasks are in 4.3 and wait on the first three.
 
-- [ ] 1. Choose the headline set for the controlled grid in the report (suggestion: mixed per-cell as the headline, RMa LOS and NLOS as the propagation sweep; alternative: RMa LOS, closest to the old centre numbers)
+- [x] 1. Choose the headline set for the controlled grid in the report (suggestion: mixed per-cell as the headline, RMa LOS and NLOS as the propagation sweep; alternative: RMa LOS, closest to the old centre numbers) (done 2026-10-22: mixed per-cell chosen; Section 5 DRAFT mark removed, CLAUDE.md baselines and test_results_sanity.py moved to the mixed set, 84 tests pass)
 - [ ] 2. Look at the results (section 8 says where everything is) and tell Claude which figures and tables you want in the report and on the meeting slides
 - [ ] 3. Approve the archive proposal for the 25x25 folders (section 9). The regeneration of the 25x25 data at 3.0 GHz was decided on 2026-10-15 and is running (4.2)
 - [ ] 4. Decide what to do with the claim in Section 8 of the report that the predictions were fixed before the experiment (unverifiable from the repository: keep with a source, or remove)
@@ -151,7 +151,7 @@ These need your decision, your judgement or your presence. Claude's tasks are in
 
 ## 5. Decisions needed from the author
 
-1. Which set is the headline for the controlled grid: RMa LOS (closest to the June data), mixed per-cell (the design the config describes), or NLOS (hardest)? Suggested: mixed per-cell as the headline, the others as a propagation sweep.
+1. (Decided 2026-10-22: mixed per-cell.) Which set is the headline for the controlled grid: RMa LOS (closest to the June data), mixed per-cell (the design the config describes), or NLOS (hardest)? Suggested: mixed per-cell as the headline, the others as a propagation sweep.
 2. Is the 25×25 regression simulation (2.6 GHz) worth regenerating?
 
 ## 6. Instructor meeting 2026-10-12 (Dudi, Sarit, Alon): what was asked

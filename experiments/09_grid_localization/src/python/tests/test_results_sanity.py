@@ -10,7 +10,7 @@ They would catch:
   - Cross-experiment ordering violations (BASE_H must beat BASE)
   - NE-BS vs center-BS ordering of AoA gain
 
-Reads results/controlled_grid_2026_10/ (regenerated 2026-10-13); results/ is gitignored.
+Reads results/controlled_grid_2026_10/*_mixed_30 (the headline set, regenerated 2026-10-13); results/ is gitignored.
 Skipped automatically if the result files don't exist (e.g. on a clean clone).
 """
 import sys
@@ -22,10 +22,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 ROOT        = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
-CENTER_CSV  = ROOT / 'results' / 'controlled_grid_2026_10' / 'centre_bs_nlos35' / 'csvs' / 'results_summary.csv'
-NE_CSV      = ROOT / 'results' / 'controlled_grid_2026_10' / 'ne_bs_nlos35' / 'csvs' / 'results_summary.csv'
-CENTER_DATA = ROOT / 'results' / 'grid_localization' / 'grid_15x15' / 'sim_data_multi_user_2026-10-13_01-02-45'
-NE_DATA     = ROOT / 'results' / 'grid_localization' / 'grid_15x15' / 'sim_data_ne_bs_2026-10-13_01-02-42'
+# Headline set (chosen 2026-10-22): mixed per-cell UMi LOS/NLOS propagation, 3.0 GHz
+CENTER_CSV  = ROOT / 'results' / 'controlled_grid_2026_10' / 'centre_bs_mixed_30' / 'csvs' / 'results_summary.csv'
+NE_CSV      = ROOT / 'results' / 'controlled_grid_2026_10' / 'ne_bs_mixed_30' / 'csvs' / 'results_summary.csv'
+CENTER_DATA = ROOT / 'results' / 'grid_localization' / 'grid_15x15' / 'sim_data_multi_user_2026-10-13_11-23-48'
+NE_DATA     = ROOT / 'results' / 'grid_localization' / 'grid_15x15' / 'sim_data_ne_bs_2026-10-13_11-23-43'
 
 
 def _load(path):
@@ -83,14 +84,14 @@ class TestCenterBSResultsPlausibility:
                 f"{model}: BASE_H3_dp ({h_dp_acc:.1f}%) did not beat BASE_H3 ({h_acc:.1f}%)"
 
     def test_aoa_gain_is_large_at_center_bs(self):
-        """AoA gain (BASE_A_H3 - BASE_H3) at center BS must be > 20 pp for XGBoost.
-        The known result is +39 pp. Anything below 20 pp would suggest AoA is broken."""
+        """AoA gain (BASE_A_H3 - BASE_H3) at center BS must be > 10 pp for XGBoost.
+        The known result is +19.5 pp on the mixed set (+39 pp under uniform NLOS). Below 10 pp would suggest AoA is broken."""
         df = _load(CENTER_CSV)
         base_h   = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_H3')  ]['accuracy_%'].iloc[0]
         base_a_h = df[(df['model'] == 'xgboost') & (df['experiment'] == 'BASE_A_H3')]['accuracy_%'].iloc[0]
         aoa_gain = base_a_h - base_h
-        assert aoa_gain > 20.0, \
-            f"AoA gain at center BS is only {aoa_gain:.1f} pp — expected >20 pp (known: ~39 pp)"
+        assert aoa_gain > 10.0, \
+            f"AoA gain at center BS is only {aoa_gain:.1f} pp — expected >10 pp (known: ~19.5 pp on the mixed set)"
 
 
 # ── plausibility checks on NE-BS results ──────────────────────────────────────
@@ -138,7 +139,7 @@ class TestCenterVsNEBSComparison:
         assert gain_ne < gain_center, \
             f"AoA gain at NE BS ({gain_ne:.1f} pp) is not less than center BS ({gain_center:.1f} pp)"
         assert gain_ne < 15.0, \
-            f"AoA gain at NE BS ({gain_ne:.1f} pp) is suspiciously high — expected <15 pp (known: ~6 pp)"
+            f"AoA gain at NE BS ({gain_ne:.1f} pp) is suspiciously high — expected <15 pp (known: ~1 pp on the mixed set)"
 
     def test_history_gain_similar_both_placements(self):
         """History gain (BASE_H - BASE, XGBoost) must be similar at both BS positions (within 8 pp).
@@ -155,7 +156,7 @@ class TestCenterVsNEBSComparison:
         gain_ne     = hist_gain(ne)
         assert abs(gain_ne - gain_center) < 8.0, \
             f"History gain differs by {abs(gain_ne - gain_center):.1f} pp between placements — " \
-            f"expected similar (~13-14 pp each)"
+            f"expected similar (~26-27 pp each on the mixed set)"
 
 
 # ── AoA azimuth range sanity check against raw simulation data ────────────────
