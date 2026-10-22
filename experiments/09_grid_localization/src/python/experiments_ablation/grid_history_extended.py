@@ -151,7 +151,7 @@ def main():
     ap.add_argument('--data-dir', required=True)
     ap.add_argument('--out-dir', required=True)
     ap.add_argument('--depths', type=int, nargs='+', default=[0, 1, 3, 5, 7, 10, 15])
-    ap.add_argument('--models', nargs='+', choices=['xgboost', 'rf', 'cnn', 'gru', 'xgboost_wm', 'rf_wm', 'cnn_shuf', 'gru_shuf'],
+    ap.add_argument('--models', nargs='+', choices=['xgboost', 'rf', 'cnn', 'gru', 'xgboost_wm', 'rf_wm', 'cnn_shuf', 'gru_shuf', 'cnn_shufold', 'gru_shufold'],
                     default=['xgboost', 'rf', 'cnn'])
     ap.add_argument('--experiments', nargs='+', choices=list(EXPERIMENTS), default=list(EXPERIMENTS))
     ap.add_argument('--cnn-seeds', type=int, default=3)
@@ -178,7 +178,7 @@ def main():
     log(f'{len(df):,} rows, {len(labels)} cells, spacing {spacing} m, data {data_dir.name}')
 
     device = None
-    if any(m in args.models for m in ('cnn', 'gru', 'cnn_shuf', 'gru_shuf')):
+    if any(m in args.models for m in ('cnn', 'gru', 'cnn_shuf', 'gru_shuf', 'cnn_shufold', 'gru_shufold')):
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         log(f'CNN device: {device}')
@@ -231,13 +231,17 @@ def main():
                     Xall = sequence_tensor(trf, h, aoa, stats)
                     yall = trf['grid_point_id'].map(l2i).values.astype(np.int64)
                     Xte = sequence_tensor(feat[te], h, aoa, stats)
-                    if model.endswith('_shuf'):
+                    if '_shuf' in model:
                         # order test: permute the reports inside every window (all channels of a report move together),
-                        # in training and in test, so the model can use the set of reports but not their order
+                        # in training and in test, so the model can use the set of reports but not their order.
+                        # _shuf permutes the whole window (this also hides which report is the current one);
+                        # _shufold keeps the current report in the last position and permutes only the older ones.
                         rs_ = np.random.RandomState(123)
+                        n_perm = Xall.shape[2] - (1 if model.endswith('_shufold') else 0)
                         for arr_name in ('Xall', 'Xte'):
                             arr = Xall if arr_name == 'Xall' else Xte
-                            idx = rs_.random_sample((arr.shape[0], arr.shape[2])).argsort(axis=1)
+                            idx = rs_.random_sample((arr.shape[0], n_perm)).argsort(axis=1)
+                            idx = np.concatenate([idx, np.tile(np.arange(n_perm, arr.shape[2]), (arr.shape[0], 1))], axis=1)
                             arr = np.take_along_axis(arr, idx[:, None, :], axis=2)
                             if arr_name == 'Xall':
                                 Xall = arr
@@ -246,7 +250,7 @@ def main():
                     for seed in range(args.cnn_seeds):
                         pred_i, ep, best = train_cnn(Xall[~val_mask], yall[~val_mask], Xall[val_mask],
                                                      yall[val_mask], Xte, len(labels), seed, device,
-                                                     kind=model.replace('_shuf', ''))
+                                                     kind=model.split('_')[0])
                         r = mu.evaluate_split(y_te_lab, i2l[pred_i], grid_lookup, spacing=spacing)
                         out.append(dict(model=model, experiment=exp, h=h, seed=seed, accuracy=r['accuracy'],
                                         mae=r['mae'], epochs=ep, secs=round(time.time() - t0, 1)))

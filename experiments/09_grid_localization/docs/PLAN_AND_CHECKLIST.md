@@ -86,9 +86,11 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.2 Running now
 
-- Nothing is running. GRU/1D-CNN and trees at h = 7, 15 on the 25x25 regression finished 2026-10-20 21:48 (a Modern Standby freeze cost about 9 h; `keep_awake2.py` had died and was restarted).
+- Fair order test running (started 2026-10-22 09:23, ETA about 11:50): `grid_history_extended.py --models gru_shufold cnn_shufold`, current report kept in place, only the older reports shuffled; four 15x15 sets, h = 3, 10, 15, two seeds; logs `results/_logs/hist_*_shufold.log`. Reason: the first order test (`_shuf`) also hid which report is current, so its collapse (about 5.6 % at h = 15) mainly shows recency, not order.
 
 ### 4.3 To do
+
+- [ ] After the fair order test: correct the order claim in report Sections 0 (abstract), 5, 11, 12, 13, revised technical documentation 6.2 and claims list, `MY_STUDY_GUIDE.md` (Parts 1, 2 step 4, 3, 4), and tell Alon the corrected result
 
 
 Explaining the old results to the instructors (requested 2026-10-13)
