@@ -12,7 +12,7 @@ Figures
     fig_controlled_grid_placement  regenerated 15x15 grid, BS at centre vs beyond the corner
     fig_regression25_no_aoa   25x25 regression without AoA, three propagation sets, chronological and block-shuffled
     fig_controlled_grid_sets  controlled grid accuracy, three propagation sets, both BS positions
-    fig_history_extended      history depth up to 15: trees, window-mean trees, CNN, GRU, shuffled GRU (mixed set)
+    fig_history_extended      history depth up to 15: trees, window-mean trees, CNN, GRU, GRU with the older reports shuffled (mixed set)
 """
 import csv
 import json
@@ -258,7 +258,7 @@ def history_extended_fig():
     rec = HERE.parents[1] / 'results_of_record' / 'history_extended'
 
     def load(t):
-        parts = [rec / t / 'history_extended.csv', rec / f'{t}_wmgru' / 'history_extended_wmgru.csv', rec / f'{t}_shuf' / 'history_extended_shuf.csv']
+        parts = [rec / t / 'history_extended.csv', rec / f'{t}_wmgru' / 'history_extended_wmgru.csv', rec / f'{t}_shufold' / 'history_extended.csv']
         rows = []
         for p in parts:
             rows += list(csv.DictReader(open(p, encoding='utf-8')))
@@ -273,7 +273,7 @@ def history_extended_fig():
         return hs, [float(np.mean(acc[h])) for h in hs]
 
     sty = (('xgboost', 'XGBoost', BLUE, '-'), ('rf', 'Random Forest', ORANGE, '-'), ('cnn', '1D-CNN', AQUA, '-'), ('gru', 'GRU', INK, '-'),
-           ('rf_wm', 'RF, window mean only', ORANGE, (0, (3, 2))), ('gru_shuf', 'GRU, shuffled window', INK, (0, (1, 2))))
+           ('rf_wm', 'RF, window mean only', ORANGE, (0, (3, 2))), ('gru_shufold', 'GRU, older reports shuffled', INK, (0, (1, 2))))
     fig, axes = plt.subplots(2, 2, figsize=(6.8, 4.8), sharex=True)
     for r, (exp, ename) in enumerate((('BASE', 'RSS+SINR'), ('BASE_A', 'RSS+SINR+AoA'))):
         for c, (t, tname) in enumerate((('ne_mixed', 'BS beyond the corner'), ('centre_mixed', 'BS at the grid center'))):

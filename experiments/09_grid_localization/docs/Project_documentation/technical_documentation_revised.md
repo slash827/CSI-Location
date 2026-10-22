@@ -23,7 +23,7 @@ What is established (sections 6 and 7):
 2. The gain comes from the AoA channels. It is reproduced by an unordered mean of the window and it is zero or negative when the AoA is exact. The account that "the rate at which the bearing turns reveals range" is not supported.
 3. The size of the gain depends on how the AoA error is modelled. With an error independent between reports (what the pipeline simulates) it is about 17 %; with an error persistent across the window it is about 6 % (trees) or 2 to 3 % (neural models).
 4. The AoA gain depends strongly on the base-station placement (centre BS +10 to +39 pp, corner BS −0.4 to +6 pp on the grid).
-5. On the controlled grid, sequence models (GRU, 1D-CNN) keep improving with the window length up to h = 15 and end below the tree models, which plateau at h = 3 to 5. Shuffling the reports inside the window removes the advantage, so the order of the reports (the path) carries information beyond the window mean; this is a hypothesis supported by four sets, not a direct proof (section 6.2).
+5. On the controlled grid, sequence models (GRU, 1D-CNN) keep improving with the window length up to h = 15 and end below the tree models in mean error, while the trees plateau at h = 3 to 5. With the current report kept in place, shuffling the older reports raises the GRU error at h = 15 by 19 to 48 % in all eight set × AoA rows, so the order of the older reports carries information beyond their set; part of the GRU advantage does not depend on order (section 6.2). The same plateau and GRU advantage appear in the 25×25 regression (section 6.4).
 
 What is not established: the absolute accuracy of any single setting (it moves with the propagation scenario by tens of points), anything about measured traces, and the 2026-06-12 absolute numbers.
 
@@ -182,22 +182,32 @@ Findings (the same direction in all four sets, with and without AoA):
 1. The trees take their gain at h = 1 to 3 and stay flat (XGBoost) or get worse (Random Forest, best at h = 3 to 5). The 1D-CNN improves with every added depth and, on the mixed sets, ends below both trees (mixed NE without AoA at h=15: CNN 2.49 m, RF 3.35 m, XGBoost 3.46 m). The GRU is the best model at long history in every set (mixed NE 1.42 m, mixed centre with AoA 0.60 m against 0.99 m for XGBoost).
 2. The plateau of the trees is not a missing average. Window-mean trees do not keep improving: without AoA they are worse than raw-lag trees for h >= 3 (mixed NE XGBoost 4.52 m against 3.51 m at h=5); with AoA they equal them.
 
-#### Order test (hypothesis, supported by four sets)
+#### Order test (corrected 2026-10-22)
 
-The reports inside every window were permuted (all channels of a report together) in training and test, so a network can use the set of reports but not their order (h = 3, 10, 15, 2 seeds).
+The first order test (2026-10-17, models `gru_shuf`, `cnn_shuf`) permuted all reports inside every window. That also hid which report is the current one, and the target is the current position, so the shuffled networks could only locate the region of the window: at h = 15 they reached about 5.6 % exact-cell accuracy, below the CNN with no history at all (18.8 %, mixed NE). That test showed that knowing the newest report matters, not that order matters. It is superseded.
 
-| Set | AoA | GRU ordered h=3 / 10 / 15 | GRU shuffled h=3 / 10 / 15 | CNN ordered | CNN shuffled | window-mean RF h=15 |
+The fair test (`gru_shufold`, `cnn_shufold`) keeps the current report in its place and permutes only the older ones, in training and test (h = 3, 10, 15, two seeds; ordered networks three seeds). Mean position error in metres, h = 3 / 10 / 15; files `docs/results_of_record/history_extended/*_shufold/` and `order_test_comparison.csv`.
+
+| Set | AoA | GRU ordered | GRU, older shuffled | CNN ordered | CNN, older shuffled | best tree at h = 15 |
 |---|---|---|---|---|---|---|
-| RMa LOS, NE BS | no | 3.34 / 2.64 / 2.48 | 4.90 / 5.57 / 6.28 | 5.29 / 4.28 / 3.91 | 5.48 / 5.29 / 5.73 | 3.44 |
-| RMa LOS, NE BS | yes | 2.25 / 1.89 / 1.87 | 3.54 / 4.50 / 5.14 | 2.83 / 2.60 / 2.61 | 3.66 / 4.46 / 5.04 | 2.30 |
-| Mixed, NE BS | no | 2.58 / 1.58 / 1.42 | 4.46 / 4.93 / 5.53 | 3.86 / 2.57 / 2.49 | 5.01 / 4.93 / 5.49 | 3.80 |
-| Mixed, NE BS | yes | 2.02 / 1.37 / 1.30 | 3.82 / 4.59 / 5.29 | 2.53 / 1.82 / 1.67 | 3.91 / 4.57 / 5.17 | 3.15 |
-| RMa LOS, centre BS | no | 3.28 / 2.36 / 2.19 | 4.90 / 5.29 / 6.18 | 5.20 / 3.82 / 3.53 | 5.15 / 5.29 / 5.64 | 3.84 |
-| RMa LOS, centre BS | yes | 1.22 / 1.03 / 1.01 | 2.84 / 4.44 / 5.17 | 1.64 / 1.43 / 1.38 | 2.91 / 4.31 / 5.09 | 1.63 |
-| Mixed, centre BS | no | 2.52 / 1.38 / 1.24 | 4.54 / 4.80 / 5.41 | 3.83 / 2.20 / 2.01 | 5.05 / 4.86 / 5.38 | 3.90 |
-| Mixed, centre BS | yes | 0.80 / 0.64 / 0.60 | 2.58 / 4.25 / 5.10 | 0.88 / 0.72 / 0.75 | 2.58 / 4.20 / 4.97 | 1.18 |
+| RMa LOS, NE BS | no | 3.34 / 2.64 / 2.48 | 3.45 / 3.22 / 2.96 | 5.29 / 4.28 / 3.91 | 5.37 / 4.51 / 4.39 | 3.15 (RF) |
+| RMa LOS, NE BS | yes | 2.25 / 1.89 / 1.87 | 2.33 / 2.21 / 2.28 | 2.83 / 2.60 / 2.61 | 2.97 / 2.91 / 2.86 | 2.30 (RF window mean) |
+| Mixed, NE BS | no | 2.58 / 1.58 / 1.42 | 2.87 / 2.13 / 2.03 | 3.86 / 2.57 / 2.49 | 4.49 / 3.49 / 3.46 | 3.35 (RF) |
+| Mixed, NE BS | yes | 2.02 / 1.37 / 1.30 | 2.27 / 1.85 / 1.91 | 2.53 / 1.82 / 1.67 | 2.94 / 2.65 / 2.46 | 2.82 (XGBoost) |
+| RMa LOS, centre BS | no | 3.28 / 2.36 / 2.19 | 3.50 / 2.89 / 2.83 | 5.20 / 3.82 / 3.53 | 5.51 / 4.41 / 4.34 | 3.56 (RF) |
+| RMa LOS, centre BS | yes | 1.22 / 1.03 / 1.01 | 1.33 / 1.29 / 1.29 | 1.64 / 1.43 / 1.38 | 1.75 / 1.68 / 1.73 | 1.34 (XGBoost) |
+| Mixed, centre BS | no | 2.52 / 1.38 / 1.24 | 2.87 / 1.90 / 1.84 | 3.83 / 2.20 / 2.01 | 4.37 / 3.12 / 3.08 | 3.21 (RF) |
+| Mixed, centre BS | yes | 0.80 / 0.64 / 0.60 | 0.89 / 0.81 / 0.82 | 0.88 / 0.72 / 0.75 | 1.06 / 1.01 / 1.05 | 0.99 (XGBoost) |
 
-Shuffling removes the long-history advantage everywhere, and the shuffled networks get worse as the window grows (mixed NE without AoA: ordered GRU 1.42 m, shuffled 5.53 m at h=15, best order-blind model, the window-mean Random Forest, 3.80 m). Hypothesis: on the controlled grid a single RSS+SINR report is ambiguous between cells, a mean of the window does not remove the ambiguity, and the ordered sequence of reports traces the movement across the signal contours; sequence models use this, trees on raw lags only use the first one or two lags. The history gain on the grid then has an averaging part shared by all models and a sequence part that only recurrent and convolutional models exploit. Caveats: two seeds, three depths, one network of each kind, the shuffle is also applied in training, and the shuffled networks are worse than a hand-made mean feature, so they are not a clean "mean only" bound. The macro-cell finding that an unordered mean reproduces the AoA-driven gain is not contradicted: that study is a regression over 100 m with different information per report.
+Exact-cell accuracy of the GRU at h = 15, ordered against older shuffled: 47.9 / 41.9 %, 51.5 / 45.8 %, 68.5 / 62.7 %, 68.8 / 62.4 %, 51.0 / 45.0 %, 68.5 / 64.1 %, 70.8 / 65.1 %, 79.4 / 75.7 % (rows in the order of the table).
+
+Reading:
+
+- With the current report known, shuffling the older reports raises the GRU error at h = 15 by 19 to 48 % in all eight set × AoA rows (accuracy 3.7 to 6.4 pp lower). The shuffled GRU gains little or nothing from h = 10 to h = 15, the ordered one keeps gaining. The order of the older reports therefore carries information on the grid, and most of the gain from long windows depends on it.
+- The shuffled GRU is better than the best tree at h = 15 in all eight rows (MAE; by only 0.02 m on RMa LOS NE with AoA), so part of the advantage of the GRU does not need order: the set of older reports together with the current one is more useful to it than the raw lags or the window mean are to the trees.
+- The CNN loses more from shuffling than the GRU; its convolutions also rely on which positions are neighbours, so its result is a weaker test of order.
+- In exact-cell accuracy, the trees match or beat the ordered GRU on the RMa LOS sets (centre with AoA: XGBoost 71.2 % against 68.5 %); the GRU leads in MAE, that is, its wrong predictions are closer. Results for the GRU should be quoted with the metric.
+- Caveats: two seeds for the shuffled networks, one architecture of each kind, shuffling applied in training as well.
 
 ### 6.3 Placement and the AoA gain
 At the centre BS the azimuth covers 360° and AoA alone separates neighbouring cells (BASE_A 64 to 77 % in every set). At the NE corner the grid falls within about 52° of azimuth, neighbouring cells are no longer separated by azimuth, and the AoA gain falls to −0.4 to +6 pp; what remains is consistent with elevation, which encodes distance, but it was not isolated on the grid.
@@ -274,7 +284,7 @@ Which noise model a study uses is part of its definition: the 25×25 regression 
 - The June absolute results are not reproducible (section 3.5); the 25×25 data come from one simulation.
 - The two grid studies differ in scale, propagation and task (classification of 2 m cells against regression over a 100 m area); they are not directly comparable.
 - Model hyperparameters of the grid were not tuned per history depth.
-- The order test uses two seeds and one architecture of each kind, and shuffling is applied in training as well.
+- The order test uses two seeds and one architecture of each kind, and shuffling is applied in training as well. The first version of the test (2026-10-17) also hid the current report and is superseded.
 - The 25×25 regression pools five simulated device profiles (one user each); it is not a single-user experiment.
 
 ## 8. Reproducing this edition

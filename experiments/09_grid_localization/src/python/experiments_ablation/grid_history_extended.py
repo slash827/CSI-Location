@@ -89,6 +89,25 @@ def make_gru(in_ch, n_classes):
     return GRUNet()
 
 
+def make_lstm(in_ch, n_classes):
+    import torch.nn as nn
+
+    class LSTMNet(nn.Module):
+        """2-layer LSTM with the same width and head as GRUNet, for a like-for-like comparison."""
+
+        def __init__(self):
+            super().__init__()
+            self.lstm = nn.LSTM(in_ch, 64, num_layers=2, batch_first=True, dropout=0.2)
+            self.head = nn.Sequential(nn.Linear(64, 128), nn.LeakyReLU(0.1), nn.Dropout(DROPOUT),
+                                      nn.Linear(128, n_classes))
+
+        def forward(self, x):                      # x: [B, C, T]
+            out, _ = self.lstm(x.permute(0, 2, 1))
+            return self.head(out[:, -1])
+
+    return LSTMNet()
+
+
 def window_mean_features(feat_df, h, aoa):
     """[current value, window mean] per channel; azimuth is averaged as a unit vector. Isolates the averaging
     operator that a tree cannot build from raw lags: no individual old reports are given to the model."""
@@ -110,7 +129,7 @@ def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device, kind='cnn'):
     import torch.nn as nn
     torch.manual_seed(seed)
     np.random.seed(seed)
-    net = (make_gru if kind == 'gru' else make_cnn)(Xtr.shape[1], n_classes).to(device)
+    net = {'gru': make_gru, 'lstm': make_lstm}.get(kind, make_cnn)(Xtr.shape[1], n_classes).to(device)
     opt = torch.optim.AdamW(net.parameters(), lr=LR, weight_decay=WD)
     lossf = nn.CrossEntropyLoss()
     Xtr_t, ytr_t = torch.from_numpy(Xtr).to(device), torch.from_numpy(ytr).to(device)
@@ -151,7 +170,7 @@ def main():
     ap.add_argument('--data-dir', required=True)
     ap.add_argument('--out-dir', required=True)
     ap.add_argument('--depths', type=int, nargs='+', default=[0, 1, 3, 5, 7, 10, 15])
-    ap.add_argument('--models', nargs='+', choices=['xgboost', 'rf', 'cnn', 'gru', 'xgboost_wm', 'rf_wm', 'cnn_shuf', 'gru_shuf', 'cnn_shufold', 'gru_shufold'],
+    ap.add_argument('--models', nargs='+', choices=['xgboost', 'rf', 'cnn', 'gru', 'xgboost_wm', 'rf_wm', 'cnn_shuf', 'gru_shuf', 'cnn_shufold', 'gru_shufold', 'lstm'],
                     default=['xgboost', 'rf', 'cnn'])
     ap.add_argument('--experiments', nargs='+', choices=list(EXPERIMENTS), default=list(EXPERIMENTS))
     ap.add_argument('--cnn-seeds', type=int, default=3)
@@ -178,7 +197,7 @@ def main():
     log(f'{len(df):,} rows, {len(labels)} cells, spacing {spacing} m, data {data_dir.name}')
 
     device = None
-    if any(m in args.models for m in ('cnn', 'gru', 'cnn_shuf', 'gru_shuf', 'cnn_shufold', 'gru_shufold')):
+    if any(m in args.models for m in ('cnn', 'gru', 'lstm', 'cnn_shuf', 'gru_shuf', 'cnn_shufold', 'gru_shufold')):
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         log(f'CNN device: {device}')

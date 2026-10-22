@@ -1,0 +1,15 @@
+,,,accuracy,accuracy,mae,mae
+,,,mean,std,mean,std
+model,experiment,h,,,,
+cnn_shufold,BASE,3,40.124,0.681,4.491,0.066
+cnn_shufold,BASE,10,43.744,0.189,3.494,0.068
+cnn_shufold,BASE,15,42.432,0.075,3.46,0.035
+cnn_shufold,BASE_A,3,52.189,0.12,2.94,0.023
+cnn_shufold,BASE_A,10,49.552,1.587,2.652,0.087
+cnn_shufold,BASE_A,15,52.302,1.86,2.465,0.113
+gru_shufold,BASE,3,59.417,0.493,2.869,0.025
+gru_shufold,BASE,10,61.994,0.264,2.129,0.009
+gru_shufold,BASE,15,62.657,0.225,2.033,0.005
+gru_shufold,BASE_A,3,62.391,0.133,2.274,0.001
+gru_shufold,BASE_A,10,62.763,0.11,1.855,0.005
+gru_shufold,BASE_A,15,62.402,0.537,1.914,0.059
