@@ -1,0 +1,9 @@
+,,,accuracy,accuracy,mae,mae
+,,,mean,std,mean,std
+model,experiment,h,,,,
+lstm,BASE,3,63.356,0.034,2.459,0.014
+lstm,BASE,10,68.012,0.255,1.513,0.002
+lstm,BASE,15,68.928,0.196,1.399,0.03
+lstm,BASE_A,3,65.737,0.0,1.998,0.019
+lstm,BASE_A,10,69.235,0.375,1.321,0.026
+lstm,BASE_A,15,69.482,0.134,1.261,0.024
