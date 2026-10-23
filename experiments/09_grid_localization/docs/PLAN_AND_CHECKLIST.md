@@ -92,6 +92,15 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.3 To do
 
+From the 2026-10-22 meeting (section 6b):
+- [ ] N7: tell Dudi the antenna counts (U1 4, U2 2, U3 1, U4 4, U5 2) and add a footnote to report Section 4
+- [ ] N8: define the propagation settings (RMa LOS, UMi LOS/NLOS, mixed per-cell) in one line where they first appear in report Section 4
+- [ ] N2: check that abstract, introduction and conclusion lead with "history helps robustly across scenarios and models"; absolute accuracy only as context (N1)
+- [ ] N3: short literature check of single-BS CSI localization accuracy (what is reported, with which setup)
+- [ ] N5: paper version of the order decomposition: one paragraph, no table (report Section 5 already has a paragraph; align its numbers with technical documentation 6.2)
+- [ ] N9: ask the instructors whether to start writing and for which venue
+- [ ] N4 (optional, low priority): GRU/CNN at h = 20, 25, 30 on the mixed grid to find where the gain saturates
+
 - [x] (done 2026-10-22; result: GRU error at h = 15 +19 to 48 % when the older reports are shuffled, all eight rows) After the fair order test: correct the order claim in report Sections 0 (abstract), 5, 11, 12, 13, revised technical documentation 6.2 and claims list, `MY_STUDY_GUIDE.md` (Parts 1, 2 step 4, 3, 4), and tell Alon the corrected result
 
 
@@ -172,6 +181,23 @@ Source: `docs/File-פגישה עם דודי ושרית 12.10.26.srt` (machine tr
 | M10 | Next meeting with the answers | all | Pending M1–M3 |
 
 Cause of the confusion in M1: the slide put the 15×15 classification study (2 m cells, exact-cell accuracy) beside the 25×25 regression study (4 m, no classification), and their numbers were read as one experiment. The 15×15 numbers they saw (80 % accuracy, below 0.5 m) come from the June data, which is superseded (section 2).
+
+## 6b. Instructor meeting 2026-10-22 (Dudi, Sarit, Alon): what was said and decided
+
+Source: `docs/meeting/meeting_with_instructors_22.10.26.srt` (machine transcript, local only; Speaker 2 is the author, Speaker 3 is most likely Dudi, Speaker 1 Sarit or Alon; much of the Hebrew is garbled, so wording and attributions are approximate). The presentation was the 13-slide deck "Transition History: Progress Since 12.10" (artifact; `docs/Transition History Progress Since 12.10.pptx`).
+
+| # | Point | Who | Decision / action |
+|---|---|---|---|
+| N1 | Stop trying to improve the absolute accuracy or MAE; stick with the gain from history. The consortium (Isaac) wants about 1 m; doubt whether a paper can rest on absolute numbers | Dudi | Frame the paper on the relative gain and its robustness; mention sub-metre grid results only as context |
+| N2 | The message of the work: history helps robustly across scenarios and across many models; not about the best method or a guaranteed accuracy | Dudi | This is the central claim; check that abstract, introduction and conclusion lead with it |
+| N3 | Literature mentioned on about 1 m with a single BS | unclear | Short literature check of single-BS CSI localization accuracy, to position our absolute numbers (author's suggestion) |
+| N4 | History beyond 15: "we have not found the point where it stops"; not 2000 steps | Speaker 1 | Optional, low priority (author, 2026-10-23): GRU/CNN at h = 20, 25, 30 on the mixed grid |
+| N5 | Order test: in practice the order is always known, so why shuffle; interesting framing: how much of the gain is the extra information and how much is knowing the order | Dudi | Decomposition table and paragraph in technical documentation 6.2 (done); paragraph only in the paper |
+| N6 | LSTM: the interesting question would be why different architectures give the same result; spend time where it matters most | Dudi | One sentence in the paper (done in report Section 5); no more runs |
+| N7 | How many antennas does a UE have? (author was unsure) | Dudi | Device profiles: U1 4, U2 2, U3 1, U4 4, U5 2 antennas (15×15 and 25×25 configs). U3 is single-antenna, which explains its larger 25×25 error with AoA. Send to Dudi; footnote in the report |
+| N8 | Confusion about "LOS" and why there are several scenarios | Speaker 3 | Define RMa LOS, UMi LOS/NLOS and mixed per-cell where the sets first appear (report Section 4, any future slides) |
+| N9 | Is it time to start writing, and where (venue)? | Dudi | Open: Dudi left before it was answered; ask the instructors |
+| N10 | Presentation thorough and appreciated | Speaker 3 | — |
 
 ## 7. Old against regenerated controlled-grid runs (XGBoost accuracy % / MAE m)
 

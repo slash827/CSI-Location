@@ -209,6 +209,25 @@ Reading:
 - In exact-cell accuracy, the trees match or beat the ordered GRU on the RMa LOS sets (centre with AoA: XGBoost 71.2 % against 68.5 %); the GRU leads in MAE, that is, its wrong predictions are closer. Results for the GRU should be quoted with the metric.
 - Caveats: two seeds for the shuffled networks, one architecture of each kind, shuffling applied in training as well.
 
+Decomposition of the GRU gain (framing from the 2026-10-22 meeting: how much of the gain is the extra information in the window and how much is knowing the order). GRU mean error in metres at h = 0, at h = 15 with the older reports shuffled, and at h = 15 ordered; the information part is h = 0 minus shuffled, the order part is shuffled minus ordered.
+
+| Set | AoA | GRU h=0 | shuffled h=15 | ordered h=15 | information part | order part | order share |
+|---|---|---|---|---|---|---|---|
+| RMa LOS, NE BS | no | 4.49 | 2.96 | 2.48 | 1.53 | 0.48 | 24 % |
+| RMa LOS, NE BS | yes | 3.35 | 2.28 | 1.87 | 1.07 | 0.41 | 28 % |
+| Mixed, NE BS | no | 5.37 | 2.03 | 1.42 | 3.34 | 0.61 | 15 % |
+| Mixed, NE BS | yes | 4.37 | 1.91 | 1.30 | 2.46 | 0.61 | 20 % |
+| RMa LOS, centre BS | no | 5.25 | 2.83 | 2.19 | 2.42 | 0.64 | 21 % |
+| RMa LOS, centre BS | yes | 2.00 | 1.29 | 1.01 | 0.71 | 0.28 | 28 % |
+| Mixed, centre BS | no | 5.74 | 1.84 | 1.24 | 3.90 | 0.60 | 13 % |
+| Mixed, centre BS | yes | 1.38 | 0.82 | 0.60 | 0.56 | 0.22 | 28 % |
+
+About 72 to 87 % of the GRU's gain from h = 0 to h = 15 comes from the information in the window without its order, and 13 to 28 % from the order. In practice the order of the reports is always known, so this is an analysis of where the gain comes from, not a deployment scenario. For the paper: one paragraph, no table (decided 2026-10-22).
+
+#### LSTM pilot (2026-10-22)
+
+Mixed set, NE BS, h = 3, 10, 15, two seeds; same width, head and training as the GRU (`grid_history_extended.py --models lstm`; `docs/results_of_record/history_extended/ne_mixed_lstm/`). Exact-cell accuracy / MAE at h = 15: LSTM 69.0 % / 1.40 m without AoA and 69.5 % / 1.26 m with AoA, against GRU (three seeds) 68.5 % / 1.42 m and 68.8 % / 1.30 m. The LSTM equals the GRU within about 1 pp and 0.07 m at every depth; no full runs. In the paper: one sentence.
+
 ### 6.3 Placement and the AoA gain
 At the centre BS the azimuth covers 360° and AoA alone separates neighbouring cells (BASE_A 64 to 77 % in every set). At the NE corner the grid falls within about 52° of azimuth, neighbouring cells are no longer separated by azimuth, and the AoA gain falls to −0.4 to +6 pp; what remains is consistent with elevation, which encodes distance, but it was not isolated on the grid.
 
