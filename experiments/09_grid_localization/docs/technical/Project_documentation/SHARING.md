@@ -4,8 +4,8 @@
 
 Everything needed to **read and audit** the work:
 
-- `docs/Project_documentation/` — final report, technical documentation, research overview, handover, slides
-- `docs/figures/` — all publication figures
+- `docs/technical/Project_documentation/` — final report, technical documentation, research overview, handover, slides
+- `docs/archive/figures/` — all publication figures
 - `docs/results_of_record/` — the machine-written JSON/Markdown backing every number (see its `MANIFEST.md`)
 - `src/python/`, `src/matlab/`, `configs/` — the full pipeline
 

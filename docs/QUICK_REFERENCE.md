@@ -293,7 +293,7 @@ dbclear all      % Clear breakpoints
 
 **Conceptual questions**: Re-read SCRIPTS_EXPLAINED.md sections
 
-**ML questions**: See `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md`
+**ML questions**: See `experiments/09_grid_localization/docs/technical/Project_documentation/technical_documentation.md`
 
 **Feature ideas**: Look at existing ML papers on CSI-based localization
 

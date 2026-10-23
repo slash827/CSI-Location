@@ -15,7 +15,7 @@ Main experiment: multi-user, 15×15 grid (225 cells, 2 m spacing), mixed Voronoi
 | BASE_A_H3 (+ AoA) | 83.2% | 0.40 m |
 | BASE_A_H3_dp (+ device params) | **84.2%** | **0.37 m** |
 
-History alone adds **+23 pp** regardless of BS placement. Full technical results in `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md`.
+History alone adds **+23 pp** regardless of BS placement. Full technical results in `experiments/09_grid_localization/docs/technical/Project_documentation/technical_documentation.md`.
 
 ---
 
@@ -69,8 +69,8 @@ pip install -r requirements.txt
 ## Main Experiment (09_grid_localization)
 
 All significant ML work lives here. Full documentation:
-- `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md` — system design, feature engineering, all results
-- `experiments/09_grid_localization/docs/Project_documentation/research_documentation.md` — research narrative
+- `experiments/09_grid_localization/docs/technical/Project_documentation/technical_documentation.md` — system design, feature engineering, all results
+- `experiments/09_grid_localization/docs/technical/Project_documentation/research_documentation.md` — research narrative
 
 ### Run simulation (MATLAB)
 ```matlab

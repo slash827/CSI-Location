@@ -1,5 +1,5 @@
 <!-- GENERATED FILE - DO NOT EDIT -->
-<!-- Source of truth: docs/Project_documentation/technical_documentation.md -->
+<!-- Source of truth: docs/technical/Project_documentation/technical_documentation.md -->
 <!-- Regenerate: python utils/export_for_drive.py --input technical_documentation.md --output technical_documentation_for_drive.md -->
 
 # Technical Documentation

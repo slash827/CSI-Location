@@ -5,7 +5,7 @@ Generates publication-quality Cumulative Distribution Function (CDF) visualizati
 comparing 2D positioning errors across hardware antenna cohorts (N=4, N=2, N=1)
 on the realistic 300-user 5G NR deployment benchmark.
 
-Saves to: docs/figures/antenna_cohort_error_cdf.png
+Saves to: docs/archive/figures/antenna_cohort_error_cdf.png
 """
 
 import matplotlib
@@ -16,7 +16,7 @@ from pathlib import Path
 
 # Setup paths
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-FIGURES_DIR = PROJECT_ROOT / "docs" / "figures"
+FIGURES_DIR = PROJECT_ROOT / "docs" / "archive" / "figures"
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 OUT_PATH = FIGURES_DIR / "antenna_cohort_error_cdf.png"
 

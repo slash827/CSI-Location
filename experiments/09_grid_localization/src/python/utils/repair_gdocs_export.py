@@ -128,7 +128,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   python repair_gdocs_export.py --input "Localization using transition Footprints.md" \\
-      --output docs/Project_documentation/drive_snapshots/repaired.md
+      --output docs/technical/Project_documentation/drive_snapshots/repaired.md
 
   # inspect the damage without writing anything
   python repair_gdocs_export.py --input export.md --stats-only

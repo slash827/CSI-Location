@@ -237,8 +237,8 @@ def main():
         description='Render a repo Markdown doc into a Drive-friendly copy (LaTeX -> Unicode).',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python export_for_drive.py --input ../../docs/Project_documentation/technical_documentation.md \\
-      --output ../../docs/Project_documentation/drive_upload/technical_documentation_for_drive.md
+  python export_for_drive.py --input ../../docs/technical/Project_documentation/technical_documentation.md \\
+      --output ../../docs/technical/Project_documentation/drive_upload/technical_documentation_for_drive.md
 
   # report what would not convert, write nothing
   python export_for_drive.py --input technical_documentation.md --check
@@ -278,7 +278,7 @@ def main():
     dst.parent.mkdir(parents=True, exist_ok=True)
     header = (
         '<!-- GENERATED FILE - DO NOT EDIT -->\n'
-        '<!-- Source of truth: docs/Project_documentation/technical_documentation.md -->\n'
+        '<!-- Source of truth: docs/technical/Project_documentation/technical_documentation.md -->\n'
         f'<!-- Regenerate: python utils/export_for_drive.py --input {src.name} --output {dst.name} -->\n\n')
     dst.write_text(header + out, encoding='utf-8')
     print(f'output: {dst}')

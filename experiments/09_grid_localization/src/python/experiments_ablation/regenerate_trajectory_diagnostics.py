@@ -50,7 +50,7 @@ from pipelines.multi_user_200_pipeline import make_unseen_user_split
 from utils.csi_dataset import load_and_prepare_data
 from utils.training_utils import apply_kalman_smoother
 
-FIGURES_DIR = (PROJECT_ROOT / 'experiments' / '09_grid_localization' / 'docs' / 'figures')
+FIGURES_DIR = (PROJECT_ROOT / 'experiments' / '09_grid_localization' / 'docs' / 'archive' / 'figures')
 
 # section 7.7, post-fix sweep. The notebook default is kept for comparison.
 DEFAULT_Q, DEFAULT_R = 0.5, 15.0

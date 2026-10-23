@@ -427,4 +427,4 @@ Good luck with your simulation! 🎯
 
 Once you understand CSI/CQI behaviour from these scripts, the full ML pipeline is in `experiments/09_grid_localization/`. That experiment runs multi-user classification on a 15×15 grid using XGBoost and Random Forest with stacked history features, achieving **0.37 m MAE**.
 
-See `experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md` for full methodology and results.
+See `experiments/09_grid_localization/docs/technical/Project_documentation/technical_documentation.md` for full methodology and results.

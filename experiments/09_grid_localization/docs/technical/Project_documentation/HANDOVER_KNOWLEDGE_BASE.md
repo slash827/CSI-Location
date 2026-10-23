@@ -4,9 +4,9 @@
 > **Last Updated:** 2026-09-18  
 > **Workspace Root:** `experiments/09_grid_localization/`  
 > **Primary References:**  
-> - Detailed Technical Document: [`docs/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md)  
-> - High-Level Research Overview: [`docs/Project_documentation/research_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/research_documentation.md)  
-> - Presentation Slide Deck: [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md)  
+> - Detailed Technical Document: [`docs/technical/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/technical/Project_documentation/technical_documentation.md)  
+> - High-Level Research Overview: [`docs/technical/Project_documentation/research_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/technical/Project_documentation/research_documentation.md)  
+> - Presentation Slide Deck: [`docs/technical/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/technical/Project_documentation/PRESENTATION_SLIDES.md)  
 > - Discussion Transcript with Alon Levin: [`data/meeting_20_08_26.txt`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/data/meeting_20_08_26.txt)
 
 ---
@@ -146,13 +146,13 @@ Interpretation:
 * [`utils/training_utils.py`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/src/python/utils/training_utils.py): Shared `EarlyStopping`, `run_kalman_and_rts_2d`, `apply_kalman_smoother`, `collect_test_predictions`, and trajectory plotting.
 * [`utils/environment_viz.py`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/src/python/utils/environment_viz.py): Fixed distance calculation, Voronoi cell lookup, and interferer distance binning.
 
-### 4.3 Documentation Visual Figures (`docs/figures/`)
-* [Figure 8.1: Macro-cell Spatial Environment Map](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/environment_spatial_layout.png)
-* [Figure 8.2: Angular Azimuth Tracking: Multi vs. Single Antenna](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/diagnostic_angular_tracking_multi_vs_single.png)
-* [Figure 8.3: Best-Case Trajectory Tracking (User 119, 10.4m MAE)](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/diagnostic_BEST_user_119_ant2.png)
-* [Figure 8.4: Outlier Failure Mode: User 250 (1-Antenna Radial Smearing)](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/diagnostic_WORST_user_250_ant1.png)
-* [Figure 8.5: Universal $\Delta\text{MAE}$ Curves Across All Model Families](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/universal_delta_mae_history_curves.png)
-* [Figure 8.6: Per-Device Antenna Cohort Error CDF & Reachability](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/figures/antenna_cohort_error_cdf.png)
+### 4.3 Documentation Visual Figures (`docs/archive/figures/`)
+* [Figure 8.1: Macro-cell Spatial Environment Map](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/archive/figures/environment_spatial_layout.png)
+* [Figure 8.2: Angular Azimuth Tracking: Multi vs. Single Antenna](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/archive/figures/diagnostic_angular_tracking_multi_vs_single.png)
+* [Figure 8.3: Best-Case Trajectory Tracking (User 119, 10.4m MAE)](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/archive/figures/diagnostic_BEST_user_119_ant2.png)
+* [Figure 8.4: Outlier Failure Mode: User 250 (1-Antenna Radial Smearing)](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/archive/figures/diagnostic_WORST_user_250_ant1.png)
+* [Figure 8.5: Universal $\Delta\text{MAE}$ Curves Across All Model Families](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/archive/figures/universal_delta_mae_history_curves.png)
+* [Figure 8.6: Per-Device Antenna Cohort Error CDF & Reachability](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/archive/figures/antenna_cohort_error_cdf.png)
 
 ---
 
@@ -180,7 +180,7 @@ results are unaffected.
 ## 5. Recommended Next Steps for the New Chat
 
 1. **Review and Rehearse Presentation Slides:**
-   - Walk through [`docs/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/PRESENTATION_SLIDES.md).
+   - Walk through [`docs/technical/Project_documentation/PRESENTATION_SLIDES.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/technical/Project_documentation/PRESENTATION_SLIDES.md).
    - Ensure the narrative transitions cleanly across the 3 acts: (1) Single-BS Distance-Ring Ambiguity, (2) Universal $\Delta\text{MAE}$ gain via History, (3) Hardware Cohort Discontinuity and AoA Masking.
 2. **Draft the Final Project Report / Paper Sections:**
-   - Use [`docs/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/Project_documentation/technical_documentation.md) (Sections 8 and 9) as the source of truth for the methodology and empirical evaluation chapters.
+   - Use [`docs/technical/Project_documentation/technical_documentation.md`](file:///d:/gilad/projects/Academy/CSI-Location/experiments/09_grid_localization/docs/technical/Project_documentation/technical_documentation.md) (Sections 8 and 9) as the source of truth for the methodology and empirical evaluation chapters.

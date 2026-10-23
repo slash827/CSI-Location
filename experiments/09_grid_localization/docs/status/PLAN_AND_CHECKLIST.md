@@ -34,7 +34,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 - [x] Validate every claim of `REPORT_SKELETON.md` (`REPORT_SKELETON_VALIDATION.md`)
 - [x] Follow-up experiments (mechanism, region control, LOS flag, blocked LOS, no-interference, constant-guess baseline); results in `docs/results_of_record/followup_2026_10/`
-- [x] Report text corrected in `docs/Transition_History/` (Sections 3, 4, 6–13), compiles to 33 pages
+- [x] Report text corrected in `docs/paper/Transition_History/` (Sections 3, 4, 6–13), compiles to 33 pages
 - [x] Provenance map and archive of `results/` (`RESULTS_DIRECTORY_MAP.md`)
 - [x] Generator fixes: carrier frequency, uniform scenario, per-cell segments (verified on short walks: NLOS cells 3–7 dB weaker)
 - [x] Runners store the config copy, git commit and settings with each simulation
@@ -58,7 +58,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
   - Pipelines: `--sinr-dependent-aoa --history 3 --subsample 0.3 --n-jobs 8`, Cartesian targets, tuned runs with the parameters of technical documentation 7.4.3 (`configs/tuned_params_25x25_regression.json`). The June command lines were never recorded, so these flags are the best reading of the documentation.
   - Incident: the machine slept from 09:56 to 18:55 (Modern Standby) while the simulation ran; nothing was lost. The sleep-prevention process (`keep_awake.py`) must be started first after any reboot or new session.
   - The comparison with the June numbers is in section 10.
-- [x] Revised technical documentation written: `docs/Project_documentation/technical_documentation_revised.md` (2026-10-16): what changed, the three propagation sets, the 25x25 regeneration and the AoA noise finding, extended history and CNN, the metric audit, limitations, reproduction steps, and a status map of the sections of the old edition. Open: review it, then decide whether to retire the old file (a pointer to the new edition was added at its top)
+- [x] Revised technical documentation written: `docs/technical/Project_documentation/technical_documentation_revised.md` (2026-10-16): what changed, the three propagation sets, the 25x25 regeneration and the AoA noise finding, extended history and CNN, the metric audit, limitations, reproduction steps, and a status map of the sections of the old edition. Open: review it, then decide whether to retire the old file (a pointer to the new edition was added at its top)
 - [x] `compare_controlled_grid_sets.py`: one table across the propagation sets (`results/controlled_grid_2026_10/comparison_sets.md`, copied to results of record when the runs finish). First reading: history helps in every row (+4.9 to +27.4 pp, +0.96 to +4.29 m, no-AoA); NLOS at 3.0 GHz equals NLOS at 3.5 GHz within about 1 pp (NE XGBoost BASE_H3 25.8 % against 24.6 %), so the carrier change does not matter; the AoA gain depends on placement in every set (centre +10 to +39 pp, NE -0.4 to +6 pp)
 - [x] A background job (`finalize.sh`) waits for the driver and the centre history run, builds the comparison table, copies the CSVs and configs into `docs/results_of_record/`, then commits and pushes
 - [x] Why do the trees plateau (and Random Forest degrade) beyond h about 3 while the CNN keeps improving? Tests finished 2026-10-16 19:44 (`results/history_extended/*_wmgru`); the averaging hypothesis is rejected and an information (order) account remains, see section 12.4
@@ -73,7 +73,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
   - Resolved 2026-10-16: the June runs used the fixed 4-degree AoA noise (no `--sinr-dependent-aoa`). Rerun with it, the June data gives the June numbers (RF BASE_A 7.56, hybrid h=1 7.51, XGBoost BASE_A_H3 8.16) and the new 3.0 GHz data gives 8.24, 8.14 and 8.36. The report should quote the fixed-noise numbers for the 25x25 regression (the same noise model as the macro study) and say that the controlled-grid pipelines use the SINR-dependent noise. Full-training-set runs (`aoa_gap/new_full_train`, `new_fixed_noise_full_train`) are still running; they are optional.
 - [x] Decide whether to add the other two 25x25 propagation variants (`ne_bs_voronoi_25x25_nlos_config`, `ne_bs_voronoi_25x25_mixed_config` exist, not run), for symmetry with the 15x15 sweep (decided and run 2026-10-16)
 - [x] Section 8 of the report calls the 25x25 regression "single-user"; the data are the five device profiles pooled (one simulated user per profile). Check the wording against the pipeline and fix (fixed 2026-10-17)
-- [x] `docs/OLD_VS_REGENERATED_RUNS.md` written (first version, 2026-10-14): which earlier results are reproduced, changed or unaffected, the reproduction result, and the 20-30 m explanation. Update the NLOS 3.0 centre row and the extended-history numbers when the last runs finish
+- [x] `docs/status/OLD_VS_REGENERATED_RUNS.md` written (first version, 2026-10-14): which earlier results are reproduced, changed or unaffected, the reproduction result, and the 20-30 m explanation. Update the NLOS 3.0 centre row and the extended-history numbers when the last runs finish
 - [x] M1/M2: audit that MAE and accuracy are computed correctly (done, see 4.1; repeat the decomposition on the final headline set)
   - Synthetic check: known predictions must give known accuracy and MAE (all right = 0 m, all one cell off = 2 m, mixed case = (1 - accuracy) x mean wrong-cell distance). Put it in a test file so it stays checked.
   - Decomposition on a real run: re-train XGBoost on a 15x15 set, save the predictions, and show MAE = (1 - accuracy) x mean error of the wrong predictions, plus the histogram of the error distance. This answers Dudi's "80 % exact cannot give 30 m".
@@ -104,7 +104,7 @@ From the 2026-10-22 meeting (section 6b):
 - [ ] N6: paper version of the order decomposition: one paragraph, no table
 - [ ] N12: Alon looks into venues; follow up
 
-- [x] (done 2026-10-22; result: GRU error at h = 15 +19 to 48 % when the older reports are shuffled, all eight rows) After the fair order test: correct the order claim in report Sections 0 (abstract), 5, 11, 12, 13, revised technical documentation 6.2 and claims list, `MY_STUDY_GUIDE.md` (Parts 1, 2 step 4, 3, 4), and tell Alon the corrected result
+- [x] (done 2026-10-22; result: GRU error at h = 15 +19 to 48 % when the older reports are shuffled, all eight rows) After the fair order test: correct the order claim in report Sections 0 (abstract), 5, 11, 12, 13, revised technical documentation 6.2 and claims list, `docs/Personal/MY_STUDY_GUIDE.md` (Parts 1, 2 step 4, 3, 4), and tell Alon the corrected result
 
 
 Explaining the old results to the instructors (requested 2026-10-13)
@@ -143,7 +143,7 @@ Documentation
 Housekeeping
 - [ ] Stop the sleep-prevention process when the runs are done
 - [ ] Commit results of record, push, merge `followup-2026-10` into `main`
-- [ ] Untracked on purpose: `docs/Meeting with Alon 7.10.26.md`, `docs/Transition_History.zip`
+- [ ] Untracked on purpose: `docs/Personal/` (meeting notes and transcripts, study guide, slides, zip; ignored via `.git/info/exclude`)
 
 
 ## 4.4 Your tasks (author)
@@ -157,7 +157,7 @@ These need your decision, your judgement or your presence. Claude's tasks are in
 - [ ] 5. Meeting with the instructors (Dudi, Sarit, Alon): agree on the date; review the slide on the 20-30 m errors (M1), the comparative figure (M5) and `OLD_VS_REGENERATED_RUNS.md` before the meeting (M10)
 - [ ] 6. Report length and form: cut to about 12 pages (what goes to the appendix), thesis conversion, and the consortium report due at the end of October
 - [ ] 7. Bibliography: supply the references or the Zotero/BibTeX export for `reference.bib` (the citations are undefined)
-- [ ] 8. Overleaf: upload the updated `docs/Transition_History/` once Sections 4, 5, abstract and discussion are rewritten (the local copy is ahead of Overleaf)
+- [ ] 8. Overleaf: upload the updated `docs/paper/Transition_History/` once Sections 4, 5, abstract and discussion are rewritten (the local copy is ahead of Overleaf)
 - [ ] 9. Merge `followup-2026-10` into `main` when you are satisfied (not merged since `d3d48ba`)
 - [ ] 10. Stop the sleep-prevention process (a Python process holding the machine awake) if you no longer need long runs
 
@@ -168,7 +168,7 @@ These need your decision, your judgement or your presence. Claude's tasks are in
 
 ## 6. Instructor meeting 2026-10-12 (Dudi, Sarit, Alon): what was asked
 
-Source: `docs/File-פגישה עם דודי ושרית 12.10.26.srt` (machine transcript; Speaker 2 is the author, Speaker 3 is Dudi, Speaker 1 is probably Sarit, but the diarization mixes voices, so attributions are approximate).
+Source: `docs/Personal/meetings/meeting_with_instructors_12.10.26.srt` (machine transcript; Speaker 2 is the author, Speaker 3 is Dudi, Speaker 1 is probably Sarit, but the diarization mixes voices, so attributions are approximate).
 
 | # | Request | Who | Status |
 |---|---|---|---|
@@ -187,7 +187,7 @@ Cause of the confusion in M1: the slide put the 15×15 classification study (2 m
 
 ## 6b. Instructor meeting 2026-10-22 (Dudi, Alon; Sarit briefly): what was said and decided
 
-Source: `docs/meeting/meeting_with_instructors_22.10.26.srt` (first transcript, Hebrew model, poor) and the English re-transcription `meeting in english 22.10.26.srt` (ggml-large-v3-turbo, language en, temperature 0; much better; both local only). Speaker 1 is Alon (addressed by name at 22:36), Speaker 2 the author, Speaker 3 Dudi (leaves for his bus at 50:05). The presentation was the deck "Transition History: Progress Since 12.10" (artifact; `docs/Transition History Progress Since 12.10.pptx`), shown without its last slide.
+Source: `docs/Personal/meetings/meeting_with_instructors_22.10.26.srt` (first transcript, Hebrew model, poor) and the English re-transcription `meeting in english 22.10.26.srt` (author's Documents folder) (ggml-large-v3-turbo, language en, temperature 0; much better; both local only). Speaker 1 is Alon (addressed by name at 22:36), Speaker 2 the author, Speaker 3 Dudi (leaves for his bus at 50:05). The presentation was the deck "Transition History: Progress Since 12.10" (artifact; `docs/Personal/Transition History Progress Since 12.10.pptx`), shown without its last slide.
 
 | # | Point (time) | Who | Decision / action |
 |---|---|---|---|

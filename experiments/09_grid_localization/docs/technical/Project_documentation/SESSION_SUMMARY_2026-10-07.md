@@ -1,6 +1,6 @@
 # Session Summary — 2026-10-07
 
-> **Corrections, 2026-10-12** (evidence: `docs/REPORT_SKELETON_VALIDATION.md`):
+> **Corrections, 2026-10-12** (evidence: `docs/paper/REPORT_SKELETON_VALIDATION.md`):
 > * §4 "LOS/NLOS split … localizes the existing zone-gain finding to the angle
 >   channel" and the third bullet of §5 are wrong as statements about
 >   propagation. The same regional difference appears on the uniform-NLOS

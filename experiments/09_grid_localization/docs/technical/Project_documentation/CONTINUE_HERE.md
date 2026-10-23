@@ -12,7 +12,7 @@ it improves *every* model family rather than producing one best model.
 
 ## Prompt to open the new session with
 
-> Read `experiments/09_grid_localization/docs/Project_documentation/CONTINUE_HERE.md`
+> Read `experiments/09_grid_localization/docs/technical/Project_documentation/CONTINUE_HERE.md`
 > and confirm your understanding: what is done, what remains, and which claims were
 > withdrawn. Both MATLAB jobs are done as of 2026-09-19 (§1a, §1b) — neither is
 > reflected in `FINAL_REPORT.md` yet. Propagate those results into the report
@@ -24,8 +24,8 @@ it improves *every* model family rather than producing one best model.
 
 ## 0. Read first: the 2026-10-12 follow-up changes the story
 
-`docs/REPORT_SKELETON_VALIDATION.md` validates every claim in
-`docs/REPORT_SKELETON.md` and reports the follow-up runs in
+`docs/paper/REPORT_SKELETON_VALIDATION.md` validates every claim in
+`docs/paper/REPORT_SKELETON.md` and reports the follow-up runs in
 `results_of_record/followup_2026_10/`. Three results override text further down
 this file:
 
@@ -482,7 +482,7 @@ explanation survives only as a hypothesis.
 > for Random Forest). The difference is range and geometry, not propagation.
 > The path-loss exponents (LOS γ=2.58, NLOS γ=3.60) do confirm the mixed data
 > is physically real; they say nothing about history. Evidence:
-> `docs/REPORT_SKELETON_VALIDATION.md` A4 and
+> `docs/paper/REPORT_SKELETON_VALIDATION.md` A4 and
 > `results_of_record/followup_2026_10/mixed_propagation/region_gain_did_vs_uniform.json`.
 > The text below is kept for the record.
 
@@ -629,10 +629,10 @@ touched without a reason to run them.
 
 | Path | What it is |
 | :--- | :--- |
-| `docs/Project_documentation/FINAL_REPORT.md` | The deliverable. Everything above is reflected in it. |
-| `docs/Project_documentation/HANDOVER_KNOWLEDGE_BASE.md` | Full project synthesis and research positioning |
-| `docs/Project_documentation/EXPERIMENTS_BACKLOG.md` | Per-experiment specs and measured cost estimates |
-| `docs/Project_documentation/PRESENTATION_SLIDES.md` | Marp deck, 4 acts |
+| `docs/technical/Project_documentation/FINAL_REPORT.md` | The deliverable. Everything above is reflected in it. |
+| `docs/technical/Project_documentation/HANDOVER_KNOWLEDGE_BASE.md` | Full project synthesis and research positioning |
+| `docs/technical/Project_documentation/EXPERIMENTS_BACKLOG.md` | Per-experiment specs and measured cost estimates |
+| `docs/technical/Project_documentation/PRESENTATION_SLIDES.md` | Marp deck, 4 acts |
 | `docs/results_of_record/MANIFEST.md` | **Source of truth** for every number, with warnings on the stale files |
 | `src/python/experiments_ablation/` | All ablation scripts; `model_zoo.py` holds the seven families |
 | `src/matlab/runners/run_multi_user_300_25x25_mixed.m` | Job 1 — done 2026-09-19; per-segment independent channel generation, no QuaDRiGa merge (§3) |

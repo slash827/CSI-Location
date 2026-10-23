@@ -36,7 +36,7 @@ import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 REPO_ROOT = Path(__file__).resolve().parents[5]
-FIGURES_DIR = PROJECT_ROOT / "docs" / "figures"
+FIGURES_DIR = PROJECT_ROOT / "docs" / "archive" / "figures"
 
 # one visual identity per family, stable across regenerations
 STYLE = {

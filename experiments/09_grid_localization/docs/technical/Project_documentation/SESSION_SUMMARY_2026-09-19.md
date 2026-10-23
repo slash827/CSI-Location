@@ -302,7 +302,7 @@ new machine — was updated throughout:
   extended to load the new fields
 - `requirements.txt` — torch pin updated to `2.11.0+cu128`, header comment
   updated to match
-- `experiments/09_grid_localization/docs/Project_documentation/CONTINUE_HERE.md`
+- `experiments/09_grid_localization/docs/technical/Project_documentation/CONTINUE_HERE.md`
   — see §4 above
 
 **Generated (gitignored, local only):**
@@ -352,4 +352,4 @@ now recommends):
 | Whether a specific old number is still citable | `CONTINUE_HERE.md` §6 |
 | Process pitfalls (QuaDRiGa, naming, environment, geometry) | `CONTINUE_HERE.md` §7 |
 | Where every file lives | `CONTINUE_HERE.md` §9 |
-| Report's current state (not yet updated with this session's results) | `docs/Project_documentation/FINAL_REPORT.md` |
+| Report's current state (not yet updated with this session's results) | `docs/technical/Project_documentation/FINAL_REPORT.md` |

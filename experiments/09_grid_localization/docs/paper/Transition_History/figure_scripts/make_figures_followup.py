@@ -26,7 +26,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 FIG = HERE.parent / 'figures'
-REC = HERE.parents[1] / 'results_of_record' / 'followup_2026_10'
+REC = HERE.parents[2] / 'results_of_record' / 'followup_2026_10'
 
 # categorical slots 1-3 of the validated default palette, plus neutrals
 BLUE, ORANGE, AQUA = '#2a78d6', '#eb6834', '#1baf7a'
@@ -181,7 +181,7 @@ def blocked_by_width():
 
 
 def controlled_grid_placement():
-    rec = HERE.parents[1] / 'results_of_record' / 'controlled_grid_2026_10'
+    rec = HERE.parents[2] / 'results_of_record' / 'controlled_grid_2026_10'
     exps = ['BASE', 'BASE_H3', 'BASE_A', 'BASE_A_H3']
     labs = ['RSS+SINR\n$h=0$', 'RSS+SINR\n$h=3$', '+AoA\n$h=0$', '+AoA\n$h=3$']
     fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.5), sharey=True)
@@ -203,7 +203,7 @@ def controlled_grid_placement():
 
 
 def regression25_no_aoa():
-    rec = HERE.parents[1] / 'results_of_record' / 'regression_25x25_2026_10'
+    rec = HERE.parents[2] / 'results_of_record' / 'regression_25x25_2026_10'
     sets = (('UMi LOS', 'umilos_30_fixednoise'), ('NLOS', 'nlos_30_fixednoise'), ('Mixed', 'mixed_30_fixednoise'))
 
     def mae(folder, run, model, exp):
@@ -228,7 +228,7 @@ def regression25_no_aoa():
 
 
 def controlled_grid_sets():
-    rec = HERE.parents[1] / 'results_of_record' / 'controlled_grid_2026_10' / 'comparison_sets.csv'
+    rec = HERE.parents[2] / 'results_of_record' / 'controlled_grid_2026_10' / 'comparison_sets.csv'
     rows = list(csv.DictReader(open(rec, encoding='utf-8')))
     sets = (('RMa LOS', 'RMa LOS 3.0 GHz', MUTED), ('Mixed per-cell', 'Mixed per-cell 3.0 GHz', BLUE), ('Uniform NLOS', 'NLOS 3.0 GHz', ORANGE))
     exps = ['BASE', 'BASE_H3', 'BASE_A', 'BASE_A_H3']
@@ -255,7 +255,7 @@ def controlled_grid_sets():
 
 
 def history_extended_fig():
-    rec = HERE.parents[1] / 'results_of_record' / 'history_extended'
+    rec = HERE.parents[2] / 'results_of_record' / 'history_extended'
 
     def load(t):
         parts = [rec / t / 'history_extended.csv', rec / f'{t}_wmgru' / 'history_extended_wmgru.csv', rec / f'{t}_shufold' / 'history_extended.csv']
