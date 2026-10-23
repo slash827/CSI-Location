@@ -93,13 +93,16 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 ### 4.3 To do
 
 From the 2026-10-22 meeting (section 6b):
-- [ ] N7: tell Dudi the antenna counts (U1 4, U2 2, U3 1, U4 4, U5 2) and add a footnote to report Section 4
-- [ ] N8: define the propagation settings (RMa LOS, UMi LOS/NLOS, mixed per-cell) in one line where they first appear in report Section 4
-- [ ] N2: check that abstract, introduction and conclusion lead with "history helps robustly across scenarios and models"; absolute accuracy only as context (N1)
-- [ ] N3: short literature check of single-BS CSI localization accuracy (what is reported, with which setup)
-- [ ] N5: paper version of the order decomposition: one paragraph, no table (report Section 5 already has a paragraph; align its numbers with technical documentation 6.2)
-- [ ] N9: ask the instructors whether to start writing and for which venue
-- [ ] N4 (optional, low priority): GRU/CNN at h = 20, 25, 30 on the mixed grid to find where the gain saturates
+- [ ] N2/N2a: tell Dudi the real antenna setup (single omni BS, UE with 1/2/4 omni elements, AoA from QuaDRiGa cluster angles plus synthetic noise, no array processing) and ask whether his plausibility check still holds; verify the UE element spacing in QuaDRiGa (replicated omni elements)
+- [ ] N2: get the papers Kimi listed (single-BS accuracy around 1 m in labs or with several BSs; channel charting) for related work
+- [ ] N3: abstract, introduction and conclusion lead with "history helps consistently across settings and models; a paradigm of using transitions rather than the current step only"; absolute accuracy only as context (N1)
+- [ ] N4: shorten the tree-model material in the paper; keep it as the consistency evidence
+- [ ] N9: answer Alon on the corner-BS history gain (with AoA +8.8 against +3.1 pp)
+- [ ] N10: send Alon the Voronoi-defect explanation and the list of propagation settings
+- [ ] N11: antenna counts to Dudi; footnote in report Section 4
+- [ ] Define the propagation settings (RMa LOS, UMi LOS/NLOS, mixed per-cell) where they first appear in report Section 4 (both instructors asked what "LOS"/"NLOS" scenarios are)
+- [ ] N6: paper version of the order decomposition: one paragraph, no table
+- [ ] N12: Alon looks into venues; follow up
 
 - [x] (done 2026-10-22; result: GRU error at h = 15 +19 to 48 % when the older reports are shuffled, all eight rows) After the fair order test: correct the order claim in report Sections 0 (abstract), 5, 11, 12, 13, revised technical documentation 6.2 and claims list, `MY_STUDY_GUIDE.md` (Parts 1, 2 step 4, 3, 4), and tell Alon the corrected result
 
@@ -182,22 +185,26 @@ Source: `docs/File-פגישה עם דודי ושרית 12.10.26.srt` (machine tr
 
 Cause of the confusion in M1: the slide put the 15×15 classification study (2 m cells, exact-cell accuracy) beside the 25×25 regression study (4 m, no classification), and their numbers were read as one experiment. The 15×15 numbers they saw (80 % accuracy, below 0.5 m) come from the June data, which is superseded (section 2).
 
-## 6b. Instructor meeting 2026-10-22 (Dudi, Sarit, Alon): what was said and decided
+## 6b. Instructor meeting 2026-10-22 (Dudi, Alon; Sarit briefly): what was said and decided
 
-Source: `docs/meeting/meeting_with_instructors_22.10.26.srt` (machine transcript, local only; Speaker 2 is the author, Speaker 3 is most likely Dudi, Speaker 1 Sarit or Alon; much of the Hebrew is garbled, so wording and attributions are approximate). The presentation was the 13-slide deck "Transition History: Progress Since 12.10" (artifact; `docs/Transition History Progress Since 12.10.pptx`).
+Source: `docs/meeting/meeting_with_instructors_22.10.26.srt` (first transcript, Hebrew model, poor) and the English re-transcription `meeting in english 22.10.26.srt` (ggml-large-v3-turbo, language en, temperature 0; much better; both local only). Speaker 1 is Alon (addressed by name at 22:36), Speaker 2 the author, Speaker 3 Dudi (leaves for his bus at 50:05). The presentation was the deck "Transition History: Progress Since 12.10" (artifact; `docs/Transition History Progress Since 12.10.pptx`), shown without its last slide.
 
-| # | Point | Who | Decision / action |
+| # | Point (time) | Who | Decision / action |
 |---|---|---|---|
-| N1 | Stop trying to improve the absolute accuracy or MAE; stick with the gain from history. The consortium (Isaac) wants about 1 m; doubt whether a paper can rest on absolute numbers | Dudi | Frame the paper on the relative gain and its robustness; mention sub-metre grid results only as context |
-| N2 | The message of the work: history helps robustly across scenarios and across many models; not about the best method or a guaranteed accuracy | Dudi | This is the central claim; check that abstract, introduction and conclusion lead with it |
-| N3 | Literature mentioned on about 1 m with a single BS | unclear | Short literature check of single-BS CSI localization accuracy, to position our absolute numbers (author's suggestion) |
-| N4 | History beyond 15: "we have not found the point where it stops"; not 2000 steps | Speaker 1 | Optional, low priority (author, 2026-10-23): GRU/CNN at h = 20, 25, 30 on the mixed grid |
-| N5 | Order test: in practice the order is always known, so why shuffle; interesting framing: how much of the gain is the extra information and how much is knowing the order | Dudi | Decomposition table and paragraph in technical documentation 6.2 (done); paragraph only in the paper |
-| N6 | LSTM: the interesting question would be why different architectures give the same result; spend time where it matters most | Dudi | One sentence in the paper (done in report Section 5); no more runs |
-| N7 | How many antennas does a UE have? (author was unsure) | Dudi | Device profiles: U1 4, U2 2, U3 1, U4 4, U5 2 antennas (15×15 and 25×25 configs). U3 is single-antenna, which explains its larger 25×25 error with AoA. Send to Dudi; footnote in the report |
-| N8 | Confusion about "LOS" and why there are several scenarios | Speaker 3 | Define RMa LOS, UMi LOS/NLOS and mixed per-cell where the sets first appear (report Section 4, any future slides) |
-| N9 | Is it time to start writing, and where (venue)? | Dudi | Open: Dudi left before it was answered; ask the instructors |
-| N10 | Presentation thorough and appreciated | Speaker 3 | — |
+| N1 | "Give up on trying to improve the absolute accuracy or MAE and just stick with the improvement" (14:30); the consultant Isaac wants about 1 m (15:03) | Dudi | Paper framed on the gain from history, not on absolute accuracy |
+| N2 | Checked with Kimi during the meeting: with one BS and a 2×2 antenna array, the MAEs we get "make sense" at 3 GHz on a 15×15 field; papers with about 1 m use a lab setup or several BSs; channel charting is more accurate than our approach, so our numbers are plausible. "Please check that this is the case": the 2×2 configuration was his assumption (36:43–39:00) | Dudi | Validate the antenna configuration (N2a below) and report back; collect the papers Kimi listed for the related-work section |
+| N2a | Our actual configuration: serving and interfering BSs are a single omni antenna (`qd_arrayant('omni')`), the UE has 1, 2 or 4 omni elements by device profile (`rx_array.no_elements`), and the AoA is QuaDRiGa's power-weighted cluster arrival angle with synthetic noise and 5° quantization, not an estimate from an antenna array (`generate_simulation_data.m`, lines 385–420 and 626–650). This is not a 2×2 array | author (to verify) | Tell Dudi; his plausibility argument assumed an array, so it has to be redone with the real setup |
+| N3 | The message: history helps consistently across settings, scenarios and models; "a paradigm change": use history and transitions rather than channel charting or positioning from the current step only; not about the best method or a specific accuracy (39:06–41:04) | Dudi | Lead abstract, introduction and conclusion with this framing |
+| N4 | "Why did we talk half an hour on the trees if the GRU is better?" (35:13); answered by himself: to show the gain is consistent across models | Dudi | In the paper, use the tree results as evidence of consistency, not as the main line; keep the trees section short |
+| N5 | History beyond 15: asked by the author; "I don't think this is where you should focus"; Alon agrees: "it's now a question of shaping and framing [the points] properly and showing which data supports which claims" (48:45–49:20) | Dudi, Alon | Dropped |
+| N6 | Order test: "in real life you get the history of the transitions; why invent something that makes things worse?" Alon: a hypothesis test (order against mere existence of the reports), but "I don't know how much it adds". Dudi: the table breaks the gain into what comes from the order and what from having the history (41:05–45:22) | Dudi, Alon | Decomposition in technical documentation 6.2 (done); one paragraph in the paper |
+| N7 | LSTM: "the interesting thing is to explain why despite being different methods they produce the same"; then "you need focus... you want to send a paper; think where your time is most valuable" (46:51–48:37) | Dudi | One sentence in the paper (done in report Section 5); no more work |
+| N8 | Someone may argue AoA gives a big help without history; answer: AoA is not available to single-antenna devices (22:38) | Alon | Use as a framing argument: history matters most where no angle is available |
+| N9 | "When the BS is in the corner the general results are worse but the improvement [from history] is better" (26:15); not answered in the meeting | Alon | Check and answer: with AoA, history adds +8.8 pp at the corner against +3.1 pp at the centre (XGBoost, mixed); without AoA the gain is similar (+25.7 against +27.4 pp) |
+| N10 | Explain the Voronoi defect: "we just had one big cell instead of several?"; which scenarios are used (04:20–05:40) | Alon | Send a short explanation: every walk used the scenario of its first cell for the whole walk (one track segment); now one segment per run inside a cell. List the three sets |
+| N11 | How many antennas does a UE have? (author unsure, said 3 or 4) | Dudi | Profiles U1 4, U2 2, U3 1, U4 4, U5 2 (U3 single-antenna, which explains its larger 25×25 error with AoA); footnote in the report |
+| N12 | Venues: Dudi does not know venues in this area; Alon to look into venues; "we need to finish / wrap it up" (50:29–51:58) | Alon, Dudi | Alon looks into venues; author starts shaping the paper |
+| N13 | "Very nice that you are very insisting on checking everything, I really appreciate it" (51:44) | Dudi | — |
 
 ## 7. Old against regenerated controlled-grid runs (XGBoost accuracy % / MAE m)
 
