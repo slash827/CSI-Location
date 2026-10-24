@@ -83,6 +83,14 @@ Relation to C4: not a contradiction. At macro range the averaging part dominates
 
 Paper: absolute numbers only as context; the claim is the gain (Dudi, 22.10).
 
+## C8. The gain survives incomplete and irregular history
+
+| Study | Evidence | Key number | Strength |
+|---|---|---|---|
+| G | tech doc 6.2 (irregular and incomplete history); `results_of_record/history_irregular/ne_mixed/` | With 30 % of the older reports missing or with uneven gaps (mean 2 steps), the GRU keeps 80 to 90 % of its gain over the snapshot (2.06 / 1.99 m against 1.59 m regular and 5.43 m snapshot), two thirds with 60 % missing; it still beats XGBoost with perfect history (3.45 m). Report timestamps do not help (1.99 against 2.00 m). A model trained on clean history and tested on irregular history falls to 2.80 m | medium (one set, one placement, no AoA; GRU two seeds) |
+
+Paper: one robustness paragraph under C1/C3 ("history helps even with missing and irregular reports, if the model is trained with them"). Planned to show Dudi first; extensions (centre BS, AoA) only if he wants it in.
+
 ---
 
 ## Not in the paper (or only one line)

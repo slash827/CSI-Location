@@ -228,6 +228,29 @@ About 72 to 87 % of the GRU's gain from h = 0 to h = 15 comes from the informati
 
 Mixed set, NE BS, h = 3, 10, 15, two seeds; same width, head and training as the GRU (`grid_history_extended.py --models lstm`; `docs/results_of_record/history_extended/ne_mixed_lstm/`). Exact-cell accuracy / MAE at h = 15: LSTM 69.0 % / 1.40 m without AoA and 69.5 % / 1.26 m with AoA, against GRU (three seeds) 68.5 % / 1.42 m and 68.8 % / 1.30 m. The LSTM equals the GRU within about 1 pp and 0.07 m at every depth; no full runs. In the paper: one sentence.
 
+#### Irregular and incomplete history (2026-10-24)
+
+Question: in practice a history is not a clean, evenly spaced sequence. Does the gain survive missing reports and uneven timing? `src/python/experiments_ablation/grid_history_irregular.py`; mixed set, NE BS, RSS+SINR, current report plus K = 10 older reports; each report carries a "present" flag and its age in steps. Conditions: `mask30` / `mask60` drop each older report with probability 0.3 / 0.6; `gap2` / `gap4` place the 10 older reports at random gaps (geometric, mean 2 / 4 steps); `gap2_noage` hides the age; `mismatch_gap2` trains on regular windows and tests on gap2 windows. Training and test draw their gaps and masks independently. GRU two seeds; XGBoost on the flattened inputs (missing reports as NaN, age as a feature), one run. Files: `docs/results_of_record/history_irregular/ne_mixed/`.
+
+| Condition | GRU accuracy / MAE | share of the GRU history gain kept | XGBoost accuracy / MAE |
+|---|---|---|---|
+| snapshot (no history) | 47.5 % / 5.43 m | — | 43.7 % / 5.75 m |
+| regular | 67.1 % / 1.59 m | 100 % | 57.3 % / 3.45 m |
+| mask30 | 63.9 % / 2.06 m | 88 % | 52.9 % / 4.07 m |
+| mask60 | 58.6 % / 2.99 m | 64 % | — |
+| gap2 | 63.8 % / 1.99 m | 90 % | 53.4 % / 3.93 m |
+| gap4 | 61.4 % / 2.37 m | 80 % | — |
+| gap2 without age | 63.6 % / 2.00 m | 90 % | — |
+| trained regular, tested gap2 | 54.1 % / 2.80 m | 69 % | — |
+
+Reading:
+
+- History stays useful when it is incomplete or uneven: with 30 % of the older reports missing or with uneven gaps the GRU keeps 80 to 90 % of its gain over the snapshot, and two thirds with 60 % missing.
+- The GRU degrades more gracefully than XGBoost (73 to 79 % of its gain kept), and the GRU with imperfect history (about 2.0 m) is still better than XGBoost with perfect history (3.45 m).
+- Giving the age of each report does not help here (1.99 against 2.00 m). The gaps follow the same distribution in training and test, so the network does not need them; it may matter when the gap pattern differs between users or over time (not tested).
+- A model trained on clean history and tested on irregular history falls to 2.80 m: still far better than no history, but well below training on irregular history. Train with the irregularity expected in use.
+- Caveats: one set, one placement, no AoA; synthetic geometric gaps.
+
 ### 6.3 Placement and the AoA gain
 At the centre BS the azimuth covers 360° and AoA alone separates neighbouring cells (BASE_A 64 to 77 % in every set). At the NE corner the grid falls within about 52° of azimuth, neighbouring cells are no longer separated by azimuth, and the AoA gain falls to −0.4 to +6 pp; what remains is consistent with elevation, which encodes distance, but it was not isolated on the grid.
 

@@ -28,6 +28,8 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.1 Done
 
+- [x] Irregular and incomplete history on the 15x15 mixed grid, NE BS, RSS+SINR (2026-10-24; `grid_history_irregular.py`; tech doc 6.2; claim map C8): GRU keeps 80-90 % of its history gain with 30 % of reports missing or uneven gaps, 64 % with 60 % missing; age of reports does not help; training on clean and testing on irregular history costs about 0.8 m. To show Dudi before deciding whether it goes in the paper. 1D-CNN run (three seeds) started 2026-10-24
+
 - [x] LSTM pilot, 15x15 mixed, NE BS, h = 3, 10, 15, two seeds (2026-10-22), `results_of_record/history_extended/ne_mixed_lstm`. Accuracy / MAE at h = 15: LSTM 69.0 % / 1.40 m without AoA and 69.5 % / 1.26 m with AoA, against GRU (3 seeds) 68.5 % / 1.42 m and 68.8 % / 1.30 m. The LSTM equals the GRU within about 1 pp and 0.05 m; not worth a full run on its own.
 
 - [x] GRU and 1D-CNN on the 25x25 regression against trees at h = 0, 3, 7, 15, three sets, one run each (2026-10-20), `docs/results_of_record/regression_25x25_2026_10/sequence_vs_trees/all_mae.md`. Reading: the GRU at h = 15 has the lowest error in all six set x AoA combinations (no AoA 12.3 / 16.9 / 16.7 m against the best tree 13.7 / 21.7 / 19.1 m; with AoA 6.7 / 8.0 / 8.7 m against 8.2 / 11.3 / 10.8 m, UMi LOS / NLOS / mixed); trees plateau after h = 3 on UMi LOS (RF best without history) and improve slowly to h = 15 under NLOS and mixed. Caveats: one seed, the GRU often hit the 150-epoch cap, trees use parameters tuned at h = 3.
