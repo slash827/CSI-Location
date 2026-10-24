@@ -5,7 +5,7 @@ function run_single_user_sim(user_idx, profile, output_dir, config_name, workspa
 %
 %   Inputs:
 %     user_idx       - integer user ID (1-based)
-%     profile        - [n_antennas, antenna_gain_db, ue_height_m, walk_seed]
+%     profile        - [n_antennas, antenna_gain_db, ue_height_m, walk_seed (, channel_seed)]
 %     output_dir     - absolute path to the shared output directory (must exist)
 %     config_name    - filename of the JSONC config (e.g. 'ne_bs_voronoi_15x15_config.jsonc')
 %     workspace_root - absolute path to CSI-Location root
@@ -64,7 +64,13 @@ OVERRIDE_UE_HEIGHT_M     = profile(3);
 OVERRIDE_OUTPUT_DIR      = output_dir;
 OVERRIDE_OUTPUT_FILENAME  = out_filename;
 OVERRIDE_USER_ID         = user_idx;
-OVERRIDE_CHANNEL_SEED    = [];  % not used in normal multi-user runs
+if numel(profile) >= 5 && profile(5) > 0
+    % Shared environment: every user re-seeds the RNG with the same channel seed right
+    % before the channel generation, so all users draw the same channel realization.
+    OVERRIDE_CHANNEL_SEED = profile(5);
+else
+    OVERRIDE_CHANNEL_SEED = [];  % default: the channel realization follows the walk seed
+end
 
 %% Run simulation
 run_start = tic;

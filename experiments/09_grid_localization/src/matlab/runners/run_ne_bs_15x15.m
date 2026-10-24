@@ -51,9 +51,13 @@ addpath(fullfile(src_matlab_dir, 'lib'));
 ensure_quadriga();
 
 %% Shared output directory
+shared_suffix = '';
+if evalin('base', 'exist(''RUNNER_SHARED_CHANNEL_SEED'', ''var'')') && ~isempty(evalin('base', 'RUNNER_SHARED_CHANNEL_SEED'))
+    shared_suffix = '_shared_env';
+end
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
 output_dir = fullfile(workspace_root, 'results', 'grid_localization', ...
-                      'grid_15x15', sprintf('sim_data_ne_bs_%s', timestamp));
+                      'grid_15x15', sprintf('sim_data_ne_bs_%s%s', timestamp, shared_suffix));
 mkdir(output_dir);
 
 %% Top-level log (diary before parfor — captures wrapper-level output only)
@@ -83,6 +87,15 @@ profiles = [
     2, -1.0, 0.9, 500;   % U5: Tablet/IoT
 ];
 profile_names = {'Flagship_A', 'Mid-range', 'Budget_Old', 'Flagship_B', 'Tablet_IoT'};
+
+% Optional shared environment: set RUNNER_SHARED_CHANNEL_SEED in the base workspace
+% (for example 777) to give every user the same channel seed (5th profile column).
+shared_seed = 0;
+if evalin('base', 'exist(''RUNNER_SHARED_CHANNEL_SEED'', ''var'')') && ~isempty(evalin('base', 'RUNNER_SHARED_CHANNEL_SEED'))
+    shared_seed = evalin('base', 'RUNNER_SHARED_CHANNEL_SEED');
+    fprintf('Shared environment: channel seed %d for every user\n', shared_seed);
+end
+profiles = [profiles, repmat(shared_seed, size(profiles, 1), 1)];
 n_users = size(profiles, 1);
 
 %% Print plan
