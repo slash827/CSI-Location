@@ -1,0 +1,60 @@
+% Review package v1 for the instructors (Dudi, Sarit, Alon): the paper's claims, evidence and open decisions,
+% before any long text is written. Build: pdflatex review_v1.tex (twice).
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\setlist{nosep,leftmargin=*}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+\title{Transition History for Single-Base-Station 5G Localization\\[2pt]\large Review package v1: claims, evidence and decisions before writing}
+\author{Gilad Battat}
+\date{October 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Purpose}
+This is not the paper. It lists what the paper will claim, the evidence for each claim, and five decisions I would like from you before writing the full text (about 12 pages), so that the draft needs no structural rework.
+
+\section*{Draft abstract}
+Single-base-station localization from per-report channel measurements is limited by how little one report carries. We study a different way of using the same measurements: the history of a user's reports, i.e.\ its transitions. In three simulated studies (a $15\times15$ controlled grid, a $25\times25$ regression area and a macro cell with 300 users), three propagation settings, two base-station placements and seven model families, adding history lowers the position error consistently, by 14 to 76\,\% for the best model in each setting; only single-antenna devices at macro range, which carry no angle, stay at the level of a constant guess. Sequence models (GRU, 1D-CNN) keep improving up to 15 steps where tree ensembles on the same windows stop at about three; most of their gain is the information in the window and 13 to 28\,\% is its order, and the gain survives missing and unevenly spaced reports. A classical tracking filter on top of a snapshot model is a strong baseline on the grid. How history helps depends on what one report carries: on small cells it helps most without an angle of arrival, at macro range it works by averaging noisy angle reports. Absolute errors are plausible for a single omnidirectional base station and are context, not the claim.
+
+\section*{Claims and evidence}
+\begin{enumerate}
+\item \textbf{History helps in every setting and model family} (Table~1; macro: 15--21\,\% in seven families, 20 user splits). Exception: single-antenna devices at macro range stay at the constant-guess level, with or without history.
+\item \textbf{Sequence models use long windows; trees on the same windows stop at about three steps} (grid, four sets; $25\times25$, Table~2).
+\item \textbf{Most of the sequence-model gain is the information in the window, 13--28\,\% is the order} (grid, fair shuffle test; one paragraph, no table).
+\item \textbf{The gain survives incomplete and irregular history} if the model is trained with it (grid; Table~3 columns 2--3).
+\item \textbf{Placement decides the value of the angle; history helps most where the angle is weak} (AoA: +19.5\,pp at the grid centre, +1.0\,pp beyond the corner).
+\item \textbf{At macro range the gain is the averaging of noisy angle reports} (unordered mean recovers it; elevation carries most of it).
+\item \textbf{A tracking filter (HMM on a snapshot model) is a strong classical baseline}: on the grid it is better than the GRU (Table~3), also with a generic motion model; reported openly, with the reason (a neighbour-to-neighbour walk at constant speed suits a motion model).
+\end{enumerate}
+
+\section*{Table 1. Every study at a glance}
+\begin{center}\small\resizebox{\textwidth}{!}{\input{../tables/T2_cross_study.tex}}\end{center}
+\vspace{-6pt}{\footnotesize Mean position error of the best model without history and with history (any depth tested), against always guessing the mean position.}
+
+\section*{Table 2. $25\times25$ regression: best tree model against the GRU}
+\begin{center}\small\resizebox{\textwidth}{!}{\input{../tables/T3_25x25_trees_vs_gru.tex}}\end{center}
+
+\section*{Table 3. Grid: learned history against a tracking filter, clean and imperfect history}
+\begin{center}\small\resizebox{\textwidth}{!}{\input{../tables/T5_grid_baselines.tex}}\end{center}
+\vspace{-6pt}{\footnotesize $15\times15$ grid, mixed propagation, BS beyond the corner, RSS and SINR only. Mean position error in metres.}
+
+\section*{Planned figures}
+(1) the deployments at the same scale; (2) the 12 grid settings with and without history and AoA; (3) error against history depth for trees, CNN and GRU; (4) the macro gain by channel group (which part of the report carries the gain).
+
+\section*{Decisions I would like from you}
+\begin{enumerate}
+\item \textbf{Venue and format} (this fixes the length; I assume about 12 pages).
+\item \textbf{Is the framing right?} The contribution is the consistent gain from history, not a method or an accuracy; the tracking filter is a baseline that is stronger than the GRU on the grid.
+\item \textbf{Robustness to irregular history (claim 4): in the paper or not?}
+\item \textbf{One metric throughout} (mean error in metres; grid exact-cell accuracy only as a secondary number)?
+\item \textbf{Why history helps without an angle on small cells but not at macro range}: my explanation is that one report on a small cell already narrows the position to a few cells and a short sequence resolves the rest, while at macro range one report carries too little. Does this convince you?
+\end{enumerate}
+
+\end{document}
