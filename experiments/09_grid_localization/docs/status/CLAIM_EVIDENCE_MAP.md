@@ -60,7 +60,13 @@ Paper: one paragraph, no table. Frame as an analysis of where the gain comes fro
 | G | `comparison_sets.md` (history gain with AoA) | With AoA, history adds more beyond the corner: +8.8 against +3.1 pp (XGBoost), +8.7 against −0.7 pp (RF), mixed set | medium |
 | G, R | `comparison_sets.md`, `all_mae.md` | Without AoA the history gain is larger than with it (G: +4.9 to +27.4 pp against −0.7 to +8.8 pp) | strong |
 
-Tension to resolve before writing: in M the history gain comes from the angle channels and single-antenna devices gain nothing, while in G and R history helps most without an angle. Likely explanation: on a small cell one RSS/SINR report already locates a device to a few cells, so a short sequence disambiguates it; at macro range one report carries too little for history to help without an angle. This needs one careful paragraph; it is also Alon's single-antenna argument (22.10), which holds for G and R but not for M.
+Tension to resolve before writing: in M the history gain comes from the angle channels and single-antenna devices gain nothing, while in G and R history helps most without an angle. First explanation ("one report on a small cell already narrows the position to a few cells") was not convincing to the author (2026-10-24). Candidate explanations, to test:
+
+- H1, the studies are split differently. G and R train and test on the same users (the first 80 % of each walk against the last 20 %), so the model learns each user's own channel map and RSS is informative (G snapshot 4.93 m against a 10.9 m guess). M tests on unseen users; if their RSS does not transfer between users (own shadowing realization, own antenna gain), RSS carries almost nothing (M single-antenna snapshot 34.7 m, at the 33.6 m guess) and history has nothing to accumulate. The angle is geometric and transfers, which is why the M gain is in the angle channels.
+- H2, range. At 100 m or more the RSS changes little from one step to the next compared with shadowing, so a sequence of RSS reports adds little; on a 30 m grid each step changes RSS clearly.
+- Common reading: history amplifies whatever position information the single reports carry; where a report carries none that generalizes, there is nothing to amplify.
+
+Tests that separate H1 from H2: (a) G with a leave-one-user-out split (train on four device profiles, test on the fifth; short, CPU and GPU): if the RSS snapshot and the history gain collapse, H1; (b) M single-antenna devices with a within-user time split: if RSS history then helps, H1. This also answers Alon's single-antenna argument (22.10), which holds for G and R but not for M.
 
 ## C6. In the macro cell the gain is the averaging of noisy angle reports
 
@@ -89,7 +95,7 @@ Paper: absolute numbers only as context; the claim is the gain (Dudi, 22.10).
 |---|---|---|---|
 | G | tech doc 6.2 (irregular and incomplete history); `results_of_record/history_irregular/ne_mixed/` | With 30 % of the older reports missing or with uneven gaps (mean 2 steps), the GRU keeps 80 to 90 % of its gain over the snapshot (2.06 / 1.99 m against 1.59 m regular and 5.43 m snapshot), two thirds with 60 % missing; it still beats XGBoost with perfect history (3.45 m). Report timestamps do not help (1.99 against 2.00 m). A model trained on clean history and tested on irregular history falls to 2.80 m. The 1D-CNN shows the same pattern (83–91 % of its gain kept; regular 2.49, gap2 3.01, mismatch 4.81 m) | medium (one set, one placement, no AoA; GRU two seeds, CNN three) |
 
-Paper: one robustness paragraph under C1/C3 ("history helps even with missing and irregular reports, if the model is trained with them"). Planned to show Dudi first; extensions (centre BS, AoA) only if he wants it in.
+Paper: one robustness paragraph under C1/C3 ("history helps even with missing and irregular reports, if the model is trained with them"), marked "pending Dudi's approval" in the drafts (author's decision, 2026-10-24); extensions (centre BS, AoA) only if he wants it in.
 
 ## C9. History through a motion model (tracking filter) is a strong alternative on the grid
 

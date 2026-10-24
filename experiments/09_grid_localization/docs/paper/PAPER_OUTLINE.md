@@ -49,6 +49,14 @@ First to cut if the venue is shorter: F1 (describe the geometry in text), T4 (on
 
 Report Section 6 (error scale) except one sentence and the constant guess in T2; `fig_error_cdf`, `fig_error_by_range`; `fig_history_by_group`, `fig_speed_classes`; `fig_trajectories`; `fig_radial_tangential`, `fig_mechanism_by_range`, `fig_angle_decomposition`, `fig_aoa_error_model` (one sentence each in 5.4); `fig_mixed_history_gain_ci`, `fig_region_control`, `fig_blocked_by_width` (one sentence each in 5.5); `fig_controlled_grid_depth`, `fig_controlled_grid_scale` (2.6 GHz, not regenerated); `fig_regression25_no_aoa` (replaced by T3); window-mean details; LSTM details; first order test; June data.
 
+## Author's answers to review package v1 (2026-10-24)
+
+1. Length: at most 12 pages; venue (where it is submitted, which fixes format and page limit) still with Alon.
+2. Framing confirmed: the consistent gain from history is the main thesis.
+3. Irregular history (C8) goes in; marked "pending Dudi's approval" in the drafts.
+4. Metrics: MAE primary; MPE (MAE divided by the grid spacing) as the scale-free companion, so the 2 m grid and the 4 m areas can be compared; exact-cell accuracy only for the grid classification.
+5. The small-cell against macro-range explanation is not settled; see `../status/CLAIM_EVIDENCE_MAP.md`, C5/C6 tension.
+
 ## Decisions needed
 
 1. Venue and format (Alon), which fixes the page budget.
