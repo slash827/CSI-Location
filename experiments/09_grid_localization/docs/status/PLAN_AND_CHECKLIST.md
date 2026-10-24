@@ -28,7 +28,7 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.1 Done
 
-- [x] Irregular and incomplete history on the 15x15 mixed grid, NE BS, RSS+SINR (2026-10-24; `grid_history_irregular.py`; tech doc 6.2; claim map C8): GRU keeps 80-90 % of its history gain with 30 % of reports missing or uneven gaps, 64 % with 60 % missing; age of reports does not help; training on clean and testing on irregular history costs about 0.8 m. To show Dudi before deciding whether it goes in the paper. 1D-CNN run (three seeds) started 2026-10-24
+- [x] Irregular and incomplete history on the 15x15 mixed grid, NE BS, RSS+SINR (2026-10-24; `grid_history_irregular.py`; tech doc 6.2; claim map C8): GRU keeps 80-90 % of its history gain with 30 % of reports missing or uneven gaps, 64 % with 60 % missing; age of reports does not help; training on clean and testing on irregular history costs about 0.8 m. To show Dudi before deciding whether it goes in the paper. 1D-CNN (three seeds, finished 09:53): same pattern, 83-91 % of its gain kept, mismatch costs most (4.81 m against 2.49 m regular)
 
 - [x] LSTM pilot, 15x15 mixed, NE BS, h = 3, 10, 15, two seeds (2026-10-22), `results_of_record/history_extended/ne_mixed_lstm`. Accuracy / MAE at h = 15: LSTM 69.0 % / 1.40 m without AoA and 69.5 % / 1.26 m with AoA, against GRU (3 seeds) 68.5 % / 1.42 m and 68.8 % / 1.30 m. The LSTM equals the GRU within about 1 pp and 0.05 m; not worth a full run on its own.
 

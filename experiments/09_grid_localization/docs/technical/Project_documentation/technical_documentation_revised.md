@@ -230,18 +230,18 @@ Mixed set, NE BS, h = 3, 10, 15, two seeds; same width, head and training as the
 
 #### Irregular and incomplete history (2026-10-24)
 
-Question: in practice a history is not a clean, evenly spaced sequence. Does the gain survive missing reports and uneven timing? `src/python/experiments_ablation/grid_history_irregular.py`; mixed set, NE BS, RSS+SINR, current report plus K = 10 older reports; each report carries a "present" flag and its age in steps. Conditions: `mask30` / `mask60` drop each older report with probability 0.3 / 0.6; `gap2` / `gap4` place the 10 older reports at random gaps (geometric, mean 2 / 4 steps); `gap2_noage` hides the age; `mismatch_gap2` trains on regular windows and tests on gap2 windows. Training and test draw their gaps and masks independently. GRU two seeds; XGBoost on the flattened inputs (missing reports as NaN, age as a feature), one run. Files: `docs/results_of_record/history_irregular/ne_mixed/`.
+Question: in practice a history is not a clean, evenly spaced sequence. Does the gain survive missing reports and uneven timing? `src/python/experiments_ablation/grid_history_irregular.py`; mixed set, NE BS, RSS+SINR, current report plus K = 10 older reports; each report carries a "present" flag and its age in steps. Conditions: `mask30` / `mask60` drop each older report with probability 0.3 / 0.6; `gap2` / `gap4` place the 10 older reports at random gaps (geometric, mean 2 / 4 steps); `gap2_noage` hides the age; `mismatch_gap2` trains on regular windows and tests on gap2 windows. Training and test draw their gaps and masks independently. GRU two seeds; 1D-CNN three seeds (architecture and training as in the extended-history runs); XGBoost on the flattened inputs (missing reports as NaN, age as a feature), one run. Files: `docs/results_of_record/history_irregular/ne_mixed/` (GRU, XGBoost) and `ne_mixed_cnn/` (CNN).
 
-| Condition | GRU accuracy / MAE | share of the GRU history gain kept | XGBoost accuracy / MAE |
-|---|---|---|---|
-| snapshot (no history) | 47.5 % / 5.43 m | — | 43.7 % / 5.75 m |
-| regular | 67.1 % / 1.59 m | 100 % | 57.3 % / 3.45 m |
-| mask30 | 63.9 % / 2.06 m | 88 % | 52.9 % / 4.07 m |
-| mask60 | 58.6 % / 2.99 m | 64 % | — |
-| gap2 | 63.8 % / 1.99 m | 90 % | 53.4 % / 3.93 m |
-| gap4 | 61.4 % / 2.37 m | 80 % | — |
-| gap2 without age | 63.6 % / 2.00 m | 90 % | — |
-| trained regular, tested gap2 | 54.1 % / 2.80 m | 69 % | — |
+| Condition | GRU accuracy / MAE | GRU gain kept | 1D-CNN accuracy / MAE | CNN gain kept | XGBoost accuracy / MAE |
+|---|---|---|---|---|---|
+| snapshot (no history) | 47.5 % / 5.43 m | — | 19.0 % / 8.44 m | — | 43.7 % / 5.75 m |
+| regular | 67.1 % / 1.59 m | 100 % | 53.1 % / 2.49 m | 100 % | 57.3 % / 3.45 m |
+| mask30 | 63.9 % / 2.06 m | 88 % | 47.2 % / 3.38 m | 85 % | 52.9 % / 4.07 m |
+| mask60 | 58.6 % / 2.99 m | 64 % | 43.9 % / 4.23 m | 71 % | — |
+| gap2 | 63.8 % / 1.99 m | 90 % | 49.9 % / 3.01 m | 91 % | 53.4 % / 3.93 m |
+| gap4 | 61.4 % / 2.37 m | 80 % | 46.8 % / 3.51 m | 83 % | — |
+| gap2 without age | 63.6 % / 2.00 m | 90 % | 48.7 % / 3.11 m | 90 % | — |
+| trained regular, tested gap2 | 54.1 % / 2.80 m | 69 % | 36.2 % / 4.81 m | 61 % | — |
 
 Reading:
 
@@ -249,6 +249,7 @@ Reading:
 - The GRU degrades more gracefully than XGBoost (73 to 79 % of its gain kept), and the GRU with imperfect history (about 2.0 m) is still better than XGBoost with perfect history (3.45 m).
 - Giving the age of each report does not help here (1.99 against 2.00 m). The gaps follow the same distribution in training and test, so the network does not need them; it may matter when the gap pattern differs between users or over time (not tested).
 - A model trained on clean history and tested on irregular history falls to 2.80 m: still far better than no history, but well below training on irregular history. Train with the irregularity expected in use.
+- The 1D-CNN behaves the same way: 83 to 91 % of its gain kept with 30 % missing or uneven gaps, the age channel does not help (3.01 against 3.11 m), and the train/test mismatch costs most (4.81 m). Its share figures are inflated by a weak snapshot (8.44 m: a convolution over a single report), so compare it in metres: with uneven gaps it ends about 0.5 m above its regular window, the GRU about 0.4 m. The CNN is not hurt by uneven spacing more than the GRU; it is weaker throughout (regular 2.49 against 1.59 m). The CNN seeds spread more (up to 0.4 m on the regular window).
 - Caveats: one set, one placement, no AoA; synthetic geometric gaps.
 
 ### 6.3 Placement and the AoA gain

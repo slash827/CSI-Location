@@ -1,0 +1,11 @@
+,,,accuracy,accuracy,mae,mae
+,,,mean,std,mean,std
+experiment,condition,model,,,,
+BASE,gap2,cnn,49.876,1.264,3.01,0.09
+BASE,gap2_noage,cnn,48.739,1.423,3.109,0.098
+BASE,gap4,cnn,46.76,1.94,3.506,0.107
+BASE,mask30,cnn,47.245,1.521,3.379,0.108
+BASE,mask60,cnn,43.921,1.433,4.232,0.159
+BASE,mismatch_gap2,cnn,36.233,1.858,4.808,0.402
+BASE,regular,cnn,53.143,3.1,2.487,0.25
+BASE,snapshot,cnn,18.979,1.09,8.444,0.024

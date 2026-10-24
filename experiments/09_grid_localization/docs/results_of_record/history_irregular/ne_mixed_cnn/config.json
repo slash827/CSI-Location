@@ -1,0 +1,17 @@
+{
+  "data_dir": "results\\grid_localization\\grid_15x15\\sim_data_ne_bs_2026-10-13_11-23-43",
+  "k": 10,
+  "seeds": 3,
+  "h_max": 80,
+  "lag_scale": 40.0,
+  "conditions": [
+    "snapshot",
+    "regular",
+    "mask30",
+    "mask60",
+    "gap2",
+    "gap4",
+    "gap2_noage",
+    "mismatch_gap2"
+  ]
+}
