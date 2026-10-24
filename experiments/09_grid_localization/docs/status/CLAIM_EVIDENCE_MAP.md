@@ -97,7 +97,7 @@ Paper: one robustness paragraph under C1/C3 ("history helps even with missing an
 |---|---|---|---|
 | G | tech doc 6.2 (tracking filter); `results_of_record/tracking_filter/` | HMM forward filter on a Random Forest snapshot model: 4.93 → 0.71 m with the learned motion model, 0.93 m with a generic 2 m kernel, against 1.59 m for the GRU (mixed, NE, no AoA); stays below the GRU with missing and irregular reports | medium (one set, one placement; the grid walk suits a motion model) |
 
-Consequence for the paper: C1 is strengthened (history helps whether learned or filtered), but C3 must not say that sequence models are the best way to use history. Open: does it hold at macro range with realistic trajectories (Kalman / particle filter)? To discuss with the instructors.
+Decision (author, 2026-10-24): the paper stays on learned history; the filter is reported as a classical history-based baseline, not run in the macro study. Consequences: C1 is strengthened (history helps whether learned or filtered); C3 is stated as "sequence models use long windows where tree ensembles on the same windows cannot", not as "sequence models are the best way to use history"; the paper reports honestly that on the grid the filter with a learned or generic motion model is better than the GRU, and explains why (a neighbour-to-neighbour walk at constant speed suits a motion model; real trajectories are less regular, which the macro study would test).
 
 ---
 

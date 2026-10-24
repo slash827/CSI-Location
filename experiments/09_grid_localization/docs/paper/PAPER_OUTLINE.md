@@ -22,7 +22,7 @@ Working title: **Transition History for Single-Base-Station 5G Localization: a C
 | 4 | Experimental setup: the three studies in one table (G, R, M); propagation settings defined in one line each (RMa LOS, UMi LOS/NLOS, mixed per-cell); device profiles and antennas (footnote: 1/2/4 omni elements, single omni BS, AoA = simulator angle + noise); splits; metrics and constant-guess baselines; models | 1.25 | — | **T1** studies table; **F1** `fig_study_maps` | `4_experimental_setup.tex` |
 | 5.1 | History helps in every setting and every model family | 1.5 | C1, C2 | **F2** `fig_controlled_grid_sets` (or its MAE version); **T2** new cross-study summary: per study and setting, best snapshot against best history model, with the constant guess | `5_…`, `7_…` (`fig_history_gain_ci`) |
 | 5.2 | Placement and the angle: AoA worth +19.5 pp at the centre, +1.0 pp at the corner; history adds more where the angle is weak | 0.5 | C5 | numbers in text (no figure) | `5_…` |
-| 5.3 | Window length and model family: trees plateau, sequence models keep improving (grid and 25×25); order decomposition in one paragraph; LSTM in one sentence | 1.5 | C3, C4 | **F3** `fig_history_extended`; **T3** 25×25 best tree against GRU h = 15 (6 rows) | `5_…`, `8_…` |
+| 5.3 | Window length and model family: trees plateau, sequence models keep improving (grid and 25×25); order decomposition in one paragraph; LSTM and attention in one sentence; tracking-filter baseline (HMM on a snapshot model, learned and generic motion model) with an honest comparison | 1.75 | C3, C4, C9 | **F3** `fig_history_extended`; **T3** 25×25 best tree against GRU h = 15 (6 rows); **T5** grid: snapshot, trees, GRU, filter baselines (regular and two imperfect conditions) | `5_…`, `8_…`; tech doc 6.2 |
 | 5.4 | Macro cell: the gain is the averaging of noisy angle reports | 1.0 | C6 | **F4** `fig_mechanism_conditions` | `9_results_mechanism.tex` |
 | 5.5 | Robustness: propagation, interferers and blocked LOS (macro); incomplete and irregular history (grid) | 0.75 | C6, C8 | numbers in text, or a small **T4** for irregular history | `10_results_propagation.tex`; tech doc 6.2 |
 | 6 | Discussion: why history helps without an angle on small cells but not at macro range (C5/C6 paragraph); absolute accuracy in context (C7); practical lessons (train with the irregularity expected in use) | 1.0 | C5–C8 | — | `11_discussion.tex` |
@@ -41,6 +41,7 @@ Working title: **Transition History for Single-Base-Station 5G Localization: a C
 | T2 | Cross-study summary: best snapshot, best history model, constant guess, per study and setting | **new** |
 | T3 | 25×25: best tree at any depth against GRU h = 15 (three seeds) | **new** (numbers in `all_mae.md`) |
 | T4 | Irregular history (snapshot, regular, mask30, gap2, mismatch; GRU and CNN) | **new**, only if Dudi wants C8 in |
+| T5 | Grid baselines: snapshot, XGBoost h = 3, GRU h = 10, RF + filter (learned, generic 2 m); regular, mask30, gap2 | **new** (numbers in tech doc 6.2); can merge with T4 |
 
 First to cut if the venue is shorter: F1 (describe the geometry in text), T4 (one sentence), section 5.5 macro robustness (one sentence each).
 
@@ -54,6 +55,7 @@ Report Section 6 (error scale) except one sentence and the constant guess in T2;
 2. F2 in accuracy or MAE. Suggestion: MAE, so that all studies are in metres; accuracy in T2 for the grid.
 3. The C5/C6 paragraph: agree the explanation with the instructors before writing section 6.
 4. Whether C8 (irregular history) goes in (Dudi), and in how much space.
+6. Decided 2026-10-24: the paper stays on learned history; the tracking filter is a baseline (C9), reported honestly as stronger than the GRU on the grid, with the reason; no macro-study filter.
 5. Whether the grid study (classification) and the 25×25/macro studies (regression) are reported with one metric (mean error in metres) throughout; suggestion: yes, with exact-cell accuracy only as a secondary grid number.
 
 ## Writing order
