@@ -1,0 +1,15 @@
+,,,accuracy,accuracy,mae,mae
+,,,mean,std,mean,std
+experiment,condition,model,,,,
+BASE,gap2,gru,63.846,0.033,1.986,0.001
+BASE,gap2,xgboost,53.421,,3.93,
+BASE,gap2_noage,gru,63.581,0.554,1.996,0.008
+BASE,gap4,gru,61.435,0.287,2.371,0.039
+BASE,mask30,gru,63.91,0.069,2.063,0.024
+BASE,mask30,xgboost,52.946,,4.074,
+BASE,mask60,gru,58.596,0.412,2.988,0.106
+BASE,mismatch_gap2,gru,54.102,0.695,2.795,0.054
+BASE,regular,gru,67.104,0.388,1.59,0.024
+BASE,regular,xgboost,57.329,,3.446,
+BASE,snapshot,gru,47.526,0.057,5.427,0.008
+BASE,snapshot,xgboost,43.739,,5.751,
