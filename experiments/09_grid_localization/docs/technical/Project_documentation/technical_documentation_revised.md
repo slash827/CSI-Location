@@ -252,6 +252,32 @@ Reading:
 - The 1D-CNN behaves the same way: 83 to 91 % of its gain kept with 30 % missing or uneven gaps, the age channel does not help (3.01 against 3.11 m), and the train/test mismatch costs most (4.81 m). Its share figures are inflated by a weak snapshot (8.44 m: a convolution over a single report), so compare it in metres: with uneven gaps it ends about 0.5 m above its regular window, the GRU about 0.4 m. The CNN is not hurt by uneven spacing more than the GRU; it is weaker throughout (regular 2.49 against 1.59 m). The CNN seeds spread more (up to 0.4 m on the regular window).
 - Caveats: one set, one placement, no AoA; synthetic geometric gaps.
 
+#### Attention pooling (pilot, 2026-10-24)
+
+GRU and 1D-CNN with attention pooling over time (`gru_attn`, `cnn_attn` in `grid_history_extended.py`) on the irregular-history conditions above (same data, seeds 2 / 3). GRU: no change beyond seed noise in any condition (regular 1.56 against 1.59 m, mask30 2.08 against 2.06 m, gap2 2.01 against 1.99 m). CNN: slightly better on the regular window (2.41 against 2.49 m) and much more robust to the train/test mismatch (3.71 against 4.81 m), but worse with missing or uneven reports (gap2 3.27 against 3.01 m, mask60 4.55 against 4.23 m). Mixed, no substantial gain; one sentence at most in the paper. Files: `docs/results_of_record/history_irregular/ne_mixed_{gru,cnn}_attn/`.
+
+#### Tracking filter on a snapshot model (2026-10-24)
+
+History used through a motion model instead of a learned window. `src/python/experiments_ablation/grid_tracking_filter.py`: a snapshot model (Random Forest or XGBoost on the current report, RSS+SINR) gives a probability per cell; an HMM forward filter combines the previous belief, moved by a transition matrix, with the current probabilities (causal: past reports only). The forward-backward smoother also uses future reports and is an upper bound, not comparable. Transition matrices: `learned` from the training walks (on this grid every step moves to a neighbour: 7.2 successors on average, never stays); `generic2` / `generic4` not learned, a Gaussian kernel over distance with width 2 m / 4 m (stays 18 % / 5 %, about 30 / 70 reachable cells), to test a mismatched motion model. Same missing and irregular conditions as above (the filter skips missing reports and applies the transition once per elapsed step). Mixed set, NE BS, no AoA; mean error in metres (accuracy in brackets for the main rows).
+
+| Condition | RF snapshot | RF + filter, learned | RF + filter, generic2 | RF + filter, generic4 | GRU h = 10 (for comparison) |
+|---|---|---|---|---|---|
+| regular | 4.93 (52.3 %) | 0.71 (80.9 %) | 0.93 (76.1 %) | 1.58 (70.6 %) | 1.59 (67.1 %) |
+| mask30 | 4.90 | 0.98 | 1.16 | 1.88 | 2.06 |
+| mask60 | 4.91 | 1.54 | 1.65 | 2.43 | 2.99 |
+| gap2 | 4.93 | 1.27 | 1.41 | 2.20 | 1.99 |
+| gap4 | 4.88 | 2.11 | 2.21 | 2.88 | 2.37 |
+
+Other rows: XGBoost snapshot 7.34 m, + learned filter 2.27 m, + generic2 2.93 m (XGBoost's snapshot model is weaker here). GRU h = 10 output + filter (regular, one seed): 1.62 → 1.01 m (learned), 1.22 m (generic2), 1.31 m (generic4); Random Forest + filter is better than GRU + filter (0.71 against 1.01 m).
+
+Reading:
+
+- Using history through a motion model on top of a snapshot model is very effective on this grid: with the learned motion model the error falls from 4.93 to 0.71 m, well below the GRU (1.59 m), and it stays below the GRU with missing and irregular reports.
+- It does not depend on knowing the exact motion: with a generic kernel that allows stops and jumps the simulated walk never makes, the filter still reaches 0.93 m (2 m kernel); only a very loose 4 m kernel brings it to the level of the GRU (1.58 m).
+- Filtering the GRU's output helps the GRU (1.62 → 1.01 m) but does not beat filtering Random Forest; the GRU's probabilities already contain the history, so the filter partly counts it twice.
+- Caveats: the walk on this grid is a neighbour-to-neighbour random walk at constant speed, which a motion model suits well; one set, one placement, no AoA; GRU + filter one seed. The test that matters is the macro study, with realistic trajectories (pedestrians, vehicles, waypoint tours) and regression targets (Kalman or particle filter), not yet run.
+- For the paper: the claim "history helps" is strengthened (a second, classical way to use it), but the claim that sequence models are the best way to use it does not hold on this grid. Discuss with the instructors before writing section 5.3.
+
 ### 6.3 Placement and the AoA gain
 At the centre BS the azimuth covers 360° and AoA alone separates neighbouring cells (BASE_A 64 to 77 % in every set). At the NE corner the grid falls within about 52° of azimuth, neighbouring cells are no longer separated by azimuth, and the AoA gain falls to −0.4 to +6 pp; what remains is consistent with elevation, which encodes distance, but it was not isolated on the grid.
 

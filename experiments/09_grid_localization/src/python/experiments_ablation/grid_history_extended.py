@@ -175,7 +175,7 @@ def window_mean_features(feat_df, h, aoa):
     return np.stack(cols, axis=1).astype(np.float32)
 
 
-def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device, kind='cnn'):
+def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device, kind='cnn', return_proba=False):
     import torch
     import torch.nn as nn
     torch.manual_seed(seed)
@@ -209,9 +209,11 @@ def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device, kind='cnn'):
     net.load_state_dict(best_state)
     net.eval()
     with torch.no_grad():
-        pred = torch.cat([net(torch.from_numpy(Xte[i:i + 8192]).to(device)).argmax(1).cpu()
-                          for i in range(0, len(Xte), 8192)]).numpy()
-    return pred, ep + 1, best
+        logits = torch.cat([net(torch.from_numpy(Xte[i:i + 8192]).to(device)).cpu()
+                            for i in range(0, len(Xte), 8192)])
+    if return_proba:
+        return torch.softmax(logits, dim=1).numpy(), ep + 1, best
+    return logits.argmax(1).numpy(), ep + 1, best
 
 
 def main():

@@ -91,6 +91,14 @@ Paper: absolute numbers only as context; the claim is the gain (Dudi, 22.10).
 
 Paper: one robustness paragraph under C1/C3 ("history helps even with missing and irregular reports, if the model is trained with them"). Planned to show Dudi first; extensions (centre BS, AoA) only if he wants it in.
 
+## C9. History through a motion model (tracking filter) is a strong alternative on the grid
+
+| Study | Evidence | Key number | Strength |
+|---|---|---|---|
+| G | tech doc 6.2 (tracking filter); `results_of_record/tracking_filter/` | HMM forward filter on a Random Forest snapshot model: 4.93 → 0.71 m with the learned motion model, 0.93 m with a generic 2 m kernel, against 1.59 m for the GRU (mixed, NE, no AoA); stays below the GRU with missing and irregular reports | medium (one set, one placement; the grid walk suits a motion model) |
+
+Consequence for the paper: C1 is strengthened (history helps whether learned or filtered), but C3 must not say that sequence models are the best way to use history. Open: does it hold at macro range with realistic trajectories (Kalman / particle filter)? To discuss with the instructors.
+
 ---
 
 ## Not in the paper (or only one line)
@@ -99,6 +107,7 @@ Paper: one robustness paragraph under C1/C3 ("history helps even with missing an
 |---|---|---|
 | History beyond h = 15 | not run | Dropped at the 22.10 meeting |
 | LSTM details | tech doc 6.2 | One sentence in the paper (C3) |
+| Attention pooling (GRU, CNN) | tech doc 6.2 | Mixed, no substantial gain; at most one sentence |
 | First order test (whole window shuffled) | tech doc 6.2, superseded note | It hid the current report |
 | Full tree tables, window-mean details | tech doc 6.2 | Consistency evidence only (C2) |
 | June 2026 15×15 data, old 25×25 folders | `OLD_VS_REGENERATED_RUNS.md` | Superseded |

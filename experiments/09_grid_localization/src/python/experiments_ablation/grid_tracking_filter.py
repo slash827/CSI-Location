@@ -36,6 +36,9 @@ sys.path.insert(0, str(PROJECT_ROOT / 'experiments' / '09_grid_localization' / '
 
 import pipelines.multi_user_pipeline as mu  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import grid_history_extended as ghe  # noqa: E402
+
 CONDITIONS = ['regular', 'mask30', 'mask60', 'gap2', 'gap4']
 
 
@@ -50,6 +53,15 @@ def transition_matrix(df_train, l2i, n):
         c = g['grid_point_id'].map(l2i).values
         np.add.at(T, (c[:-1], c[1:]), 1.0)
     T += 1e-6
+    return T / T.sum(1, keepdims=True)
+
+
+def generic_matrix(labels, grid_lookup, sigma_m):
+    """Motion model not learned from the walks: T[i, j] ∝ exp(-d_ij^2 / (2 sigma^2)) over all cells, including staying.
+    sigma = 2 m (one cell) or 4 m; it allows stops and jumps that the simulated walk never makes."""
+    xy = np.array([grid_lookup[int(l)] for l in labels])
+    d2 = ((xy[:, None, :] - xy[None, :, :]) ** 2).sum(-1)
+    T = np.exp(-d2 / (2 * sigma_m ** 2))
     return T / T.sum(1, keepdims=True)
 
 
@@ -102,7 +114,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split('Usage')[1])
     ap.add_argument('--data-dir', required=True)
     ap.add_argument('--out-dir', required=True)
-    ap.add_argument('--models', nargs='+', default=['xgboost', 'rf'], choices=['xgboost', 'rf'])
+    ap.add_argument('--models', nargs='+', default=['xgboost', 'rf'], choices=['xgboost', 'rf', 'gru10'],
+                    help='snapshot model; gru10 = GRU on the regular 10-step window (history model + filter, regular condition only)')
+    ap.add_argument('--motion', nargs='+', default=['learned'], choices=['learned', 'generic2', 'generic4'],
+                    help='learned from the training walks, or a Gaussian kernel of width 2 m / 4 m (not learned)')
     ap.add_argument('--experiments', nargs='+', default=['BASE'], choices=['BASE', 'BASE_A'])
     ap.add_argument('--conditions', nargs='+', default=CONDITIONS, choices=CONDITIONS)
     ap.add_argument('--n-jobs', type=int, default=6)
@@ -121,15 +136,12 @@ def main():
     l2i = {l: i for i, l in enumerate(labels)}
     i2l = np.array(labels)
     n = len(labels)
-    T = transition_matrix(df[df['split'] == 'train'], l2i, n)
-    cache = {1: T}
-
-    def T_pows(g):
-        if g not in cache:
-            cache[g] = np.linalg.matrix_power(T, g)
-        return cache[g]
-    log(f'{len(df):,} rows, {n} cells; mean self-transition {np.diag(T).mean():.3f}, '
-        f'mean nonzero successors {(T > 1e-4).sum(1).mean():.1f}')
+    motions = {'learned': transition_matrix(df[df['split'] == 'train'], l2i, n),
+               'generic2': generic_matrix(labels, grid_lookup, 2.0),
+               'generic4': generic_matrix(labels, grid_lookup, 4.0)}
+    for k, T in motions.items():
+        log(f'motion {k}: mean self-transition {np.diag(T).mean():.3f}, mean successors with p > 1e-3 {(T > 1e-3).sum(1).mean():.1f}')
+    log(f'{len(df):,} rows, {n} cells')
 
     rows, csv_path = [], out / 'tracking_filter.csv'
     for exp in args.experiments:
@@ -143,16 +155,47 @@ def main():
         prior /= prior.sum()
         for model in args.models:
             t0 = time.time()
-            clf = mu.get_model(model, n)
-            Xtr = feat.loc[tr, cols].values.astype(np.float32)
-            Xte = te[cols].values.astype(np.float32)
-            if model == 'rf':
-                Xtr, Xte = np.nan_to_num(Xtr), np.nan_to_num(Xte)
-            clf.fit(Xtr, y_tr)
             P_all = np.zeros((len(te), n))
-            P_all[:, clf.classes_] = clf.predict_proba(Xte)
-            log(f'{exp} {model}: snapshot model trained ({time.time() - t0:.0f}s)')
-            for cond in args.conditions:
+            if model == 'gru10':
+                import torch
+                device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                f10 = mu.build_history_features(df, 10, include_aoa=aoa).sort_values(['user_id', 'step_index'])
+                tr10 = (f10['split'] == 'train').values
+                trf = f10[tr10].reset_index(drop=True)
+                val = np.zeros(len(trf), bool)
+                for _, g in trf.groupby('user_id'):
+                    val[g.index[int(len(g) * 0.9):]] = True
+                st = {c: (trf[f'{c}_lag0'].mean(), trf[f'{c}_lag0'].std() + 1e-6) for c in ('rss', 'sinr')}
+                Xa = ghe.sequence_tensor(trf, 10, aoa, st)
+                ya = trf['grid_point_id'].map(l2i).values.astype(np.int64)
+                te10 = f10[~tr10]
+                proba, _, _ = ghe.train_cnn(Xa[~val], ya[~val], Xa[val], ya[val], ghe.sequence_tensor(te10, 10, aoa, st),
+                                            n, 0, device, kind='gru', return_proba=True)
+                key = pd.MultiIndex.from_frame(te10[['user_id', 'step_index']])
+                pos = key.get_indexer(pd.MultiIndex.from_frame(te[['user_id', 'step_index']]))
+                if (pos < 0).any():
+                    raise ValueError('GRU test rows do not cover the snapshot test rows')
+                P_all = proba[pos]
+            else:
+                clf = mu.get_model(model, n)
+                Xtr = feat.loc[tr, cols].values.astype(np.float32)
+                Xte = te[cols].values.astype(np.float32)
+                if model == 'rf':
+                    Xtr, Xte = np.nan_to_num(Xtr), np.nan_to_num(Xte)
+                clf.fit(Xtr, y_tr)
+                P_all[:, clf.classes_] = clf.predict_proba(Xte)
+            log(f'{exp} {model}: model trained ({time.time() - t0:.0f}s)')
+            for motion in args.motion:
+              T = motions[motion]
+              cache = {1: T}
+
+              def T_pows(g, cache=cache, T=T):
+                  if g not in cache:
+                      cache[g] = np.linalg.matrix_power(T, g)
+                  return cache[g]
+              for cond in args.conditions:
+                if model == 'gru10' and cond != 'regular':
+                    continue
                 rng = np.random.RandomState(22)
                 res = {'snapshot': ([], []), 'filter': ([], []), 'smoother': ([], [])}
                 for uid in te['user_id'].unique():
@@ -166,12 +209,12 @@ def main():
                     res['smoother'][0].append(y[steps]); res['smoother'][1].append(i2l[ps])
                 for method, (yt, yp) in res.items():
                     r = mu.evaluate_split(np.concatenate(yt), np.concatenate(yp), grid_lookup, spacing=spacing)
-                    rows.append(dict(experiment=exp, snapshot_model=model, condition=cond, method=method,
+                    rows.append(dict(experiment=exp, snapshot_model=model, motion=motion, condition=cond, method=method,
                                      accuracy=round(r['accuracy'], 3), mae=round(r['mae'], 4),
                                      n_scored=int(sum(len(a) for a in yt))))
-                    log(f'{exp} {model} {cond:8s} {method:9s}: {r["accuracy"]:.1f}% / {r["mae"]:.2f} m')
+                    log(f'{exp} {model} {motion} {cond:8s} {method:9s}: {r["accuracy"]:.1f}% / {r["mae"]:.2f} m')
                 pd.DataFrame(rows).to_csv(csv_path, index=False)
-    (out / 'config.json').write_text(json.dumps(dict(data_dir=str(data_dir), models=args.models,
+    (out / 'config.json').write_text(json.dumps(dict(data_dir=str(data_dir), models=args.models, motion=args.motion,
                                                      conditions=args.conditions), indent=2))
     log('[OK] Results saved to: ' + str(csv_path))
 
