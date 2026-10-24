@@ -108,6 +108,57 @@ def make_lstm(in_ch, n_classes):
     return LSTMNet()
 
 
+def make_gru_attn(in_ch, n_classes):
+    """GRUNet with attention pooling: a learned score per time step weights all hidden states (softmax over time);
+    the weighted context is concatenated with the last hidden state before the classifier."""
+    import torch
+    import torch.nn as nn
+
+    class GRUAttnNet(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.gru = nn.GRU(in_ch, 64, num_layers=2, batch_first=True, dropout=0.2)
+            self.score = nn.Linear(64, 1)
+            self.head = nn.Sequential(nn.Linear(128, 128), nn.LeakyReLU(0.1), nn.Dropout(DROPOUT),
+                                      nn.Linear(128, n_classes))
+            self.last_attn = None
+
+        def forward(self, x):                      # x: [B, C, T]
+            out, _ = self.gru(x.permute(0, 2, 1))  # [B, T, 64]
+            w = torch.softmax(self.score(out).squeeze(-1), dim=1)
+            self.last_attn = w.detach()
+            ctx = (w.unsqueeze(-1) * out).sum(1)
+            return self.head(torch.cat([ctx, out[:, -1]], dim=1))
+
+    return GRUAttnNet()
+
+
+def make_cnn_attn(in_ch, n_classes):
+    """The 1D-CNN with attention pooling over time in place of global average pooling."""
+    import torch
+    import torch.nn as nn
+
+    class CNNAttnNet(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Sequential(
+                nn.Conv1d(in_ch, 32, 3, padding=1), nn.BatchNorm1d(32), nn.LeakyReLU(0.1), nn.Dropout(DROPOUT),
+                nn.Conv1d(32, 64, 3, padding=1), nn.BatchNorm1d(64), nn.LeakyReLU(0.1), nn.Dropout(DROPOUT),
+                nn.Conv1d(64, 128, 3, padding=1), nn.BatchNorm1d(128), nn.LeakyReLU(0.1))
+            self.score = nn.Conv1d(128, 1, 1)
+            self.head = nn.Sequential(nn.Linear(128, 256), nn.LeakyReLU(0.1), nn.BatchNorm1d(256), nn.Dropout(DROPOUT),
+                                      nn.Linear(256, n_classes))
+            self.last_attn = None
+
+        def forward(self, x):                      # x: [B, C, T]
+            f = self.conv(x)                       # [B, 128, T]
+            w = torch.softmax(self.score(f).squeeze(1), dim=1)
+            self.last_attn = w.detach()
+            return self.head((f * w.unsqueeze(1)).sum(2))
+
+    return CNNAttnNet()
+
+
 def window_mean_features(feat_df, h, aoa):
     """[current value, window mean] per channel; azimuth is averaged as a unit vector. Isolates the averaging
     operator that a tree cannot build from raw lags: no individual old reports are given to the model."""
@@ -129,7 +180,8 @@ def train_cnn(Xtr, ytr, Xva, yva, Xte, n_classes, seed, device, kind='cnn'):
     import torch.nn as nn
     torch.manual_seed(seed)
     np.random.seed(seed)
-    net = {'gru': make_gru, 'lstm': make_lstm}.get(kind, make_cnn)(Xtr.shape[1], n_classes).to(device)
+    net = {'gru': make_gru, 'lstm': make_lstm, 'gru_attn': make_gru_attn, 'cnn_attn': make_cnn_attn}.get(kind, make_cnn)(
+        Xtr.shape[1], n_classes).to(device)
     opt = torch.optim.AdamW(net.parameters(), lr=LR, weight_decay=WD)
     lossf = nn.CrossEntropyLoss()
     Xtr_t, ytr_t = torch.from_numpy(Xtr).to(device), torch.from_numpy(ytr).to(device)

@@ -103,7 +103,7 @@ def main():
     ap.add_argument('--out-dir', required=True)
     ap.add_argument('--k', type=int, default=10, help='number of older reports per window')
     ap.add_argument('--seeds', type=int, default=2)
-    ap.add_argument('--models', nargs='+', default=['gru', 'xgboost'], choices=['gru', 'cnn', 'xgboost'])
+    ap.add_argument('--models', nargs='+', default=['gru', 'xgboost'], choices=['gru', 'cnn', 'gru_attn', 'cnn_attn', 'xgboost'])
     ap.add_argument('--conditions', nargs='+', default=CONDITIONS, choices=CONDITIONS)
     ap.add_argument('--experiments', nargs='+', default=['BASE'], choices=['BASE', 'BASE_A'])
     ap.add_argument('--n-jobs', type=int, default=6)
