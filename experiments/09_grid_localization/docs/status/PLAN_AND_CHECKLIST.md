@@ -28,6 +28,8 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.1 Done
 
+- [x] Leave-one-user-out test on the mixed grid (2026-10-24; claim map C5/C6): every model collapses on an unseen user (about 1 % / 12 m, worse than the constant guess) because each grid user is simulated with its own shadowing realization (seeded by the walk seed). Open decision for the instructors: limitation, or regenerate the grid with a shared environment
+
 - [x] Attention pilot (GRU, CNN) on the irregular-history conditions and HMM tracking filter on snapshot models, with learned and generic motion models and on top of the GRU (2026-10-24; tech doc 6.2; claim map C9). Attention: no substantial gain. Filter: Random Forest + filter 0.71 m (learned) / 0.93 m (generic 2 m) against GRU 1.59 m on the mixed grid; changes the sequence-model claim (C3); macro-study version (Kalman / particle filter) not run. Decided (author, 2026-10-24): paper stays on learned history, filter reported as a baseline
 
 - [x] Irregular and incomplete history on the 15x15 mixed grid, NE BS, RSS+SINR (2026-10-24; `grid_history_irregular.py`; tech doc 6.2; claim map C8): GRU keeps 80-90 % of its history gain with 30 % of reports missing or uneven gaps, 64 % with 60 % missing; age of reports does not help; training on clean and testing on irregular history costs about 0.8 m. To show Dudi before deciding whether it goes in the paper. 1D-CNN (three seeds, finished 09:53): same pattern, 83-91 % of its gain kept, mismatch costs most (4.81 m against 2.49 m regular)
