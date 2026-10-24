@@ -1,0 +1,14 @@
+{
+  "data_dir": "results\\grid_localization\\grid_15x15\\sim_data_ne_bs_2026-10-13_11-23-43",
+  "models": [
+    "xgboost",
+    "rf"
+  ],
+  "conditions": [
+    "regular",
+    "mask30",
+    "mask60",
+    "gap2",
+    "gap4"
+  ]
+}

@@ -1,0 +1,17 @@
+model,experiment,condition,k,seed,accuracy,mae,epochs,mean_lag_oldest,secs
+gru_attn,BASE,snapshot,0,0,48.163,5.3836,40,0.0,289.6
+gru_attn,BASE,snapshot,0,1,47.954,5.3966,40,0.0,289.7
+gru_attn,BASE,regular,10,0,67.626,1.5358,40,10.0,367.0
+gru_attn,BASE,regular,10,1,67.463,1.5792,40,10.0,367.2
+gru_attn,BASE,mask30,10,0,63.837,2.0918,40,10.0,312.1
+gru_attn,BASE,mask30,10,1,63.96,2.0567,40,10.0,312.2
+gru_attn,BASE,mask60,10,0,58.738,2.9376,40,10.0,306.8
+gru_attn,BASE,mask60,10,1,58.857,2.9442,40,10.0,306.9
+gru_attn,BASE,gap2,10,0,63.02,2.0247,40,20.014777777777777,329.9
+gru_attn,BASE,gap2,10,1,63.682,2.0035,40,20.014777777777777,330.2
+gru_attn,BASE,gap4,10,0,60.886,2.3968,40,40.015855555555554,321.5
+gru_attn,BASE,gap4,10,1,61.082,2.4042,40,40.015855555555554,321.6
+gru_attn,BASE,gap2_noage,10,0,63.349,1.9958,40,20.014777777777777,177.4
+gru_attn,BASE,gap2_noage,10,1,64.113,1.964,40,20.014777777777777,177.4
+gru_attn,BASE,mismatch_gap2,10,0,54.027,2.7634,40,20.014777777777777,179.5
+gru_attn,BASE,mismatch_gap2,10,1,53.55,2.9114,40,20.014777777777777,179.6

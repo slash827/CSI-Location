@@ -1,0 +1,11 @@
+,,,accuracy,accuracy,mae,mae
+,,,mean,std,mean,std
+experiment,condition,model,,,,
+BASE,gap2,gru_attn,63.351,0.468,2.014,0.015
+BASE,gap2_noage,gru_attn,63.731,0.54,1.98,0.022
+BASE,gap4,gru_attn,60.984,0.139,2.4,0.005
+BASE,mask30,gru_attn,63.898,0.087,2.074,0.025
+BASE,mask60,gru_attn,58.798,0.084,2.941,0.005
+BASE,mismatch_gap2,gru_attn,53.788,0.337,2.837,0.105
+BASE,regular,gru_attn,67.544,0.115,1.558,0.031
+BASE,snapshot,gru_attn,48.058,0.148,5.39,0.009
