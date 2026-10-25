@@ -44,5 +44,13 @@ training.log
 # Misc
 Archive/
 
+# Personal material (meeting transcripts, study guide, slides) and LaTeX build outputs
+experiments/09_grid_localization/docs/Personal/
+experiments/09_grid_localization/docs/paper/**/*.aux
+experiments/09_grid_localization/docs/paper/**/*.out
+experiments/09_grid_localization/docs/paper/Transition_History/main.pdf
+experiments/09_grid_localization/docs/paper/paper_draft/*.pdf
+experiments/09_grid_localization/docs/paper/**/*.synctex.gz
+
 # Alon's UE-log scripts: the CSVs are tracked, the zip duplicates them
 experiments/09_grid_localization/Alon_scripts/UE Log CSVs.zip
