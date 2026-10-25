@@ -47,7 +47,7 @@
   },
 
   "movement": {
-    "steps_per_point": 40   // short test run (shared-environment check); the full set uses 400,
+    "steps_per_point": 40,   // short test run (shared-environment check); the full set uses 400
     "ue_speed": 1.5,
     "starting_point": "center"
   },

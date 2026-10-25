@@ -72,6 +72,8 @@ Result of test (a), 2026-10-24 (`src/python/experiments_ablation/grid_leave_one_
 
 Consequences: (1) H1 is confirmed: G and R measure history in a known-map setting (the model learns each user's own map from the first 80 % of the walk); none of it transfers to an unseen user in this simulation. (2) Part of this is a simulation artefact: in a real deployment all users in one place share the large-scale shadowing, so a new device would differ mainly by its gain offset, not by a new map. (3) The grid cannot test cross-user generalization until users share one environment (one layout with all users as receivers, as in the macro runner, or a common channel seed with a common map extent). To discuss with the instructors before writing: state as a limitation, or regenerate the headline grid set with a shared environment and rerun the leave-one-user-out test.
 
+Shared-environment attempt, 2026-10-25: a common channel seed for all users (`RUNNER_SHARED_CHANNEL_SEED`, short test run `sim_data_ne_bs_2026-10-25_07-46-16_shared_env`) shares the map only partly: U2, U3 and U5 agree (RSS map correlation 0.79–0.86), the four-antenna users U1 and U4 do not (−0.51 to 0.66). The reliable fix is one QuaDRiGa layout with all users as receivers (as in the macro runner), which needs a refactor of `generate_simulation_data.m`. Stopped here by the author's decision: reported as a limitation (per-user environment realizations; results are within-user, known-map results), to raise with the instructors.
+
 ## C6. In the macro cell the gain is the averaging of noisy angle reports
 
 | Study | Evidence | Key number | Strength |

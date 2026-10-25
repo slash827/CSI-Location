@@ -98,6 +98,8 @@ The driver log is `results/_logs/drive30.log`. Extended history and CNN results 
 
 ### 4.3 To do
 
+- [ ] Raise with the instructors: grid and 25x25 users are simulated with their own environment realization, so results are within-user (known-map); leave-one-user-out collapses; a shared environment needs one multi-receiver layout (not done, author's decision 2026-10-25). Add to the paper's limitations
+
 From the 2026-10-22 meeting (section 6b):
 - [ ] N2/N2a: tell Dudi the real antenna setup (single omni BS, UE with 1/2/4 omni elements, AoA from QuaDRiGa cluster angles plus synthetic noise, no array processing) and ask whether his plausibility check still holds; verify the UE element spacing in QuaDRiGa (replicated omni elements)
 - [ ] N2: get the papers Kimi listed (single-BS accuracy around 1 m in labs or with several BSs; channel charting) for related work
