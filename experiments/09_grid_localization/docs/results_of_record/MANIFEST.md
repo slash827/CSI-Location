@@ -265,6 +265,6 @@ Source: `results/device_generalization/<arm>/` (local, gitignored). Script `expe
 
 - `_aoa_drop`: with `--aoa-dropout 0.3`, the AoA embeddings of 30 % of training users are zeroed, as for a single-antenna device. This fixes the known issue below: IoT error with AoA falls from 51–69 m to 30–38 m.
 - `_var1` to `_var4`: training-variety sweep with `--max-train-users 55` (equal training size); training classes midtier; + flagship; + vehicle; + IoT. Both GRU and XGBoost rows are in the files.
-- `_h10`: history length 10 instead of 5.
+- `_h10`, `_h20`: history length 10 or 20 instead of 5 (`_h10_nocross` also drops windows that cross a Voronoi zone).
 
 Known issue: in the `_class_aoa` arms the IoT group (single antenna, AoA masked to zero) has errors above the constant guess, because no training user has masked AoA (fixed by the `_aoa_drop` arms).
