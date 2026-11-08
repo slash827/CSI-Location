@@ -261,6 +261,12 @@ def main():
     ap.add_argument('--class-split', action='store_true', help='train on 4-antenna devices only')
     ap.add_argument('--drop-crossings', action='store_true',
                     help='train and test only on windows inside one Voronoi zone (boundary-artifact check)')
+    ap.add_argument('--aoa-dropout', type=float, default=0.0,
+                    help='with --aoa: share of training users (0-1) whose AoA embeddings are zeroed, as for a '
+                         'single-antenna device, so the model also learns to work without AoA')
+    ap.add_argument('--max-train-users', type=int, default=None,
+                    help='keep at most this many training users (random per seed), to compare training sets '
+                         'of different device variety at equal size')
     ap.add_argument('--h', type=int, default=5)
     ap.add_argument('--seeds', type=int, nargs='+', default=[42, 43, 44, 45, 46])
     ap.add_argument('--models', nargs='+', default=['xgboost', 'random_forest'],
@@ -304,6 +310,18 @@ def main():
         te = df[df.split == 'test']
         if args.class_split:
             tr = tr[tr.device_class.isin(args.train_classes)] if args.train_classes else tr[tr.n_antennas == 4]
+        rng = np.random.RandomState(seed + 1000)
+        if args.max_train_users:
+            users = tr.user_id.unique()
+            if len(users) > args.max_train_users:
+                tr = tr[tr.user_id.isin(rng.choice(users, args.max_train_users, replace=False))]
+        if args.aoa and args.aoa_dropout > 0:
+            users = tr.user_id.unique()
+            drop_u = rng.choice(users, int(round(args.aoa_dropout * len(users))), replace=False)
+            tr = tr.copy()
+            tr.loc[tr.user_id.isin(drop_u), TRIG] = 0.0
+        log(f'seed {seed}: {tr.user_id.nunique()} training users '
+            f'{tr.groupby("user_id").device_class.first().value_counts().to_dict()}')
         test_sets = {cond: perturb_rss(te, cond[0], cond[1], seed * 100 + i)
                      for i, cond in enumerate(CONDITIONS)}
         for rep in REPS:
@@ -354,6 +372,8 @@ def main():
     (out / 'device_generalization_summary.txt').write_text(piv.round(2).to_string())
     (out / 'run_info.json').write_text(json.dumps(dict(
         data=str(data_dir), aoa=args.aoa, class_split=args.class_split, h=args.h, seeds=args.seeds,
+        train_classes=args.train_classes, aoa_dropout=args.aoa_dropout, max_train_users=args.max_train_users,
+        drop_crossings=args.drop_crossings,
         models=args.models, conditions=CONDITIONS, drift_step_db=DRIFT_STEP_DB, quant_step_db=QUANT_STEP_DB,
         static_device_features='not used', minutes=round((time.time() - t_all) / 60, 1)), indent=2))
     log('[OK] Report saved to: ' + str(out / 'device_generalization_summary.txt') + '\n' + piv.round(2).to_string())
