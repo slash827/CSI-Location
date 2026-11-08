@@ -1,0 +1,54 @@
+{
+  "data": "C:\\Git\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_shared_devices_2026-11-07",
+  "aoa": true,
+  "class_split": true,
+  "h": 5,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "models": [
+    "gru"
+  ],
+  "conditions": [
+    [
+      "offset",
+      0.0
+    ],
+    [
+      "offset",
+      3.0
+    ],
+    [
+      "offset",
+      6.0
+    ],
+    [
+      "offset",
+      10.0
+    ],
+    [
+      "offset",
+      15.0
+    ],
+    [
+      "offset",
+      20.0
+    ],
+    [
+      "drift",
+      6.0
+    ],
+    [
+      "quant",
+      6.0
+    ]
+  ],
+  "drift_step_db": 0.1,
+  "quant_step_db": 2.0,
+  "static_device_features": "not used",
+  "minutes": 6.7
+}

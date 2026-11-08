@@ -253,3 +253,14 @@ which is gitignored — see `docs/Project_documentation/SHARING.md` for how to o
 ## controlled_grid_2026_10 — regenerated 15x15 controlled grid (2026-10-13)
 
 Source: `results/controlled_grid_2026_10/{centre_bs,ne_bs}` (local, gitignored); data `sim_data_multi_user_2026-10-13_01-02-45` (centre) and `sim_data_ne_bs_2026-10-13_01-02-42` (NE), generated at 3.5 GHz with one uniform UMi NLOS scenario for every walk (generator commit `a86ae4a`). Pipeline: `multi_user_pipeline.py --sinr-dependent-aoa --models xgboost rf --history 3 --n-jobs 8`, all experiments, no tuned parameters. Each folder holds `results_summary.csv`, `per_user_breakdown.csv`, `per_cell_breakdown.csv`, `data_volume_sweep.csv`, `experiment_config.json`, `PIPELINE_REPORT.md` and the simulation's `data_generation_config.jsonc`. Backs technical_documentation.md §7.2–7.3 and report Section 5. Supersedes the 2026-06-12 results (data at 2.6 GHz, walk-start scenarios).
+
+## device_generalization_2026_11 — absolute values against differences, unseen devices (2026-11-07/08)
+
+Source: `results/device_generalization/<arm>/` (local, gitignored). Script `experiments_ablation/device_generalization.py`; each folder holds `device_generalization.csv` (per seed, model, representation, test condition and test group), `device_generalization_summary.csv` (mean and std over the five unseen-user splits, seeds 42–46) and `run_info.json` (data folder and arguments). Representations: `snap` (h = 0), `abs` (levels of the last h + 1 reports), `diff` (consecutive differences), `both`, `wnorm` (levels minus the window mean); h = 5. Test conditions perturb the RSS of test users only: constant offset with σ in {0, 3, 6, 10, 15, 20} dB, drift (6 dB offset plus a 0.1 dB/report random walk), quantization (6 dB offset, 2 dB steps). No static device features are given to the models.
+
+- `macro_mixed*`: old 300-user mixed data (`sim_data_300users_mixed_2026-09-18_20-25-01`), where every user has its own channel realization.
+- `shared*`: shared-environment data `sim_data_shared_devices_2026-11-07` from `run_shared_env_devices.m` (one environment for all users, shared seed 20261107, four device classes, IoT downsampled to 15 % of users).
+- `seed2_*`: the same arms on a second shared environment, `sim_data_shared_devices_2026-11-07_seed2` (shared seed 20261108).
+- Suffixes: `_class` trains on flagship and midtier only; `_aoa` adds AoA embeddings; `_gru` is the GRU sequence model, otherwise XGBoost and random forest; `_nocross` trains and tests only on windows inside one Voronoi zone; `_cross` reports the crossing and interior groups of the full-window model.
+
+Known issue: in the `_class_aoa` arms the IoT group (single antenna, AoA masked to zero) has errors above the constant guess, because no training user has masked AoA.
