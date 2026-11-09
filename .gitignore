@@ -54,3 +54,6 @@ experiments/09_grid_localization/docs/paper/**/*.synctex.gz
 
 # Alon's UE-log scripts: the CSVs are tracked, the zip duplicates them
 experiments/09_grid_localization/Alon_scripts/UE Log CSVs.zip
+
+# Downloaded PDFs (Alon's Overleaf report, Omri's QuaDRiGa report): local reference copies only
+experiments/09_grid_localization/Simulation-Nov-2026/**/*.pdf

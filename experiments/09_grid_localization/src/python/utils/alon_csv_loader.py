@@ -16,7 +16,7 @@ differences between consecutive reports are then noise. (The sample logs of 2026
 
 Usage (from the repository root):
     .venv/Scripts/python experiments/09_grid_localization/src/python/utils/alon_csv_loader.py \
-        --csv-dir experiments/09_grid_localization/Simulation-Nov-2026
+        --csv-dir experiments/09_grid_localization/Simulation-Nov-2026/omri_simulator_not_for_claims
 """
 import argparse
 from pathlib import Path
