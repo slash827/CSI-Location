@@ -21,10 +21,57 @@ The contrast with the controlled grid and the $25\times25$ runs, where RSS and S
 \subsection{Unseen Users}
 \label{subsec:unseen-users}
 
-The controlled grid and the $25\times25$ runs also differ from the macro cell in testing later parts of the walks of users seen in training. This difference was examined directly on the controlled grid~(mixed setting, BS beyond the corner, RSS and SINR), by training on four of the five device profiles and testing on the fifth. On an unseen user every model fails, with or without history: the mean error rises to about \SI{12}{\meter}, worse than the \SI{10.9}{\meter} of a constant guess, whereas the same GRU reaches \SI{1.6}{\meter} on the usual split. The users do not share a channel map; each is simulated as a separate channel realization, and the per-cell mean RSS of two users can be almost uncorrelated, even for identical device profiles. The controlled-grid results without an angle are therefore within-user results, in which a model learns each user's own map from the first part of the walk and history sharpens the use of that map. The $25\times25$ runs share this design, although the test was not repeated there. The macro-cell test users offer no such learned map, so single-antenna devices there have nothing for history to amplify. In a real deployment, co-located users share the large-scale shadowing, so the separate channel realizations of the simulation make this contrast sharper than it would be in practice.
+The controlled grid and the $25\times25$ runs also differ from the macro cell in testing later parts of the walks of users seen in training. This difference was examined directly on the controlled grid~(mixed setting, BS beyond the corner, RSS and SINR), by training on four of the five device profiles and testing on the fifth. On an unseen user every model fails, with or without history: the mean error rises to about \SI{12}{\meter}, worse than the \SI{10.9}{\meter} of a constant guess, whereas the same GRU reaches \SI{1.6}{\meter} on the usual split. The users do not share a channel map; each is simulated as a separate channel realization, and the per-cell mean RSS of two users can be almost uncorrelated, even for identical device profiles. The controlled-grid results without an angle are therefore within-user results, in which a model learns each user's own map from the first part of the walk and history sharpens the use of that map. The $25\times25$ runs share this design, although the test was not repeated there. The macro-cell test users offer no such learned map, so single-antenna devices there have nothing for history to amplify. In a real deployment, co-located users share the large-scale shadowing, so the separate channel realizations of the simulation make this contrast sharper than it would be in practice; Section~\ref{subsec:shared-env} tests this with an environment shared by all users.
 
 \subsection{The Exception: Single-Antenna Devices under Mixed Propagation}
 \label{subsec:mixed-single}
 
 % src: followup_2026_10/mixed_propagation summary.{xgboost,random_forest}.rss_hist.single.gain_vs_snap.{geo_LOS,geo_NLOS} (20 seeds: XGB 1.17 +- 0.32 / 1.46 +- 0.54; RF 1.18 +- 0.37 / 2.01 +- 0.50); followup_2026_10/mixed_propagation_los_flag (20 seeds, single-antenna: rss_hist XGB +1.28 +- 0.29, RF +1.41 +- 0.36; snap_los +3.27 / +3.04; history on top of flag +1.01 / +0.77; crossing windows +2.61 / +3.92, 14 % of windows; entirely LOS +0.79 / +0.34, entirely NLOS +0.63 / -0.03); single_share_50/mixed_propagation (+1.20 +- 0.15 / +1.42 +- 0.15); CONTINUE_HERE.md 1a (LOS-NLOS RSS gap 16.87 dB)
 Under mixed propagation, history lowers the single-antenna error of both tree ensembles by $1.1$ to \SI{1.3}{\meter}, while the neural models and $k$-NN show no gain beyond their intervals~(Figure~\ref{fig:mixed-gain}). RSS history alone gives as much, $1.3$ to \SI{1.4}{\meter} over $20$ splits, positive in every split. The gain is not explained by the cleaner path-loss relation of LOS propagation, since it is at least as large in the NLOS regions as in the LOS ones. What it does depend on is the propagation state itself. A single-antenna snapshot cannot tell LOS from NLOS, which differ by about \SI{17}{\decibel} in RSS, and adding the true LOS flag to the snapshot as an oracle lowers the error by about \SI{3}{\meter}; RSS history recovers part of this, and given on top of the oracle flag it still gains $0.8$ to \SI{1.0}{\meter}, concentrated in the \SI{14}{\percent} of windows that span a crossing between regions. We attribute the gain to two effects of the window: it helps to infer the propagation state, and, at a crossing, it marks a place on the map where the signal strength steps.
+
+% src: results_of_record/device_generalization_2026_11/{macro_mixed,macro_mixed_gru,shared,shared_gru,seed2_shared,seed2_shared_gru,macro_uniform,macro_uniform_gru,shared_uniform,shared_uniform_gru} device_generalization.csv (offset 0, groups multi/single, gain = snap - rep per seed, seeds 42-46, Student-t); *_class_gru_h20 summaries (cls_iot snap/diff); MANIFEST.md section device_generalization_2026_11; same-point |dP| median 5.1 vs 6.7 dB
+\subsection{A Shared Environment}
+\label{subsec:shared-env}
+
+To test how much of the macro-cell result is due to simulating every user as a separate channel realization, we generated three further macro-cell datasets in which all users share one environment: two with the mixed LOS and NLOS regions of the macro cell, drawn from different seeds, and one in which every region is NLOS. Each has $300$ users in four device classes: mid-tier phones with four antenna elements, flagship phones and vehicles with sixteen, and single-antenna IoT devices, which differ in carrying height, antenna gain, noise figure and speed. The random generator of the channel simulation is reset to a common seed before every segment of every walk, so that all users see the same large-scale parameter maps; the small-scale fading is still drawn per segment, so the environment is only partly shared. At the same grid point, the median difference in received power between two users is \SI{5.1}{\decibel}, against \SI{6.7}{\decibel} with separate realizations. No angle is used in this comparison, and no static device attributes are given to the models.
+
+Table~\ref{tab:shared-env} compares the history gain on unseen users~(five user splits, \SI{80}{\percent} of users for training) with separate realizations and in the shared environments, for XGBoost and a one-layer GRU given the last $h=5$ reports. With separate realizations, history lowers the error by $2$ to \SI{3}{\meter} under mixed propagation, in line with the single-antenna gain of Section~\ref{subsec:mixed-single}, and not at all under uniform NLOS; in both cases the differences between consecutive reports make the error worse than a single report. In the shared environments, the gain grows for both models and both propagation settings. It is largest for the GRU given levels and differences together, which lowers the error of multi-antenna devices by $9$ to \SI{10}{\meter}, and the differences between reports now lower the error as well. Under uniform NLOS, where history gains nothing with separate realizations, the shared environment gives single-antenna devices a gain of \SI{5.9 +- 3.2}{\meter} with the GRU; the gain of XGBoost, \SI{2.5 +- 2.0}{\meter}, is not clearly different from zero. With $h=20$ and the GRU trained on phones only, the differences alone bring single-antenna IoT devices, a class not seen in training, from $37.5$ and \SI{35.1}{\meter} to $20.2$ and \SI{21.1}{\meter} in the two mixed environments, and from $32.9$ to \SI{23.8}{\meter} under uniform NLOS.
+
+A shared map therefore lets history, and above all the change between reports, carry over to new users. The uniform-NLOS result of this section, where history adds nothing for single-antenna devices, is thus largely a consequence of the separate realizations, although the single-antenna evidence rests on one model and one environment.
+
+\begin{table}[h]
+  \centering
+  \caption{History gain on unseen users with separate channel realizations and in a shared environment~(macro-cell geometry, no angle). Error of a single report~($h=0$) and its reduction by a window of $h=5$ reports, in metres; seed-paired means over five user splits with \SI{95}{\percent} Student-t intervals. Levels: the reports as received; differences: the change between consecutive reports; both: the two together. Shared~1 and~2 are two environments drawn from different seeds.}
+  \label{tab:shared-env}
+  \small
+  \begin{tabular}{@{}llllrrrr@{}}
+    \toprule
+    Propagation & Environment & Model & Devices & $h=0$ & Levels & Differences & Both \\
+    \midrule
+    Mixed & Separate & XGBoost & Multi  & $29.4$ & $2.3 \pm 0.6$ & $-3.3 \pm 0.4$ & $2.4 \pm 0.6$ \\
+          &          &         & Single & $28.7$ & $2.6 \pm 0.5$ & $-2.9 \pm 1.3$ & $2.9 \pm 0.6$ \\
+          &          & GRU     & Multi  & $28.3$ & $1.8 \pm 0.3$ & $-3.6 \pm 0.6$ & $2.1 \pm 0.8$ \\
+          &          &         & Single & $27.8$ & $2.3 \pm 0.7$ & $-2.7 \pm 1.3$ & $2.9 \pm 0.6$ \\
+    \cmidrule{2-8}
+          & Shared 1 & XGBoost & Multi  & $30.6$ & $3.9 \pm 0.4$ & $-0.3 \pm 0.5$ & $4.6 \pm 0.4$ \\
+          &          &         & Single & $32.1$ & $2.8 \pm 1.1$ & $-0.2 \pm 1.4$ & $3.5 \pm 0.8$ \\
+          &          & GRU     & Multi  & $29.8$ & $5.2 \pm 0.7$ & $6.8 \pm 1.9$  & $9.0 \pm 1.3$ \\
+          &          &         & Single & $32.1$ & $3.6 \pm 1.1$ & $5.4 \pm 3.7$  & $7.2 \pm 2.0$ \\
+    \cmidrule{2-8}
+          & Shared 2 & XGBoost & Multi  & $31.4$ & $4.1 \pm 0.5$ & $0.3 \pm 0.6$  & $5.8 \pm 0.6$ \\
+          &          &         & Single & $31.0$ & $3.2 \pm 1.0$ & $-0.6 \pm 2.0$ & $4.1 \pm 1.3$ \\
+          &          & GRU     & Multi  & $30.4$ & $6.2 \pm 1.1$ & $6.5 \pm 2.5$  & $8.9 \pm 1.8$ \\
+          &          &         & Single & $30.7$ & $3.9 \pm 3.9$ & $4.1 \pm 4.9$  & $5.7 \pm 4.3$ \\
+    \midrule
+    NLOS  & Separate & XGBoost & Multi  & $33.7$ & $0.2 \pm 0.3$  & $-2.0 \pm 0.4$ & $0.4 \pm 0.3$ \\
+          &          &         & Single & $33.4$ & $-0.2 \pm 0.6$ & $-2.3 \pm 1.2$ & $-0.2 \pm 0.7$ \\
+          &          & GRU     & Multi  & $33.6$ & $0.3 \pm 0.3$  & $-2.1 \pm 0.4$ & $0.2 \pm 0.4$ \\
+          &          &         & Single & $33.5$ & $-0.2 \pm 0.7$ & $-1.9 \pm 1.3$ & $0.0 \pm 0.5$ \\
+    \cmidrule{2-8}
+          & Shared   & XGBoost & Multi  & $34.2$ & $5.1 \pm 0.5$ & $1.1 \pm 0.6$  & $5.8 \pm 0.5$ \\
+          &          &         & Single & $32.8$ & $2.0 \pm 2.0$ & $-0.7 \pm 2.6$ & $2.5 \pm 2.0$ \\
+          &          & GRU     & Multi  & $32.6$ & $7.4 \pm 1.2$ & $5.1 \pm 2.0$  & $10.1 \pm 2.2$ \\
+          &          &         & Single & $33.1$ & $3.8 \pm 3.1$ & $1.8 \pm 4.3$  & $5.9 \pm 3.2$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
