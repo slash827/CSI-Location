@@ -19,8 +19,12 @@ Marks inside the LaTeX:
 - `\ref{...}` labels are guesses; adjust them to the labels in the Overleaf source.
 
 Numbers come from `docs/results_of_record/device_generalization_2026_11/` (the arms
-`macro_mixed`, `macro_mixed_gru`, `shared`, `shared_gru`, and the `*_class_gru_h20` arms for the
-two environments).
+`macro_mixed*`, `macro_uniform*`, `shared`, `shared_gru`, `seed2_shared*`, `shared_uniform*`, and
+the `*_class_gru_h20` arms). The full table with the reproduction notes is in
+`docs/results_of_record/MANIFEST.md`, section `device_generalization_2026_11`.
+
+*Updated 2026-11-16* with the uniform-NLOS shared environment and the second mixed shared
+environment. Edits 1, 2, 6, 7 and 8 changed; Edits 3, 4 and 5 did not.
 
 ---
 
@@ -32,16 +36,25 @@ The report already says that every user in the simulation has its own channel re
 1. **The macro cell has the same property.** Its test users are unseen, but their RSS map is also
    separate, so only the angle, which follows the geometry, can carry over between users. The
    current text reads as if the full channel transfers.
-2. **A shared-environment check now exists.** Two macro-geometry datasets simulate all users in
-   one environment (`run_shared_env_devices.m`). In them, history helps unseen users more,
-   single-antenna devices included, and only there do differences between reports help at all.
+2. **A shared-environment check now exists.** Three macro-geometry datasets simulate all users
+   in one environment (`run_shared_env_devices.m`): two with mixed LOS/NLOS propagation and one
+   with uniform NLOS. In them, history helps unseen users more, and only there do differences
+   between reports help at all.
 
-The evidence does **not** show that the uniform-NLOS result of Section VII ("history adds
-nothing for single-antenna devices") is only an artifact. The shared environment uses mixed
-LOS/NLOS propagation, the setting where the report already finds a single-antenna gain
-(Section VII-C). The same script on the old per-user mixed data already gives single-antenna
-devices a gain of about 3 m. So the edits soften that claim and state the open question; they do
-not reverse it. A shared environment with uniform NLOS would settle it.
+**How strong the evidence is for the uniform-NLOS claim of Section VII** ("history adds nothing
+for single-antenna devices"):
+
+- With separate realizations and uniform NLOS, our script reproduces the null result: without an
+  angle, history gains nothing for either device group (−0.2 to 0.4 m).
+- In the uniform-NLOS shared environment, history lowers the error of multi-antenna devices by
+  5–10 m (no angle used).
+- For single-antenna devices, the gain is 2.5 ± 2.0 m (XGBoost, both) and 5.9 ± 3.2 m (GRU,
+  both). Only the GRU interval is clear of zero. IoT devices are 15 % of users, so the intervals
+  are wide.
+
+So the null result is largely a consequence of simulating every user as a separate channel
+realization, and the edits now say so. The single-antenna part rests on one model and one
+environment, and the edits say that too.
 
 ---
 
@@ -62,7 +75,8 @@ The gain depends on the position information a single report carries and on whet
 information is shared between users: where one report carries nothing that transfers to new
 users, as for single-antenna devices in the uniform-NLOS macro cell, whose users are each
 simulated as a separate channel realization, history adds nothing, whereas in a simulated
-environment shared by all users, history lowers the error of unseen users of both device groups.
+environment shared by all users, history lowers the error of unseen users, under uniform NLOS as
+well.
 ```
 
 ---
@@ -81,8 +95,9 @@ The current text:
 ```latex
 (iv) a delimitation of where history adds nothing, namely where a single report carries no
 position information that transfers between users, together with a test showing that this
-depends on the simulation: when all users share one simulated environment, history lowers the
-error of unseen users, and differences between consecutive reports become informative.
+depends largely on the simulation: when all users share one simulated environment, history
+lowers the error of unseen users, also under uniform NLOS, and differences between consecutive
+reports become informative.
 ```
 
 ---
@@ -162,54 +177,75 @@ Section~\ref{sec:shared-env} tests this with an environment shared by all users.
 \label{sec:shared-env}
 
 To test how much of the macro-cell result is due to simulating every user as a separate channel
-realization, we generated two further macro-cell datasets in which all users share one
-environment. They use the geometry and the mixed LOS/NLOS regions of the macro cell, with
-300~users each in four device classes: mid-tier phones with four antenna elements, flagship
-phones and vehicles with sixteen, and single-antenna IoT devices, which differ in carrying
-height, antenna gain, noise figure and speed. The random generator of the channel simulation is
-reset to a common seed before every segment of every walk, so that all users see the same
-large-scale parameter maps; the small-scale fading is still drawn per segment, so the
-environment is only partly shared. At the same grid point, the median difference in received
-power between two users is \SI{5.1}{dB}, against \SI{6.7}{dB} with separate realizations. No
-angle is used in this comparison, and no static device attributes are given to the models.
+realization, we generated three further macro-cell datasets in which all users share one
+environment: two with the mixed LOS/NLOS regions of the macro cell, drawn from different seeds,
+and one in which every region is NLOS. Each has 300~users in four device classes: mid-tier
+phones with four antenna elements, flagship phones and vehicles with sixteen, and single-antenna
+IoT devices, which differ in carrying height, antenna gain, noise figure and speed. The random
+generator of the channel simulation is reset to a common seed before every segment of every
+walk, so that all users see the same large-scale parameter maps; the small-scale fading is still
+drawn per segment, so the environment is only partly shared. At the same grid point, the median
+difference in received power between two users is \SI{5.1}{dB}, against \SI{6.7}{dB} with
+separate realizations. No angle is used in this comparison, and no static device attributes are
+given to the models.
 
 Table~\ref{tab:shared-env} compares the history gain on unseen users (five user splits, 80/20)
-with separate realizations and in the shared environment, for XGBoost and a gated recurrent
-unit~(GRU) given the last $h=5$ reports. With separate realizations, history lowers the error of
-both device groups by about \SI{2}{} to \SI{3}{m}, the single-antenna gain under mixed propagation
-of Section~VII-C, and the differences between consecutive reports make the error worse than a
-single report. In the shared environment, the gain of XGBoost grows by 0.6 to \SI{2.2}{m}, while that of the
-GRU grows to \SI{7.2}{m} for single-antenna devices and \SI{9.0}{m} for multi-antenna devices,
-and the differences between reports now lower the error as well. With $h=20$ and the GRU trained
-on phones only, the differences alone bring single-antenna IoT devices, a class not seen in
-training, from 37.5 and \SI{35.1}{m} to 20.2 and \SI{21.1}{m} in the two environments.
+with separate realizations and in the shared environments, for XGBoost and a gated recurrent
+unit~(GRU) given the last $h=5$ reports. With separate realizations, history lowers the error
+by about \SI{2}{} to \SI{3}{m} under mixed propagation, the gain of Section~VII-C, and not at all
+under uniform NLOS; in both cases the differences between consecutive reports make the error
+worse than a single report. In the shared environments, the gain grows for both models and both
+propagation settings. It is largest for the GRU given levels and differences together, which
+lowers the error of multi-antenna devices by \SI{9}{} to \SI{10}{m}, and the differences between
+reports now lower the error as well. Under uniform NLOS, where history gains nothing with
+separate realizations, the shared environment gives single-antenna devices a gain of
+\SI{5.9 \pm 3.2}{m} with the GRU; the gain of XGBoost, \SI{2.5 \pm 2.0}{m}, is not clearly
+different from zero. With $h=20$ and the GRU trained on phones only, the differences alone bring
+single-antenna IoT devices, a class not seen in training, from 37.5 and \SI{35.1}{m} to 20.2 and
+\SI{21.1}{m} in the two mixed environments, and from 32.9 to \SI{23.8}{m} under uniform NLOS.
 
 A shared map therefore lets history, and above all the change between reports, carry over to
-new users. Because both shared datasets use mixed propagation, this does not establish whether
-the uniform-NLOS result of Section~VII, where history adds nothing for single-antenna devices,
-would also change in a shared environment.
+new users. The uniform-NLOS result of Section~VII, where history adds nothing for single-antenna
+devices, is thus largely a consequence of the separate realizations, although the single-antenna
+evidence rests on one model and one environment.
 
 \begin{table}[h]
   \centering
   \caption{History gain on unseen users with separate channel realizations and in a shared
-  environment (macro-cell geometry, mixed LOS/NLOS, no angle). Error of a single report ($h=0$)
-  and its reduction by a window of $h=5$ reports, in metres; seed-paired means over five user
-  splits with 95\,\% Student-t intervals. Levels: the reports as received; differences: the
-  change between consecutive reports; both: the two together.}
+  environment (macro-cell geometry, no angle). Error of a single report ($h=0$) and its
+  reduction by a window of $h=5$ reports, in metres; seed-paired means over five user splits
+  with 95\,\% Student-t intervals. Levels: the reports as received; differences: the change
+  between consecutive reports; both: the two together. Mixed: LOS/NLOS regions; shared~1 and~2
+  are two environments drawn from different seeds.}
   \label{tab:shared-env}
-  \begin{tabular}{@{}lllrrrr@{}}
+  \begin{tabular}{@{}llllrrrr@{}}
     \toprule
-    Environment & Model & Devices & $h=0$ & Levels & Differences & Both \\
+    Propagation & Environment & Model & Devices & $h=0$ & Levels & Differences & Both \
     \midrule
-    Separate & XGBoost & Multi-antenna  & 29.4 & $2.3 \pm 0.6$ & $-3.3 \pm 0.4$ & $2.4 \pm 0.6$ \\
-             &         & Single-antenna & 28.7 & $2.6 \pm 0.5$ & $-2.9 \pm 1.3$ & $2.9 \pm 0.6$ \\
-             & GRU     & Multi-antenna  & 28.3 & $1.8 \pm 0.3$ & $-3.6 \pm 0.6$ & $2.1 \pm 0.8$ \\
-             &         & Single-antenna & 27.8 & $2.3 \pm 0.7$ & $-2.7 \pm 1.3$ & $2.9 \pm 0.6$ \\
+    Mixed & Separate & XGBoost & Multi  & 29.4 & $2.3 \pm 0.6$ & $-3.3 \pm 0.4$ & $2.4 \pm 0.6$ \
+          &          &         & Single & 28.7 & $2.6 \pm 0.5$ & $-2.9 \pm 1.3$ & $2.9 \pm 0.6$ \
+          &          & GRU     & Multi  & 28.3 & $1.8 \pm 0.3$ & $-3.6 \pm 0.6$ & $2.1 \pm 0.8$ \
+          &          &         & Single & 27.8 & $2.3 \pm 0.7$ & $-2.7 \pm 1.3$ & $2.9 \pm 0.6$ \
+    \cmidrule{2-8}
+          & Shared 1 & XGBoost & Multi  & 30.6 & $3.9 \pm 0.4$ & $-0.3 \pm 0.5$ & $4.6 \pm 0.4$ \
+          &          &         & Single & 32.1 & $2.8 \pm 1.1$ & $-0.2 \pm 1.4$ & $3.5 \pm 0.8$ \
+          &          & GRU     & Multi  & 29.8 & $5.2 \pm 0.7$ & $6.8 \pm 1.9$  & $9.0 \pm 1.3$ \
+          &          &         & Single & 32.1 & $3.6 \pm 1.1$ & $5.4 \pm 3.7$  & $7.2 \pm 2.0$ \
+    \cmidrule{2-8}
+          & Shared 2 & XGBoost & Multi  & 31.4 & $4.1 \pm 0.5$ & $0.3 \pm 0.6$  & $5.8 \pm 0.6$ \
+          &          &         & Single & 31.0 & $3.2 \pm 1.0$ & $-0.6 \pm 2.0$ & $4.1 \pm 1.3$ \
+          &          & GRU     & Multi  & 30.4 & $6.2 \pm 1.1$ & $6.5 \pm 2.5$  & $8.9 \pm 1.8$ \
+          &          &         & Single & 30.7 & $3.9 \pm 3.9$ & $4.1 \pm 4.9$  & $5.7 \pm 4.3$ \
     \midrule
-    Shared   & XGBoost & Multi-antenna  & 30.6 & $3.9 \pm 0.4$ & $-0.3 \pm 0.5$ & $4.6 \pm 0.4$ \\
-             &         & Single-antenna & 32.1 & $2.8 \pm 1.1$ & $-0.2 \pm 1.4$ & $3.5 \pm 0.8$ \\
-             & GRU     & Multi-antenna  & 29.8 & $5.2 \pm 0.7$ & $6.8 \pm 1.9$  & $9.0 \pm 1.3$ \\
-             &         & Single-antenna & 32.1 & $3.6 \pm 1.1$ & $5.4 \pm 3.7$  & $7.2 \pm 2.0$ \\
+    NLOS  & Separate & XGBoost & Multi  & 33.7 & $0.2 \pm 0.3$  & $-2.0 \pm 0.4$ & $0.4 \pm 0.3$ \
+          &          &         & Single & 33.4 & $-0.2 \pm 0.6$ & $-2.3 \pm 1.2$ & $-0.2 \pm 0.7$ \
+          &          & GRU     & Multi  & 33.6 & $0.3 \pm 0.3$  & $-2.1 \pm 0.4$ & $0.2 \pm 0.4$ \
+          &          &         & Single & 33.5 & $-0.2 \pm 0.7$ & $-1.9 \pm 1.3$ & $0.0 \pm 0.5$ \
+    \cmidrule{2-8}
+          & Shared   & XGBoost & Multi  & 34.2 & $5.1 \pm 0.5$ & $1.1 \pm 0.6$  & $5.8 \pm 0.5$ \
+          &          &         & Single & 32.8 & $2.0 \pm 2.0$ & $-0.7 \pm 2.6$ & $2.5 \pm 2.0$ \
+          &          & GRU     & Multi  & 32.6 & $7.4 \pm 1.2$ & $5.1 \pm 2.0$  & $10.1 \pm 2.2$ \
+          &          &         & Single & 33.1 & $3.8 \pm 3.1$ & $1.8 \pm 4.3$  & $5.9 \pm 3.2$ \
     \bottomrule
   \end{tabular}
 \end{table}
@@ -217,14 +253,19 @@ would also change in a shared environment.
 
 *Notes for us:*
 
-- **Two datasets differ in more than the shared map.** The device models differ: the old data
+- **Datasets differ in more than the shared map.** The device models differ: the old data
   has antenna counts of 1, 2 and 4 with a gain drawn from −4 to +2 dB; the new data has the four
   classes above.
   Single-antenna devices are 15 % of users in both. Say so if a reviewer asks; the table caption
-  does not claim the device sets are equal.
-- **Seed 1 only.** The table uses the first shared environment only, because the arms with all
-  classes in training were not repeated on the second. The $h=20$ sentence uses both. A repeat
-  on seed 2 takes about 15 minutes, if we want both in the table.
+  does not claim the device sets are equal. The uniform-NLOS shared environment uses the same
+  seed, users and devices as shared environment 1; only the propagation differs.
+- **Separate uniform NLOS** is the old campaign B data (`sim_data_300users_2026-07-25_11-46-11`),
+  run through the same script. Its multi-antenna gain is zero here because no angle is used; the
+  report's multi-antenna gain in Section VII comes from the angle.
+- **`\SI{5.9 \pm 3.2}{m}`** needs siunitx with `separate-uncertainty`; if it does not compile,
+  write `$5.9 \pm 3.2$\,m`.
+- **The table is long (20 rows).** If it is too long, drop the Shared 2 rows and say in the text
+  that a second mixed environment gives the same picture.
 - **Device generalization.** The results on unseen device classes and device offsets (Dudi's
   questions) are not in this subsection; they belong in the section we add for them.
 
@@ -245,8 +286,8 @@ The current sentence:
 Transfer to new users is tested in the macro cell, where it rests on the geometry, chiefly the
 angle, since each user's RSS map is simulated separately. A partly shared environment, in which
 all users share the large-scale maps but not the small-scale fading, enlarges the history gain
-on unseen users (Section~\ref{sec:shared-env}); a fully shared environment, and the same test on
-the controlled grid and under uniform NLOS, remain to be done.
+on unseen users under mixed and uniform-NLOS propagation (Section~\ref{sec:shared-env}); a fully
+shared environment, and the same test on the controlled grid, remain to be done.
 ```
 
 ---
@@ -271,7 +312,8 @@ Finally, the gain depends on the position information a single report carries an
 it is shared between users: single-antenna devices in the uniform-NLOS macro cell, whose reports
 carry nothing that transfers to new users, gain no more than about 1\,\%, and the grid's gain
 without an angle rests on a channel map learned for each user, whereas in an environment shared
-by all users, history lowers the error of unseen single-antenna devices by about \SI{7}{m}.
+by all users, history lowers the error of unseen single-antenna devices by about \SI{6}{} to
+\SI{7}{m} with a recurrent model, under uniform NLOS as well.
 ```
 
 ### 8b. Last follow-up of the second paragraph
@@ -286,9 +328,9 @@ The current sentence:
 **Replace with:**
 
 ```latex
-Finally, a fully shared environment, on the controlled grid and under uniform NLOS, would test
-whether the within-user gain carries over to new users there as it does, in part, in the
-partly shared macro-cell environment.
+Finally, a fully shared environment, including the small-scale fading, and the same test on the
+controlled grid would show whether the within-user gain carries over to new users there as it
+does, in part, in the partly shared macro-cell environments.
 ```
 
 ---

@@ -1,0 +1,59 @@
+{
+  "data": "C:\\Git\\CSI-Location\\results\\grid_localization\\grid_25x25\\sim_data_300users_2026-07-25_11-46-11",
+  "aoa": false,
+  "class_split": false,
+  "h": 5,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "train_classes": null,
+  "aoa_dropout": 0.0,
+  "max_train_users": null,
+  "drop_crossings": false,
+  "models": [
+    "xgboost",
+    "random_forest"
+  ],
+  "conditions": [
+    [
+      "offset",
+      0.0
+    ],
+    [
+      "offset",
+      3.0
+    ],
+    [
+      "offset",
+      6.0
+    ],
+    [
+      "offset",
+      10.0
+    ],
+    [
+      "offset",
+      15.0
+    ],
+    [
+      "offset",
+      20.0
+    ],
+    [
+      "drift",
+      6.0
+    ],
+    [
+      "quant",
+      6.0
+    ]
+  ],
+  "drift_step_db": 0.1,
+  "quant_step_db": 2.0,
+  "static_device_features": "not used",
+  "minutes": 12.1
+}

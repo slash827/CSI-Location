@@ -266,5 +266,35 @@ Source: `results/device_generalization/<arm>/` (local, gitignored). Script `expe
 - `_aoa_drop`: with `--aoa-dropout 0.3`, the AoA embeddings of 30 % of training users are zeroed, as for a single-antenna device. This fixes the known issue below: IoT error with AoA falls from 51–69 m to 30–38 m.
 - `_var1` to `_var4`: training-variety sweep with `--max-train-users 55` (equal training size); training classes midtier; + flagship; + vehicle; + IoT. Both GRU and XGBoost rows are in the files.
 - `_h10`, `_h20`: history length 10 or 20 instead of 5 (`_h10_nocross` also drops windows that cross a Voronoi zone).
+- `seed2_shared`, `seed2_shared_gru` (added 2026-11-16): all classes in training on the second shared environment, to give the separate-against-shared table a second environment.
+- `macro_uniform*` (added 2026-11-16): old per-user uniform-NLOS campaign B data (`sim_data_300users_2026-07-25_11-46-11`), separate channel realization per user.
+- `shared_uniform*` (added 2026-11-16): shared environment with uniform UMi NLOS in every cell, `sim_data_shared_devices_2026-11-16_uniform_nlos` (`SHARED_UNIFORM_SCENARIO = '3GPP_38.901_UMi_NLOS'`, shared seed 20261107, same users and devices as `shared*`). Pairs with `macro_uniform*` to separate the effect of the shared environment from that of mixed propagation.
+
+Separate against shared environment, all classes in training, h = 5, no offset; h = 0 error in m and history gain (h = 0 error minus error with history) with 95 % t interval over the five splits:
+
+| Propagation | Environment | Model | Devices | h = 0 | Levels | Differences | Both |
+|---|---|---|---|---|---|---|---|
+| Mixed | Separate | XGBoost | multi | 29.4 | 2.3 ± 0.6 | −3.3 ± 0.4 | 2.4 ± 0.6 |
+| Mixed | Separate | XGBoost | single | 28.7 | 2.6 ± 0.5 | −2.9 ± 1.3 | 2.9 ± 0.6 |
+| Mixed | Separate | GRU | multi | 28.3 | 1.8 ± 0.3 | −3.6 ± 0.6 | 2.1 ± 0.8 |
+| Mixed | Separate | GRU | single | 27.8 | 2.3 ± 0.7 | −2.7 ± 1.3 | 2.9 ± 0.6 |
+| Mixed | Shared (1) | XGBoost | multi | 30.6 | 3.9 ± 0.4 | −0.3 ± 0.5 | 4.6 ± 0.4 |
+| Mixed | Shared (1) | XGBoost | single | 32.1 | 2.8 ± 1.1 | −0.2 ± 1.4 | 3.5 ± 0.8 |
+| Mixed | Shared (1) | GRU | multi | 29.8 | 5.2 ± 0.7 | 6.8 ± 1.9 | 9.0 ± 1.3 |
+| Mixed | Shared (1) | GRU | single | 32.1 | 3.6 ± 1.1 | 5.4 ± 3.7 | 7.2 ± 2.0 |
+| Mixed | Shared (2) | XGBoost | multi | 31.4 | 4.1 ± 0.5 | 0.3 ± 0.6 | 5.8 ± 0.6 |
+| Mixed | Shared (2) | XGBoost | single | 31.0 | 3.2 ± 1.0 | −0.6 ± 2.0 | 4.1 ± 1.3 |
+| Mixed | Shared (2) | GRU | multi | 30.4 | 6.2 ± 1.1 | 6.5 ± 2.5 | 8.9 ± 1.8 |
+| Mixed | Shared (2) | GRU | single | 30.7 | 3.9 ± 3.9 | 4.1 ± 4.9 | 5.7 ± 4.3 |
+| Uniform NLOS | Separate | XGBoost | multi | 33.7 | 0.2 ± 0.3 | −2.0 ± 0.4 | 0.4 ± 0.3 |
+| Uniform NLOS | Separate | XGBoost | single | 33.4 | −0.2 ± 0.6 | −2.3 ± 1.2 | −0.2 ± 0.7 |
+| Uniform NLOS | Separate | GRU | multi | 33.6 | 0.3 ± 0.3 | −2.1 ± 0.4 | 0.2 ± 0.4 |
+| Uniform NLOS | Separate | GRU | single | 33.5 | −0.2 ± 0.7 | −1.9 ± 1.3 | −0.0 ± 0.5 |
+| Uniform NLOS | Shared | XGBoost | multi | 34.2 | 5.1 ± 0.5 | 1.1 ± 0.6 | 5.8 ± 0.5 |
+| Uniform NLOS | Shared | XGBoost | single | 32.8 | 2.0 ± 2.0 | −0.7 ± 2.6 | 2.5 ± 2.0 |
+| Uniform NLOS | Shared | GRU | multi | 32.6 | 7.4 ± 1.2 | 5.1 ± 2.0 | 10.1 ± 2.2 |
+| Uniform NLOS | Shared | GRU | single | 33.1 | 3.8 ± 3.1 | 1.8 ± 4.3 | 5.9 ± 3.2 |
+
+With separate realizations and uniform NLOS, history gives no gain for either model. With one shared environment, it gives 5–10 m for multi-antenna users. For single-antenna users, only the GRU with both representations has an interval clear of zero. `shared_uniform_class_gru_h20` (trained on phones, h = 20, no offset) gives on unseen classes: IoT levels 26.1, differences 23.8, both 22.5 m; vehicle 25.2, 21.0, 22.7 m. At a 20 dB offset, levels rise to 35.2 (IoT) and 39.2 m (vehicle), while differences stay unchanged.
 
 Known issue: in the `_class_aoa` arms the IoT group (single antenna, AoA masked to zero) has errors above the constant guess, because no training user has masked AoA (fixed by the `_aoa_drop` arms).
