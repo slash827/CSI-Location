@@ -93,8 +93,18 @@ error of unseen users, and differences between consecutive reports become inform
 
 **Insert after** the sentence that ends `...that is described in Section III-D.`:
 
+*Origin, checked 2026-11-16:* the channel generation (`core/generate_simulation_data.m`) is
+ours; its history goes back to the repository's first commit (2025-11-02), before any of Omri's
+code arrived. The Voronoi area, geometry and traffic helpers (`lib/AreaGenerator.m`,
+`GeometryUtils.m`, `TrafficUtils.m`) were added on 2026-02-21. Their names and header text
+match Omri's files, which carry his copyright, and about four fifths of the lines of
+`AreaGenerator.m` are identical. So "extends [16]" is accurate for the area model, not for how the channel is drawn.
+Optionally, make the existing sentence precise by replacing `This work extends a time-aware
+multi-user ... simulator developed within the same research group [16], [17], to which we added`
+with `This work adapts the area model of a time-aware multi-user ... simulator developed within
+the same research group [16], [17], and adds`.
+
 ```latex
-% CHECK: confirm that our generator descends from [16]; if it does not, change "extends" above.
 Unlike~[16], which draws a new channel layout for every report, each user's walk is simulated
 here as one continuous QuaDRiGa track, so that consecutive reports of a user are spatially
 consistent samples of the same channel. Each user, or each segment of a user's walk, is

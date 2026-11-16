@@ -45,12 +45,14 @@
 % Optional overrides (set before running): SHARED_N_USERS (default 300),
 % SHARED_N_SUBCARRIERS (default 64), SHARED_MAX_STEPS (default 0 = no cap; for tests),
 % SHARED_USERS (default all), SHARED_OUT_TAG (default the timestamp), SHARED_SEED (default
-% 20261107). Users whose .mat file already exists are skipped, so an interrupted run resumes
+% 20261107), SHARED_UNIFORM_SCENARIO (default '' = the mixed Voronoi map; e.g.
+% '3GPP_38.901_UMi_NLOS' gives every cell that scenario, keeping the per-cell segments and
+% seeds, for a uniform-NLOS shared environment). Users whose .mat file already exists are skipped, so an interrupted run resumes
 % by rerunning the same command with the same SHARED_OUT_TAG.
 %
 % Requires QuaDRiGa 2.8.1 (found by ensure_quadriga).
 
-clearvars -except SHARED_N_USERS SHARED_N_SUBCARRIERS SHARED_MAX_STEPS SHARED_USERS SHARED_OUT_TAG SHARED_SEED; clc;
+clearvars -except SHARED_N_USERS SHARED_N_SUBCARRIERS SHARED_MAX_STEPS SHARED_USERS SHARED_OUT_TAG SHARED_SEED SHARED_UNIFORM_SCENARIO; clc;
 % no "close all": it starts the graphics server, which fails when MATLAB runs detached in the background
 
 script_dir      = fileparts(mfilename('fullpath'));
@@ -67,6 +69,7 @@ if ~exist('SHARED_MAX_STEPS', 'var'),     SHARED_MAX_STEPS = 0;      end
 if ~exist('SHARED_USERS', 'var'),         SHARED_USERS = [];         end   % subset of user ids
 if ~exist('SHARED_OUT_TAG', 'var'),       SHARED_OUT_TAG = '';       end   % fixed folder name
 if ~exist('SHARED_SEED', 'var'),          SHARED_SEED = 20261107;    end   % environment seed (second environment: another value)
+if ~exist('SHARED_UNIFORM_SCENARIO', 'var'), SHARED_UNIFORM_SCENARIO = ''; end   % '' = mixed Voronoi map
 
 timestamp  = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
 if ~isempty(SHARED_OUT_TAG), run_tag = SHARED_OUT_TAG; else, run_tag = timestamp; end
@@ -92,6 +95,11 @@ for i = 1:n_cells
     voronoi_centers(i, :) = vcells(i).center;
     voronoi_scenarios{i}  = vcells(i).scenario;
     voronoi_names{i}      = vcells(i).name;
+end
+is_mixed = isempty(SHARED_UNIFORM_SCENARIO);
+if ~is_mixed
+    % same cells, segments and seeds; one propagation scenario everywhere
+    voronoi_scenarios(:) = {SHARED_UNIFORM_SCENARIO};
 end
 MIN_SEG_LEN = 4;
 
@@ -151,7 +159,7 @@ fprintf('\nUsers saved: %d / %d, snapshots %d\n', sum(n_done > 0), numel(SHARED_
 experiment_info = struct('config_name', config_name, 'n_users', n_users, 'user_manifest', user_manifest, ...
     'class_names', {class_names}, 'output_dir', output_dir, 'timestamp', timestamp, ...
     'bs_position', geo.bs_pos, 'center_freq_hz', center_freq, 'bandwidth_hz', bandwidth, ...
-    'n_subcarriers', SHARED_N_SUBCARRIERS, 'shared_seed', SHARED_SEED, 'mixed_scenario', true, ...
+    'n_subcarriers', SHARED_N_SUBCARRIERS, 'shared_seed', SHARED_SEED, 'mixed_scenario', is_mixed, ...
     'voronoi_centers', voronoi_centers, 'total_time_s', toc(total_start));
 experiment_info.voronoi_scenarios = voronoi_scenarios;
 experiment_info.voronoi_names = voronoi_names;
@@ -159,7 +167,7 @@ save(fullfile(output_dir, 'experiment_info.mat'), 'experiment_info');
 
 sim_config = struct('network_type', '5G NR Sub-6 GHz', 'center_frequency_ghz', center_freq / 1e9, ...
     'bandwidth_mhz', bandwidth / 1e6, 'n_subcarriers', SHARED_N_SUBCARRIERS, ...
-    'quadriga_scenario', 'mixed_voronoi', 'mixed_scenario', true, 'voronoi_cells', vcells, ...
+    'quadriga_scenario', 'mixed_voronoi', 'mixed_scenario', is_mixed, 'uniform_scenario', SHARED_UNIFORM_SCENARIO, 'voronoi_cells', vcells, ...
     'min_segment_length', MIN_SEG_LEN, 'channel_generation', 'per_segment_shared_seed', ...
     'shared_seed', SHARED_SEED, 'serving_bs_position_m', geo.bs_pos', ...
     'sw_interferer_position_m', [-60, 53, 10], 's_interferer_position_m', [53, -60, 10], ...
