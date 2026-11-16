@@ -2,9 +2,11 @@
 \label{app:hyperparameters}
 
 % src: CSI-Location experiments_ablation/model_zoo.py (build_classical, protocol constants, architectures); master_benchmark_rerun_summary.json (n_params)
+Table~\ref{tab:hyperparameters} lists the configuration of the seven macro-cell estimators of Section~\ref{subsec:estimators}. These hyperparameters are fixed at every history depth.
+
 \begin{table}[h]
   \centering
-  \caption{Macro-cell model configurations. Hyperparameters are identical at every history depth.}
+  \caption{Macro-cell model configurations.}
   \label{tab:hyperparameters}
   \small
   \begin{tabularx}{\textwidth}{@{}lX@{}}
@@ -18,7 +20,7 @@
     Mask-aware 1D-CNN & As the 1D-CNN, with an additional AoA-validity input channel; $66{,}596$ parameters \\
     1D-CNN + attention & As the 1D-CNN, followed by a four-head temporal self-attention block with learned positional embeddings; $199{,}748$ parameters \\
     GRU & Two recurrent layers of $128$ units, dropout $0.30$, a $256$-unit shared trunk and the same three heads; $254{,}468$ parameters \\
-    Neural training & AdamW, learning rate $3\times10^{-4}$, weight decay $10^{-2}$, batch size $512$, Huber loss with weights $1.0$, $0.2$ and $0.05$ on position, speed and uncertainty, at most $60$ epochs, early stopping with patience $8$ \\
+    Neural training & AdamW, learning rate $3\times10^{-4}$, weight decay $10^{-2}$, batch size $512$, Huber loss with weights $1.0$, $0.2$ and $0.05$ on position, speed and uncertainty, at most $60$ epochs, early stopping after $8$ epochs without improvement on the test users \\
     \bottomrule
   \end{tabularx}
 \end{table}

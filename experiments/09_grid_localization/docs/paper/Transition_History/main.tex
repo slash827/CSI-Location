@@ -19,6 +19,7 @@
 \sisetup{per-mode=symbol}
 \DeclareSIUnit\byte{B}
 \DeclareSIUnit\GHz{\giga\hertz}
+\DeclareSIUnit\dBm{dBm}
 
 % ---------------------------------------------------------------------------
 % Graphics and figures
@@ -27,6 +28,13 @@
 \graphicspath{{figures/}}
 \usepackage{caption}
 \usepackage{float}
+\usepackage{placeins}
+% Stack floats at the top of float-only pages instead of spreading them vertically
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@fpsep}{12pt plus 2pt}
+\setlength{\@fpbot}{0pt plus 1fil}
+\makeatother
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{tabularx}
@@ -66,7 +74,7 @@
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{Transition History for Single-BS CSI Localization}
+\fancyhead[L]{Channel History for Single-BS 5G Localization}
 \fancyhead[R]{Battat et al.}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
@@ -107,15 +115,13 @@
 % ---------------------------------------------------------------------------
 \newcommand\asl[1]{{\bf\color{red}$<$ASL: #1$>$}}
 \newcommand\uncertain[1]{{\color{orange}#1}}
-% Content waiting for Gilad's diagnostic run and result push (Gilad Diagnostic 2026-10/).
-% Remove every \pending{} before submission.
+% Every \asl{} and \pending{} is listed in REVIEW_ITEMS.md; remove each once resolved.
 \newcommand\pending[1]{{\color{magenta}#1}}
 
 % ---------------------------------------------------------------------------
 % Title page metadata
 % ---------------------------------------------------------------------------
-% Title wording is the author's call; this is the working title.
-\title{Transition History for Single-BS 5G NR CSI Localization:\\Model-Agnostic Gains and Their Hardware Dependence}
+\title{Using Channel History to Improve\\UE Localization Accuracy in\\Single-Base-Station 5G Networks}
 \author{
   \IEEEauthorblockN{Gilad Battat\IEEEauthorrefmark{1},
                     Alon S.~Levin\IEEEauthorrefmark{2},
@@ -124,7 +130,7 @@
   \IEEEauthorblockA{\IEEEauthorrefmark{1}Department of Computer Science, Bar-Ilan University}
   \IEEEauthorblockA{\IEEEauthorrefmark{2}Department of Electrical Engineering, Columbia University}
 }
-\date{Month Year}
+\date{October 2026}
 
 \begin{document}
 
@@ -136,25 +142,23 @@
 \textit{Industry Partners: CEVA, Cellcom}
 \end{center}
 
-\newpage
-\input{0_abstract}
+% No abstract in the technical report; the source file is kept.
+% \newpage
+% \input{0_abstract}
 
-% \newpage \tableofcontents
+\newpage \tableofcontents
 
 \newpage
 \input{1_introduction}
-\input{2_related_work}
 \input{3_system_model}
 \input{4_experimental_setup}
-\input{5_results_controlled_grid}
-\input{6_results_error_scale}
-\input{7_results_multi_antenna}
-\input{8_results_single_antenna}
-\input{9_results_mechanism}
-\input{10_results_propagation}
-\input{11_discussion}             % placeholder: drafted after the mechanism diagnostic
+\input{5_results_consistent_gain}
+\input{6_results_window}
+\input{7_results_mechanism}
+\input{8_results_no_gain}
+\input{11_discussion}
 \input{12_limitations}
-\input{13_conclusion}             % placeholder: drafted after the mechanism diagnostic
+\input{13_conclusion}
 
 \nocite{*}
 \bibliographystyle{IEEEtran}
@@ -163,8 +167,8 @@
 \appendices
 \renewcommand{\thesubsection}{\thesection-\arabic{subsection}}
 \renewcommand{\thesubsectiondis}{\thesection-\arabic{subsection}}
-\newpage \input{A_reproducibility}
-\newpage \input{B_hyperparameters}
-\newpage \input{C_supplementary}
+\clearpage \input{A_reproducibility}
+\FloatBarrier \input{B_hyperparameters}
+\clearpage \input{C_supplementary}
 
 \end{document}

@@ -1,43 +1,44 @@
 \section{Introduction}
 \label{sec:introduction}
 
-\subsection{Motivation}
-\label{subsec:motivation}
+% src: 47 CFR 9.10(i)(2)(i) (dispatchable location or x/y within 50 m for 80 % of wireless 911 calls within 6 years; law.cornell.edu, verified 2026-10-30); Italiano et al. 2025 p. 5 (emergency-call requirements drove cellular localization; "support emergency services and foster location-based applications"; asset tracking), p. 2 (5G "complementing GNSS ... in outdoor positioning and navigation"); Groves 2011 abstract ("GPS is unreliable in dense urban areas ... buildings block the signals from many of the satellites")
+Locating a user equipment~(UE) from the cellular network is a regulatory requirement and an enabler of location-based services. In the United States, wireless carriers must locate \SI{80}{\percent} of wireless 911 calls to within \SI{50}{\meter}~\cite{cfr47_9_10}, and cellular positioning also serves applications such as asset tracking and navigation~\cite{italiano2025tutorial}. The need is sharpest where satellite positioning is weakest, as in dense urban areas, where buildings block the signals of many satellites~\cite{groves2011shadow}.
 
-% src: technical_documentation.md §1.1; FINAL_REPORT.md §1.1 (carried over from Project Report/1_introduction.tex)
-Fifth- and sixth-generation cellular networks make several channel-derived measurements available natively at the base station~(BS): received signal strength~(RSS), signal-to-interference-plus-noise ratio~(SINR), angle of arrival~(AoA), and timing advance, none of which require dedicated positioning infrastructure to collect. %TODO-CITE: 3GPP Release 16 positioning-as-network-service framing
-Turning these measurements into a position estimate for the user equipment~(UE) is motivated by applications ranging from emergency response and asset tracking to network-assisted navigation, and the need is sharpest precisely where satellite positioning is weakest: urban canyons, tunnels, and indoor spaces, where signal blockage and multipath substantially degrade the accuracy of the Global Positioning System~(GPS). %TODO-CITE: GNSS degradation in urban-canyon and indoor environments
-Cellular positioning targets this gap directly, since a device already in radio contact with a BS can in principle be localized from measurements the network is collecting regardless of whether positioning was requested, with no added receiver and no sensor on the device itself.
+% src: 3GPP TS 38.215 §5.1 (UE: SS-RSRP, SS-SINR), §5.2 (gNB: UL AoA, TADV); TS 38.305 §4.3.10 (NR E-CID: "the UE generally is not expected to make additional measurements for the sole purpose of positioning"), §8.9.1 (E-CID inputs); verified on itecspec.com 2026-10-30
+The cellular network is well placed to meet this need, because it already observes every connected UE. In 5G New Radio~(NR), the UE measures and reports its signal-to-interference-plus-noise ratio~(SINR) and its received signal strength~(RSS), reported as the reference signal received power~(RSRP), while the base station~(BS) measures the uplink angle of arrival~(AoA) and the timing advance~\cite{3gpp38215}. The standardized enhanced cell-ID method uses these measurements for positioning without requiring any made for that purpose alone~\cite{3gpp38305}, so the network can position a UE without an added receiver, sensor or infrastructure.
 
-% src: technical_documentation.md §1.1; FINAL_REPORT.md §1.1
-The obstacle is accuracy rather than availability. RSS, the most universally reported of these metrics, is set primarily by distance from the BS, with multipath structure and shadow fading contributing only a secondary correction, which on its own leaves position under-constrained.
+% src: Italiano et al. 2025 p. 14 (RSS path-loss model Eqs. (14)-(15); power-based measurements are "reasonable distance indicators only if the BS is near to the UE", shadowing and multipath), p. 22 ("DL-TDOA requires precise synchronization among the BSs"; RTT does not)
+The difficulty is accuracy. RSS depends mainly on the distance to the BS and is perturbed by shadowing and multipath, so it is a reasonable distance indicator only near the BS~\cite{italiano2025tutorial}, and it carries no information on the bearing. Geometric positioning recovers the bearing by combining time or angle measurements from several BSs, and its time-difference methods further require precise synchronization among them~\cite{italiano2025tutorial}. A single serving BS, however, provides at most one range and, where an angle is available, one bearing; without a reliable angle, a single report leaves the position under-determined. This case would benefit most from a solution that adds no infrastructure. We address it by using the history of a UE's reports, not only the current one.
 
-% src: FINAL_REPORT.md §2, "Geometric methods" paragraph
-Multi-BS geometric positioning resolves the missing bearing directly, but only given multiple synchronized anchors or a high-quality angle estimate. %TODO-CITE: canonical ToA/TDoA/AoA multilateration reference(s)
-A single serving BS has neither by default. That is what makes it the harder deployment case, and the more consequential one: it is exactly the setting in which a network already capable of collecting these measurements would most benefit from a fix that adds no new infrastructure.
-
-\subsection{The Distance-Ring Ambiguity and the Hypothesis}
+\subsection{The Channel History Hypothesis}
 \label{subsec:ambiguity-hypothesis}
 
-% src: FINAL_REPORT.md §1.1, §3.2
-Let $\mathbf{p}_{UE}$ and $\mathbf{p}_{BS}$ denote the UE and serving-BS positions, and let $r = \lVert \mathbf{p}_{UE} - \mathbf{p}_{BS} \rVert$ be their range. Under a log-distance path-loss model,
-\begin{equation}
-  \mathrm{RSS} \approx P_{tx} - 10\gamma\log_{10} r + \chi,
-  \label{eq:path-loss}
-\end{equation}
-with $\gamma$ the path-loss exponent and $\chi$ zero-mean shadow fading of standard deviation~$\sigma$. The map from RSS to position is therefore one-to-many: a static measurement identifies $r$, up to $\chi$, but leaves bearing entirely unconstrained. Locations on a common range ring around the BS are consequently indistinguishable to a static, single-snapshot estimator, which is the \emph{distance-ring ambiguity}. The ambiguity is worst in geometries dominated by line-of-sight~(LOS) propagation, where the range-to-RSS map is close to monotone and multipath diversity is minimal. SINR and AoA can each supply the missing bearing information, but both are conditional: SINR depends on interferer placement and calibration, and AoA depends on UE beamforming hardware that a large share of connected devices does not have.
+% src: FINAL_REPORT.md §1.1, §1.2, §3.2
+The hypothesis evaluated in this work is that a moving UE's sequence of reports carries more positional information than any single report, and that this holds regardless of the estimator applied on top of it. Because the radio channel is spatially consistent, consecutive reports of a moving UE are correlated samples of the channel along its path, and a window of them shows how the measurements change as the UE moves, which no single report contains.
 
-% src: FINAL_REPORT.md §1.2
-The hypothesis evaluated in this report is that a moving UE's measurement sequence encodes more positional information than any single snapshot, and that this holds regardless of the estimator applied on top of it. Two positions on the same range ring produce the same instantaneous RSS but different trajectories through measurement space, because the local channel neighborhood around each position is different and evolves differently as the UE moves.
+The ambiguity of a single report is one reason to expect such a gain. RSS depends mainly on the distance to the BS, so a single reading constrains the range, up to shadow fading, but not the bearing: positions on a common range ring around the BS are indistinguishable to a single-snapshot estimator, which we refer to as the \emph{distance-ring ambiguity}. SINR and AoA can each supply bearing information, but both are conditional, since SINR depends on the placement of interfering BSs and AoA on UE hardware that legacy single-antenna devices lack. Two positions on the same ring, however, produce different sequences of reports, because the channel around each evolves differently as the UE moves. A history of reports may therefore resolve what a single report cannot, without additional infrastructure; this work tests whether it does so across propagation settings, BS placements and estimators.
 
-% src: FINAL_REPORT.md §3.3 (window definition)
-Formally, let $\mathbf{m}(t)$ denote the vector of channel-derived measurements reported for the UE at discrete snapshot time~$t$~(Table~\ref{tab:nomenclature}). Given a history depth~$h$, the model input is the window of $h+1$ consecutive observations,
-\begin{equation}
-  \mathcal{W}_h(t) = \left[\, \mathbf{m}(t-h),\ \dots,\ \mathbf{m}(t) \,\right],
-  \label{eq:transition-history}
-\end{equation}
-where $h=0$ recovers the static, memoryless fingerprint as a special case. For $h>0$, $\mathcal{W}_h(t)$ makes the temporal derivatives of $\mathbf{m}$ observable; Section~\ref{sec:system-model} sets out what those derivatives can and cannot constrain.
+\subsection{Contributions}
+\label{subsec:contributions}
 
-\input{tables/nomenclature}
+% src: CLAIM_EVIDENCE_MAP.md (2026-10-24) core message and C1-C9; studies G, R, M as defined there
+We evaluate this hypothesis in three simulated studies of a single 5G NR BS: a controlled $15\times15$ grid on which the exact cell is classified, $25\times25$ regression runs that pool five device profiles, and a macro cell in which every model is tested on users not seen in training. Using the history of a user's reports, rather than the current report alone, consistently lowers the error of the best model across propagation settings, BS placements and model families. The gain depends on the position information a single report carries: where one report carries nothing that transfers to new users, as for single-antenna devices in the macro cell, history adds nothing.
 
-% Contributions and Scope subsections: drafted in _draft_contributions_scope.tex, linked after author review.
+Specifically, the contributions of this work are the following: (i) a consistent history gain, measured for the best model in every propagation setting and BS placement of the three studies and in all seven model families of the macro cell, and robust to propagation, blockage and interference, thereby making the input, rather than the estimator, the deciding design choice; (ii) evidence that sequence models exploit long windows where tree ensembles given the same window cannot, together with a test showing that the order of the reports carries part of that gain on the grid; (iii) an account of the macro-cell gain as the averaging of noisy angle reports, and of how it shrinks when the angle error persists across reports; and (iv) a delimitation of where history adds nothing, namely where a single report carries no position information that transfers between users.
+
+\noindent\textbf{Organization.} Section~\ref{sec:related-work} reviews related work. Section~\ref{sec:system-model} formulates the problem and what history can add to a single report. Section~\ref{sec:setup} describes the simulated deployments, devices, features, estimators and evaluation protocol. Section~\ref{sec:results-gain} presents the history gain across the three studies and its robustness to propagation, blockage and interference; Section~\ref{sec:results-window} then compares how tree ensembles, sequence models and a tracking filter use the window, and Section~\ref{sec:results-mechanism} identifies what history reads in the macro cell. Section~\ref{sec:results-no-gain} examines the one setting in which history adds nothing. Section~\ref{sec:discussion} discusses the results and their limitations; Section~\ref{sec:conclusion} concludes.
+
+
+\subsection{Related Work}
+\label{sec:related-work}
+
+% src: FINAL_REPORT.md §2, "Fingerprinting" paragraph
+Classical RSS fingerprinting matches a measurement snapshot against a surveyed database~\cite{yang2013_rssitocsi}; single-site multipath fingerprinting establishes that one BS already observes enough structure to localize without triangulation~\cite{kupershtein2013}, the principle this work extends to a moving user. Fingerprinting's characteristic failure mode is poor discrimination between points at equal range from the BS, which is exactly the distance-ring ambiguity a history of reports targets.
+The static $k$-nearest-neighbor~($k$-NN) regressor at $h=0$ represents this family throughout this work. % src: FINAL_REPORT.md §2 (k-NN h=0 baseline)
+
+% src: FINAL_REPORT.md §2, "Geometric methods" paragraph
+Geometric methods recover position from an explicit system built on time-of-arrival, time-difference-of-arrival, or AoA estimates~\cite{italiano2025tutorial}.
+These methods require either multiple synchronized BSs or a high-quality angle estimate, so the single-serving-BS, single-angle-source deployment studied here is precisely the regime in which the geometric system is underdetermined: for a device that reports no angle at all, the available geometry constrains range but leaves bearing unresolved anywhere along the range ring.
+
+% src: FINAL_REPORT.md §2, "Sequence models for CSI" paragraph
+Recurrent and dynamic-system formulations have likewise been applied to channel state information~(CSI)-based tracking~\cite{fang2010dynamic,yu2020rnn,shi2018tracking}, and a related line shows that the temporal autocorrelation of RSS improves fingerprinting accuracy when the signal is treated as a stationary process observed at a fixed location~\cite{wang2016temporal,tian2018temporal}. That signal differs from the one used here: it is order-invariant and aggregated across access points, so it survives for a stationary receiver and vanishes for a moving one, whereas the channel-history window used here is ordered, is read from a single BS, and encodes exactly the motion the in-place statistic discards. These works propose a tracking architecture and evaluate it as a whole, so the benefit of the temporal input cannot be separated from that of the architecture. In this work, we instead hold each estimator fixed and vary only the history window it receives, thereby isolating the contribution of history, and repeat the comparison across model families.
